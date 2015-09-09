@@ -17,6 +17,18 @@
 
 #include <Wire.h>
 #include <EEPROM.h>
+#include <Ticker.h>
+
+extern "C" {
+#include "c_types.h"
+#include "eagle_soc.h"
+#include "ets_sys.h"
+#include "osapi.h"
+#include "os_type.h"
+#include "user_interface.h"
+}
+
+#define SIG 0x56
 
 // definition 
 ESP8266WebServer server ( 80 );
@@ -30,14 +42,32 @@ RF24 radio(16,15);
 AcHtml html;
 AcStorage storage;
 
-String str;
+Ticker tk;
+
+#define user_procTaskPrio        1
+#define user_procTaskQueueLen    1
+os_event_t    user_procTaskQueue[user_procTaskQueueLen];
+
+static void ICACHE_FLASH_ATTR user_procTask(os_event_t *events)
+{
+    Serial.println("ONLYONE!!");
+
+    Controller.run_task_ds3231();
+    Controller.run_task_nrf24();
+    Controller.run_task_rf433ook();
+    
+}
+
+static void testfun()
+{
+  Serial.println("ON!");
+  system_os_post(user_procTaskPrio, 0, 0 );
+}
+
+static String str;
 
 OpenAq_Controller::OpenAq_Controller()
 { 
-  //server = ESP8266WebServer(80);
-  //parser = JsonParser<32>();
-  //html = AcHtml();
-  //storage = AcStorage();
   str.reserve(2048);
 }
 
@@ -45,12 +75,20 @@ OpenAq_Controller::OpenAq_Controller()
 void OpenAq_Controller::setup_controller()
 {
   delay(2000);
-  
-  factory_defaults(); // uncomment to set the factory defaults
+
+  // initialize seed for code generation
+  randomSeed(ESP.getCycleCount());
   
   // setup serial for a baundrate of 115200
   Serial.begin(115200);
   Serial.setDebugOutput(true);
+
+  if ( storage.getSignature() != SIG )
+  {
+    factory_defaults(SIG); // uncomment to set the factory defaults
+    Serial.println("default settings applied.");
+  }
+
   
   // read openaq mode from eeprom
   bool mode = storage.getModeOperation() & 0b00000001;
@@ -74,8 +112,10 @@ void OpenAq_Controller::setup_controller()
   // setup webserver
   server.on("/", std::bind(&OpenAq_Controller::handleRoot,this));
   server.on("/light", std::bind(&OpenAq_Controller::handleLight,this));
-  server.on("/advset", std::bind(&OpenAq_Controller::handleAdvset,this));
   server.on("/clock", std::bind(&OpenAq_Controller::handleClock,this));
+  server.on("/power", std::bind(&OpenAq_Controller::handlePower,this));
+  server.on("/advset", std::bind(&OpenAq_Controller::handleAdvset,this));
+  server.on("/global", std::bind(&OpenAq_Controller::handleGlobal,this));
   
   // setup webfiles for webserver
   for(int fl=0; fl < N_FILES; fl++)
@@ -83,22 +123,6 @@ void OpenAq_Controller::setup_controller()
     server.on(files[fl].filename, [=](){
       server.sendHeader("Content-Length", String(files[fl].len));
       server.send_P( 200, files[fl].mime, (PGM_P)files[fl].content, files[fl].len);
-      
-      //server.send(200, files[fl].mime, String(""));
-      //server.sendContent_P(files[fl].content, files[fl].len);
-      //server.client().stop();
-      //server.send_P(200, files[fl].mime, (PGM_P)files[fl].content->access());
-
-      /*int i;
-      for(i=0; i < floor(files[fl].len/HTTP_DOWNLOAD_UNIT_SIZE); i++)
-      {
-        server.client().write(files[fl].content->access() + (i*HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
-      }
-      Serial.println(i);
-      Serial.println((files[fl].len-(i*HTTP_DOWNLOAD_UNIT_SIZE)));
-      server.client().write(files[fl].content->access() + (i*HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
-      */
-      
     });
   }
   
@@ -137,54 +161,101 @@ void OpenAq_Controller::setup_controller()
   radio.write_register(CONFIG, 0xE );
   
   // for debug purposes
-  //radio.printDetails();
+  radio.printDetails();
 
-  //for(int i=0; i<1024; i++)
-  //  Serial.print(String(storage.arr[i])+" ");
+  //
+  //static volatile os_timer_t network_timer;
+  //os_timer_arm(&network_timer, 10000, 1);
+  tk.attach_ms(1000, testfun);
+
+  system_os_task(user_procTask, user_procTaskPrio, user_procTaskQueue, user_procTaskQueueLen);
 }
 
-unsigned int time_el=0;
 void OpenAq_Controller::run_controller()
 {
   server.handleClient();
-
-  //for(int i=0; i<1024; i++)
-  //  Serial.print(String(storage.arr[i])+" ");
-  //Serial.println("");
-  //delay(1000);
-  //run_task_rf433ook();
-
-  if(time_el >= 1000000)
-  {
-    run_task_ds3231();
-    time_el = 0;
-    Serial.println("Temp read...");
-    run_task_nrf24();
-  }
-  else
-  {
-    time_el++;
-  }
   
 }
 
-void OpenAq_Controller::run_task_rf433ook()
+void doState(uint8_t pdeviceId)
 {
-  static bool togle=false;
-  
-  // |-----------ID-----------||-GROUPFLAG-||-ON/OFF-||-GROUPID-||-DIMMER-|
-  // 00111101111110001011111110    0           1         0000       0000
-  // 00111101111110001011111110    0           1         0001       0000
-  // lets sent a test message
-  bool bvector[36] = {0,0,1,1,1,1,0,1,1,1,1,1,1,0,0,0,1,0,1,1,1,1,1,1,0,1, 0, togle, 0,0,0,0, 0,0,0,0}; // max message is 36bits
-  
-  for(int i=0; i<2; i++) {
-    Rf433_transmitter.sendMessage(bvector);
-    delay(10);
-  }
+  bool vector[36] = { 0 };
+    // vector is organized as follows :
+    // |-----------ID-----------||-GROUPFLAG-||-ON/OFF-||-GROUPID-||-DIMMER-|
+    // 00111101111110001011111110    0           1         0000       0000
+    // 00111101111110001011111110    0           1         0001       0000
     
-  togle = !togle;
+    int j=0;
+    uint32_t code = storage.getPDeviceCode(pdeviceId);
+    
+    while ( j < 26 && code )
+    {
+      vector[j++] = code & 1;
+      code >>= 1;
+    }
+
+    // set group flag
+    vector[26] = 0;
+
+    // set state
+    uint8_t state = storage.getPDeviceState(pdeviceId);
+    if ( state == OFF || state == UNBINDING )
+    {
+      vector[27] = 0;
+    }
+    else
+    {
+      vector[27] = 1;
+    }
+
+    for ( int i=0; i<36; i++)
+      DEBUGV("%d,",vector[i]);
+    DEBUGV("\n");
+    // lets sent a test message
+    //bool bvector[36] = {1,1,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0, 0, vector[27], 0,0,0,0, 0,0,0,0}; // max message is 36bits
+    
+    for(int i=0; i<2; i++) {
+      Rf433_transmitter.sendMessage(vector);
+      delayMicroseconds(10000);
+    }
+}
+
+void OpenAq_Controller::run_task_rf433ook()
+{ 
+  // check if some device is binding...
+  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices(); pdeviceId++ )
+  {
+    if (storage.getPDeviceState(pdeviceId) == BINDING)
+    {
+      // do binding
+
+      doState(pdeviceId);
+
+      return;
+    }
+  }
+
+  // check if some device is unbinding
+  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices(); pdeviceId++ )
+  {
+    if (storage.getPDeviceState(pdeviceId) == UNBINDING)
+    {
+      // do unbinding
+
+      doState(pdeviceId);
+
+      return;
+    }
+  }
   
+
+  // normal execution
+  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices(); pdeviceId++ )
+  {
+    DEBUGV("ac:: power %d\r\n", storage.getPDeviceState(pdeviceId));
+    
+    doState(pdeviceId);
+  }
 }
 
 void OpenAq_Controller::run_task_ds3231()
@@ -235,9 +306,9 @@ void OpenAq_Controller::run_task_nrf24()
   
 }
 
-void OpenAq_Controller::factory_defaults()
+void OpenAq_Controller::factory_defaults(uint8_t sig)
 {
-  storage.defauls();
+  storage.defauls(sig);
   storage.save();
 }
 
@@ -247,7 +318,103 @@ void OpenAq_Controller::factory_defaults()
 
 void OpenAq_Controller::handleRoot()
 {
-  server.send(200, "text/html", String("<h1>OpenAq</h1> "));
+   // begin sending webpage content in blocks
+  server.send( 200, " text/html", String("") );
+  
+  // use global str
+  str = "";
+  
+  str.concat( html.get_begin() );
+  str.concat( html.get_header() );
+  str.concat( html.get_body_begin() );
+  str.concat( html.get_menu() );
+
+static const char ss_tmp[] PROGMEM = R"=====(
+<style>
+.setting {
+  position:relative;
+  margin-bottom:.453em;
+  line-height:1.993em;
+  width:100%;
+}
+.setting .label {
+  float:left;
+  width:18.931em;
+}
+fieldset .setting .label {
+  width:18.116em;
+}
+.setting .default {
+  display:block;
+  position:absolute;
+  color:#666;
+  top:0;
+  right:0;
+  width:16.304em;
+}
+fieldset {
+  border:solid .09em #ccc;
+  padding:.725em;
+  margin:0;
+}
+fieldset legend {
+  font-weight:bold;
+  margin-left:-.362em;
+  padding:0 .272em;
+  background:#fff;
+}
+</style>
+<div class="settings" id="settings"><h2><a href="#">System Information</a></h2>
+  <fieldset>
+<legend>Controller</legend>
+<div class="setting">
+  <div class="label">Model</div>
+  Opaq v1.0&nbsp;
+</div>
+<div class="setting">
+  <div class="label">Wireless MAC</div>
+  <span id="wl_mac" style="cursor:pointer; text-decoration:underline;" title="OUI Search" onclick="getOUIFromMAC(&#39;00:14:BF:3B:F8:DD&#39;)">00:14:BF:3B:F8:DD</span>&nbsp;
+</div>
+</fieldset><br>
+
+<fieldset>
+<legend>Wireless</legend>
+<div class="setting">
+<div class="label">Radio Time Restrictions</div>
+<span id="wl_radio">Radio is On</span>&nbsp;
+</div>
+<div class="setting">
+<div class="label">Mode</div>
+AP&nbsp;
+&nbsp;
+</div>
+<div class="setting">
+<div class="label">SSID</div>
+opaq-AAAA&nbsp;
+</div>
+<div class="setting">
+<div class="label">DHCP Server</div>
+Enabled&nbsp;
+</div>
+<div class="setting">
+<div class="label">Channel</div>
+<span id="wl_channel">6</span>&nbsp;
+</div>
+<div class="setting">
+<div class="label">Rate</div>
+<span id="wl_rate">54 Mbps</span>&nbsp;
+</div>
+</fieldset><br>
+</div>
+)=====";
+
+  str += FPSTR(&ss_tmp[0]);
+  sendBlock(&str);
+
+  str.concat(html.get_body_end());
+  str.concat(html.get_end());
+
+  server.client().write( str.c_str(), str.length() );
 }
 
 void OpenAq_Controller::handleLight()
@@ -291,11 +458,12 @@ void OpenAq_Controller::handleLight()
     return;
   }
 
-  if ( server.hasArg("storesettings") )
+  /* update selected device */
+  if ( server.hasArg("sdevice") && server.hasArg("setcurrent") )
   {
-    storage.save();
-
-    server.send(200, "text/html", String("<h3>Storage done</h3>"));
+    uint8_t id = atoi(server.arg("sdevice").c_str());
+    storage.selectLDevice(id2idx(id));
+    server.send(200, "text/html", String("<h3>Device selected</h3>"));
     
     return;
   }
@@ -365,42 +533,38 @@ void OpenAq_Controller::handleAdvset()
 {
   DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
 
-  // begin send blocks of data
-  server.send(200, " text/html", String(""));
-  //Serial.println("sending...");
+  // BEGIN: send blocks of data
+  server.send( 200, " text/html", String("") );
   
-  //String str = String("");
-  // use external str
+  // use global str
   str = "";
   
-  str.concat(html.get_begin());
-  str.concat(html.get_header());
-  str.concat(html.get_body_begin());
-  str.concat(html.get_menu());
+  str.concat( html.get_begin() );
+  str.concat( html.get_header() );
+  str.concat( html.get_body_begin() );
+  str.concat( html.get_menu() );
   
-  html.get_advset_light1(&str);
-  sendBlock(&str);
+  html.get_advset_light1( &str );
+  sendBlock( &str );
   
   html.get_advset_light_device(storage.getNumberOfLightDevices(), storage.getLightDevices(), &str);
   sendBlock(&str);
 
-  html.get_advset_light2(&str);
+  html.get_advset_light2(&storage, &str);
   
-  html.get_advset_light_devicesel(storage.getNumberOfLightDevices(), storage.getLightDevices(), &str);
+  html.get_advset_light_devicesel(&storage, &str);
+  sendBlock(&str);
+  
+  html.get_advset_light_device_signals(&storage, &str);
   sendBlock(&str);
 
-  str.concat(html.get_advset_light3());
-  
-  html.get_advset_light_device_signals(storage.getNumberOfLightDevices(), storage.getLightDevices(), &str);
-  sendBlock(&str);
-
-  html.get_advset_light4(&str);
+  html.get_advset_light4(&storage, &str);
   sendBlock(&str);
   
   html.get_advset_clock(&str, clock);
   sendBlock(&str);
 
-  html.get_advset_psockets(&str);
+  html.get_advset_psockets(&str, storage.getNumberOfPowerDevices(), storage.getPowerDevices());
   sendBlock(&str);
   
   str.concat(html.get_body_end());
@@ -410,9 +574,7 @@ void OpenAq_Controller::handleAdvset()
   sendBlock(&str);
 
   //Serial.println(str);
-  server.client().write(str.c_str(), (str.length() % 4)==0? str.length() : str.length() + (4-(str.length()%4)));
-  //server.send(200, "text/html", str);
-  //server.client().stop();
+  server.client().write( str.c_str(), str.length() );
 
   Serial.println("Packet Lenght: " + String(str.length()));
   Serial.println("Heap Size: " + String(ESP.getFreeHeap()));
@@ -456,6 +618,56 @@ void OpenAq_Controller::handleClock()
 
   Rtc.SetDateTime(dt);
   
+}
+
+void OpenAq_Controller::handlePower()
+{
+  if (server.hasArg("addpdevice"))
+  {
+    storage.addPowerDevice();
+    
+    server.send(200, "text/html", String("<h3>Power device added</h3>"));
+    
+    return;
+  }
+  
+  if ( server.hasArg("pdevice") && server.hasArg("pstate") )
+  {
+    uint8_t id = atoi(server.arg("pdevice").c_str());
+    uint8_t state = atoi(server.arg("pstate").c_str());
+    
+    storage.setPowerDeviceState(id, state);
+    
+    if (state == ON)
+    {
+      server.send(200, "text/html", String("<h3>Power socket ON</h3>"));
+    }
+    else
+    {
+      if ( state == OFF )
+      {
+        server.send(200, "text/html", String("<h3>Power socket OFF</h3>"));
+      }
+      else
+      {
+        server.send(200, "text/html", String("<h3>Power socket BINDING</h3>"));
+      }
+    }
+    
+    return;
+  }
+}
+
+void OpenAq_Controller::handleGlobal()
+{
+  if ( server.hasArg("storesettings") )
+  {
+    storage.save();
+
+    server.send(200, "text/html", String("<h3>Storage done</h3>"));
+    
+    return;
+  }
 }
 
 OpenAq_Controller Controller;

@@ -77,14 +77,13 @@ html, body {
   border-bottom: 2px solid #00b4ef;
   width: 100%;
 }
-#wrapper {
+.wrapper {
   padding: 15px;
   background: #f6f6f6;
   overflow: hidden;
   transition: height 200ms;
 }
-
-#wrapper h3{
+.wrapper h3{
 color: blue;
 }
 #settings a{

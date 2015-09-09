@@ -30,16 +30,15 @@ public:
   const __FlashStringHelper* get_light_settings_mend();
   
   void get_advset_light1(String*);
-  void get_advset_light2(String*);
-  const __FlashStringHelper* get_advset_light3();
-  void get_advset_light4(String*);
+  void get_advset_light2(AcStorage * const lstorage, String * const str);
+  void get_advset_light4(AcStorage * const lstorage, String *);
   
-  void get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String* a);
-  void get_advset_light_devicesel(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String* a);
-  void get_advset_light_device_signals(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String* a);
+  void get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String * a);
+  void get_advset_light_devicesel(AcStorage * const lstorage, String * const a);
+  void get_advset_light_device_signals(AcStorage * const lstorage, String * a);
 
   void get_advset_clock(String *, const RtcDateTime);
-  void get_advset_psockets(String *);
+  void get_advset_psockets(String *str, unsigned int n_powerDevices, AcStorage::deviceDescriptorPW* pdevice);
 };
 
 #endif // ACHTML_H

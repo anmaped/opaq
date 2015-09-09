@@ -22,12 +22,14 @@ private:
   void handleLight();
   void handleAdvset();
   void handleClock();
+  void handlePower();
+  void handleGlobal();
 
 public:
 
   OpenAq_Controller();
 
-  void factory_defaults();
+  void factory_defaults(uint8_t sig);
   void setup_controller();
   
   void run_controller();

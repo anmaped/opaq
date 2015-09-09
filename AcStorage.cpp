@@ -4,36 +4,37 @@
 #include <user_interface.h>
 #include <mem.h>
 
-#include <EEPROM.h>
-
-AcStorage::AcStorage()
+AcStorage::AcStorage() : EEPROMClass()
 {
   // initialize eeprom
-  EEPROM.begin(SPI_FLASH_SEC_SIZE);
-  
-  //uint8_t * arr;
-  //arr = (uint8_t *) os_malloc(1024);
-  //os_memset(arr, 0, 1024);
-  //static uint8_t arr[1024] = {0x00};
-  //arr = new uint8_t[1024];
+  begin(SPI_FLASH_SEC_SIZE);
   
   // store flash pointer
-  flashPointer = EEPROM.getDataPtr();
+  flashPointer = getDataPtr();
   
   // align variables with flash address
+  signature = (uint8_t *) flashPointer + OFFSET_SIGNATURE;
   ssid = (char *) flashPointer + OFFSET_SSID;
   pwd = (char *) flashPointer + OFFSET_PWD;
   op = (uint8_t *) flashPointer + OFFSET_SET;
+  
   lightDevice = reinterpret_cast<deviceLightDescriptor *>(flashPointer + OFFSET_LD);
   numberOfLightDevices = (uint8_t *) flashPointer + OFFSET_NLD;
+  cLidx_device = 0;
+
+  powerDevice = reinterpret_cast<deviceDescriptorPW *>(flashPointer + OFFSET_PD);
+
+  numberOfPowerDevices = (uint8_t *) flashPointer + OFFSET_NPD;
 }
 
-void AcStorage::defauls()
+void AcStorage::defauls(uint8_t sig)
 {
-  for (int i=0; i < 1024; i++) {flashPointer[i] = 0x00;}
+  for (int i=0; i < SPI_FLASH_SEC_SIZE; i++) {flashPointer[i] = 0x00;}
+
+  *signature = sig;
   
   // SSID setting
-  static const char* lssid PROGMEM = "OpenAq-AAAA";
+  static const char* lssid PROGMEM = "opaq-AAAA";
   memcpy(ssid, lssid, SSID_LEN);
   
   // default PWD
@@ -45,14 +46,20 @@ void AcStorage::defauls()
   *op=0b00000001;
   
   *numberOfLightDevices=0;
-  
-  // initialization for list of devices
-  //os_memset(lightDevice, 0, LD_LEN);  
+
+  *numberOfPowerDevices=0;
+   
 }
 
 void AcStorage::save()
 {
-  EEPROM.commit();
+  if (commit() != true)
+    Serial.println("storage commit was NOT sucessfull.");
+}
+
+const uint8_t AcStorage::getSignature()
+{
+  return (const uint8_t) *signature;
 }
   
 const char* AcStorage::getSSID()
@@ -170,10 +177,35 @@ void AcStorage::setDeviceType(const uint8_t deviceId, const uint8_t type)
 
 uint8_t AcStorage::getDeviceType(uint8_t deviceId)
 {
-  if (deviceId > 0)
+  if ( deviceId > 0 && deviceId <= N_LIGHT_DEVICES )
     return lightDevice[deviceId-1].type;
 
   return 0;
+}
+
+void AcStorage::addPowerDevice()
+{
+  // defensive case
+  if (*numberOfPowerDevices >= N_POWER_DEVICES)
+    return;
+
+  powerDevice[*numberOfPowerDevices].id = *numberOfPowerDevices + 1;
+  powerDevice[*numberOfPowerDevices].type = CHANON_DIO;
+  powerDevice[*numberOfPowerDevices].state = OFF;
+  powerDevice[*numberOfPowerDevices].code = random(0x1,0x3ffffff);
+
+  (*numberOfPowerDevices)++;
+}
+
+void AcStorage::setPowerDeviceState(const uint8_t pdeviceId, const uint8_t state)
+{
+  if ( pdeviceId > 0 && pdeviceId <= N_POWER_DEVICES )
+  {
+    if ( pdeviceId-1 < *numberOfPowerDevices)
+    {
+      powerDevice[pdeviceId-1].state = state;
+    }
+  }
 }
   
 

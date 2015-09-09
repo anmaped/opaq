@@ -185,7 +185,7 @@ void AcHtml::get_advset_light1(String *str)
   *str += F("var e = document.getElementById(id);");
   *str += F("if (e.style.display == \'\') e.style.display = \'none\'; else  e.style.display = \'\';}");
   *str += F("</script>");
-  *str += F("<div class=\"settings\" id=\"settings\"><h2><a href=\"#\" onclick=\"toggle('wrapper')\">Light Controller</a></h2><div id=\"wrapper\" class=\"open\" style=\"display:none\">Devices:<table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\"><tr><td>Id</td><td>Type</td><td>CodeID</td><td>Linear</td><td></td><td></td></tr>");
+  *str += F("<div class=\"settings\" id=\"settings\"><h2><a href=\"#\" onclick=\"toggle('wrapper')\">Light Controller</a></h2><div id=\"wrapper\" class=\"wrapper\" style=\"display:none\">Devices:<table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\"><tr><td>Id</td><td>Type</td><td>CodeID</td><td>Linear</td><td></td><td></td></tr>");
   /*
 function toggle(id) {
   var e = document.getElementById(id);
@@ -209,11 +209,7 @@ Devices:<table style="width:100%;border: 1px solid black;border-collapse: collap
 }
 
 void AcHtml::get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String* a)
-{
-  // get registerd devices
-
-  //String a = "";
-  
+{ 
   if (n_ldevices == 0)
     return;
   
@@ -271,22 +267,26 @@ void AcHtml::get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceL
     *a += F("</td></tr>");
   }
   
-  
-  //return a;
 }
 
 
-void AcHtml::get_advset_light2(String *str)
+void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
 {
   *str += F("</table><input id=\"adevice\" type=\"button\" value=\"Add Device\" onclick=\"addDevice();\" />");
-  *str += F("<br><br><h3>Light Settings (Points of lines or splines)</h3>Device Selected: <select id=\"selDev\">");
+
+  if(lstorage->getNLDevice())
+    *str += F("<br><br><h3>Light Settings (Points of lines or splines)</h3>Device Selected: <select onchange=\"selectLDevice(this);\" id=\"selDev\">");
   
   static const char scripts[] PROGMEM = R"=====(
     <script>
-    function setDeviceType(elem, deviceId) {
+    function sendGet(msg) {
       var xmlHttp = new XMLHttpRequest();
-      xmlHttp.open( "GET", "\light?sdevice=" + deviceId  + "&tdevice=" + elem[elem.selectedIndex].value, false );
+      
+      xmlHttp.open( "GET", msg, false );
       xmlHttp.send( null );
+    };
+    function setDeviceType(elem, deviceId) {
+      sendGet( "\light?sdevice=" + deviceId  + "&tdevice=" + elem[elem.selectedIndex].value );
     };
     function setDeviceOperation(elem) {
       
@@ -294,20 +294,18 @@ void AcHtml::get_advset_light2(String *str)
     function bindDevice() {
       
     };
+    function selectLDevice(elem) {
+      sendGet( "\light?sdevice=" +  elem[elem.selectedIndex].value  + "&setcurrent=true" );
+      location.reload(true);
+    };
     function removeDevice() {
-      var xmlHttp = new XMLHttpRequest();
-      xmlHttp.open( "GET", "\light?rdevice=true", false );
-      xmlHttp.send( null );
+      sendGet( "\light?rdevice=true" );
     };
     function addDevice() {
-      var xmlHttp = new XMLHttpRequest();
-      xmlHttp.open( "GET", "\light?adevice=true", false );
-      xmlHttp.send( null );
+      sendGet( "\light?adevice=true" );
       location.reload(true);
     };
     function addSignal() {
-      var xmlHttp = new XMLHttpRequest();
-      
       var list = document.getElementById('selDev');
       var sig_list = document.getElementById('selSig');
       var pt_list = document.getElementById('selPt');
@@ -315,9 +313,37 @@ void AcHtml::get_advset_light2(String *str)
       var sig_indx = sig_list.selectedIndex;
       var pt_indx = pt_list.selectedIndex;
       
-      xmlHttp.open( "GET", "\light?sigdev=" + list[indx].value + "&asigid=" + sig_list[sig_indx].value + "&asigpt=" + pt_list[pt_indx].value + "&asigxy=" +  (document.getElementById("chXy").checked? "1" : "0") + "&asigvalue=" + document.getElementById("inVal").value, false );
-      xmlHttp.send( null );
+      sendGet( "\light?sigdev=" + list[indx].value + "&asigid=" + sig_list[sig_indx].value + "&asigpt=" + pt_list[pt_indx].value + "&asigxy=" +  (document.getElementById("chXy").checked? "1" : "0") + "&asigvalue=" + document.getElementById("inVal").value );
       location.reload(true);
+    };
+    function addPDevice() {
+      sendGet( "\power?addpdevice=true" );
+      location.reload(true);
+    };
+    function setPDeviceState(id, state) {
+      sendGet( "\power?pdevice=" + id + "&pstate=" + state );
+    };
+    function bindPDevice(id) {
+      sendGet("\power?pdevice=" + id + "&pstate=" + 2);
+      if (confirm("Are you sure that your power outlet has been binded? Only accept this operation if your power socket has emitted some vibration."))
+      {
+        sendGet("\power?pdevice=" + id + "&pstate=" + 1);
+      }
+      else
+      {
+        sendGet("\power?pdevice=" + id + "&pstate=" + 0);
+      }
+    };
+    function unbindPDevice(id) {
+      sendGet("\power?pdevice=" + id + "&pstate=" + 3);
+      if (confirm("Are you sure that your power outlet has been unbinded? Take care that your power outlet is already unbinded since a socket registered with an unkwnown code could not be further binded."))
+      {
+        sendGet("\power?pdevice=" + id + "&pstate=" + 0);
+      }
+      else
+      {
+        sendGet("\power?pdevice=" + id + "&pstate=" + 0);
+      }
     };
     </script>
   )=====";
@@ -325,29 +351,21 @@ void AcHtml::get_advset_light2(String *str)
   *str += FPSTR(&scripts[0]);
 }
 
-void AcHtml::get_advset_light_devicesel(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String* a)
+void AcHtml::get_advset_light_devicesel(AcStorage * const lstorage, String * const str)
 {
-  //String a = "";
-  
   // list devices to select
-  for(int i=0; i < n_ldevices; i++)
+  for(int i=0; i < lstorage->getNLDevice(); i++)
   {
-    *a += "<option value=\"" + String(device[i].id) + "\">" + String(device[i].id) + "</option>";
+    *str += "<option value=\"" + String(lstorage->getLDeviceId(i)) + "\">DEVICE " + String(lstorage->getLDeviceId(i)) + "</option>";
   }
-  
-  //return a;
+
+  if ( lstorage->getNLDevice() )
+    *str +=  F("</select><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\">");
 }
 
-const __FlashStringHelper* AcHtml::get_advset_light3()
-{
-  return F("</select><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\">");
-}
-
-void AcHtml::get_advset_light_device_signals(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String* s)
-{
-  //String s = "";
-  
-  if(n_ldevices==0)
+void AcHtml::get_advset_light_device_signals(AcStorage * const lstorage, String* s)
+{ 
+  if(!lstorage->getNLDevice())
     return;
   
   // get selected device
@@ -356,12 +374,10 @@ void AcHtml::get_advset_light_device_signals(unsigned int n_ldevices, AcStorage:
     *s += "<tr>";
     for (int j=0; j < S_LEN_EACH-1; j+=2)
     {
-      *s += "<td>" + String(device[n_ldevices-1].signal[i][j]) + "," + String(device[n_ldevices-1].signal[i][j+1]) + "</td>";
+      *s += "<td>" + String(lstorage->getLDeviceSignal(i,j)) + "," + String(lstorage->getLDeviceSignal(i,j+1)) + "</td>";
     }
-    *s += "<td>" + String(device[n_ldevices-1].signal[i][S_LEN_EACH-1]) + "</td></tr>";
+    *s += "<td>" + String(lstorage->getLDeviceSignal(i,S_LEN_EACH-1)) + "</td></tr>";
   }
-  
-  //return s;
 }
 
 void iterate_option(String * str, unsigned int condition)
@@ -376,8 +392,14 @@ void iterate_option(String * str, unsigned int condition)
   }
 }
 
-void AcHtml::get_advset_light4(String *str)
+void AcHtml::get_advset_light4(AcStorage * const lstorage, String *str)
 {
+  if ( !lstorage->getNLDevice() )
+  {
+     *str += F("</div>");
+     return; 
+  }
+  
   *str += F("</table>Line:<select id=\"selSig\">");
   iterate_option(str, N_SIGNALS);
   *str += F("</select> Column:<select id=\"selPt\">");
@@ -387,9 +409,9 @@ void AcHtml::get_advset_light4(String *str)
  
 void AcHtml::get_advset_clock(String *str, const RtcDateTime clock)
 {
-  static const char clockbegin[] PROGMEM = R"=====( 
+  static const char clockbegin[] PROGMEM = R"=====(
 <h2><a href="#" onclick="toggle('wrapper2')">Real-time clock</a></h2>
-<div id="wrapper2" class="open" style="display:none">
+<div id="wrapper2" class="wrapper" style="display:none">
 <table style="width:100%;border: 1px solid black;border-collapse: collapse;">
 <tr><td>Hour</td><td>Minutes</td><td>Seconds</td><td>Day</td><td>Month</td><td>Year</td></tr>
 <tr>
@@ -463,41 +485,77 @@ Val:<input text id="clockval"></input text><button onclick="setClock();">Set</bu
   *str += FPSTR(&clockend[0]);
 }
 
-void AcHtml::get_advset_psockets(String *str)
+void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcStorage::deviceDescriptorPW* pdevice)
 {
-  static const char psockets[] PROGMEM = R"=====(
+  char tmp[12];
+  
+  static const char psockets[] PROGMEM =
+  R"=====(
   <h2><a href="#" onclick="toggle('wrapper3')">Power Sockets</a></h2>
-<div id="wrapper3" class="open" style="display:none">
-<table style="width:100%;border: 1px solid black;border-collapse: collapse;">
+  <div id="wrapper3" class="wrapper" style="display:none">
+  <table style="width:100%;border: 1px solid black;border-collapse: collapse;">
   <tr>
     <td>ID</td>
     <td>CodeID</td>
     <td>Devide</td>
+    <td>Action</td>
     <td></td>
     <td></td>
   </tr>
-  <tr>
-    <td>1</td>
-    <td>00111101111110001011111110</td>
-    <td>CHANON_DIO</td>
-    <td><button>Bind</button></td>
-    <td><button>Remove</button></td>
-  </tr>
-  <tr>
-    <td>2</td>
-    <td>00111101111110001011111110</td>
-    <td>CHANON_DIO</td>
-    <td><button>Bind</button></td>
-    <td><button>Remove</button></td>
-  </tr>
+  )=====";
+
+  *str += FPSTR(&psockets[0]);
+  
+  // print power devices
+  for (int i=0; i < n_powerDevices; i++)
+  {
+    *str += F("<tr>");
+    
+    *str += F("<td>");
+    *str += String(pdevice[i].id);
+    *str += F("</td>");
+  
+    *str += F("<td>0x");
+    sprintf(tmp,"%07x", pdevice[i].code);
+    *str += String(tmp);
+    *str += F("</td>");
+  
+    if (pdevice[i].type == CHANON_DIO)
+    {
+      *str += F("<td>CHANON_DIO</td>");
+    }
+    else
+    {
+      *str += F("<td>OTHER</td>");
+    }
+
+    *str += F("<td><button onclick=\"setPDeviceState(");
+    *str += String(pdevice[i].id);
+    *str += F(",1);\">On</button> <button onclick=\"setPDeviceState(");
+    *str += String(pdevice[i].id);
+    *str += F(",0);\">Off</button></td>");
+    
+    *str += F("<td><button  onclick=\"bindPDevice(");
+    *str += String(pdevice[i].id);
+    *str += F(");\">Bind</button> <button  onclick=\"unbindPDevice(");
+    *str += String(pdevice[i].id);
+    *str += F(");\">Unbind</button></td>");
+    
+    *str += F("<td><button>Remove</button></td>");
+    
+    *str += F("</tr>");
+  }
+
+  static const char psockets2[] PROGMEM =
+  R"=====(
   </table>
-    <button>Add Device</button>
+    <button  onclick="addPDevice();">Add Device</button>
     
   </div>
   <br>
   </div>
   )=====";
 
-   *str += FPSTR(&psockets[0]);
+  *str += FPSTR(&psockets2[0]);
 }
 

@@ -13,6 +13,7 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <Wire.h>
+#include <Ticker.h>
 
 #define DEBUG
 

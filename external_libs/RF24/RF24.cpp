@@ -208,10 +208,13 @@ void RF24::print_observe_tx(uint8_t value)
 
 void RF24::print_byte_register(const char* name, uint8_t reg, uint8_t qty)
 {
-  char extra_tab = strlen_P(name) < 8 ? '\t' : 0;
-  printf_P(PSTR(PRIPSTR"\t%c ="),name,extra_tab);
+  
+  printf_P(name);
+  strlen_P(name) < 8 ? printf_P(PSTR("\t\t =")) : printf_P(PSTR("\t ="));
+
   while (qty--)
-    printf_P(PSTR(" 0x%02x"),read_register(reg++));
+    ets_printf(" 0x%02x", read_register(reg++));
+    //printf_P(PSTR(" 0x%02x"),read_register(reg++));
   printf_P(PSTR("\r\n"));
 }
 
@@ -219,8 +222,8 @@ void RF24::print_byte_register(const char* name, uint8_t reg, uint8_t qty)
 
 void RF24::print_address_register(const char* name, uint8_t reg, uint8_t qty)
 {
-  char extra_tab = strlen_P(name) < 8 ? '\t' : 0;
-  printf_P(PSTR(PRIPSTR"\t%c ="),name,extra_tab);
+  printf_P(name);
+  strlen_P(name) < 8 ? printf_P(PSTR("\t\t =")) : printf_P(PSTR("\t ="));
 
   while (qty--)
   {
@@ -230,7 +233,7 @@ void RF24::print_address_register(const char* name, uint8_t reg, uint8_t qty)
     printf_P(PSTR(" 0x"));
     uint8_t* bufptr = buffer + sizeof buffer;
     while( --bufptr >= buffer )
-      printf_P(PSTR("%02x"),*bufptr);
+      ets_printf("%02x", *bufptr);
   }
 
   printf_P(PSTR("\r\n"));
@@ -272,7 +275,7 @@ uint8_t RF24::getPayloadSize(void)
 }
 
 /****************************************************************************/
-/*
+
 static const char rf24_datarate_e_str_0[] PROGMEM = "1MBPS";
 static const char rf24_datarate_e_str_1[] PROGMEM = "2MBPS";
 static const char rf24_datarate_e_str_2[] PROGMEM = "250KBPS";
@@ -305,9 +308,9 @@ static const char * const rf24_pa_dbm_e_str_P[] PROGMEM = {
   rf24_pa_dbm_e_str_2,
   rf24_pa_dbm_e_str_3,
 };
-*/
+
 void RF24::printDetails(void)
-{/*
+{
   print_status(get_status());
 
   print_address_register(PSTR("RX_ADDR_P0-1"),RX_ADDR_P0,2);
@@ -322,11 +325,24 @@ void RF24::printDetails(void)
   print_byte_register(PSTR("CONFIG"),CONFIG);
   print_byte_register(PSTR("DYNPD/FEATURE"),DYNPD,2);
 
-  printf_P(PSTR("Data Rate\t = %S\r\n"),pgm_read_word(&rf24_datarate_e_str_P[getDataRate()]));
-  printf_P(PSTR("Model\t\t = %S\r\n"),pgm_read_word(&rf24_model_e_str_P[isPVariant()]));
-  printf_P(PSTR("CRC Length\t = %S\r\n"),pgm_read_word(&rf24_crclength_e_str_P[getCRCLength()]));
-  printf_P(PSTR("PA Power\t = %S\r\n"),pgm_read_word(&rf24_pa_dbm_e_str_P[getPALevel()]));
-  */
+  delay(10);
+
+  printf_P(PSTR("Data Rate\t = "));
+  printf_P(rf24_datarate_e_str_P[getDataRate()]);
+  printf_P(PSTR("\r\n"));
+
+  printf_P(PSTR("Model\t\t = "));
+  printf_P(rf24_model_e_str_P[isPVariant()]);
+  printf_P(PSTR("\r\n"));
+
+  printf_P(PSTR("CRC Length\t = "));
+  printf_P(rf24_crclength_e_str_P[getCRCLength()]);
+  printf_P(PSTR("\r\n"));
+
+  printf_P(PSTR("PA Power\t = "));
+  printf_P(rf24_pa_dbm_e_str_P[getPALevel()]);
+  printf_P(PSTR("\r\n"));
+  
 }
 
 /****************************************************************************/
