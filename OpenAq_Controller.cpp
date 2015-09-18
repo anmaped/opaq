@@ -1,335 +1,368 @@
-
-#include "OpenAq_Controller.h"
-#include "Rf433ook.h"
-
-#include "websites.h"
+/*
+ *  Opaq is an Open AQuarium Controller firmware. It has been developed for
+ *  supporting several aquarium devices such as ligh dimmers, power management
+ *  outlets, water sensors, and peristaltic pumps. The main purpose is to
+ *  control fresh and salt water aquariums.
+ *
+ *    Copyright (c) 2015 Andre Pedro. All rights reserved.
+ *
+ *  This file is part of opaq firmware for aquarium controllers.
+ *
+ *  opaq firmware is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  opaq firmware is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with opaq firmware.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 
 #include <pgmspace.h>
 
-#include <ESP8266WiFi.h> 
-#include <ESP8266WebServer.h>
-#include <JsonParser.h>
+#include "OpenAq_Controller.h"
+#include "Rf433ook.h"
+#include "websites.h"
 
-#include <RtcDS3231.h>
+// non-class functions begin
 
-#include <nRF24L01.h>
-#include <RF24.h>
-
-#include <Wire.h>
-#include <EEPROM.h>
-#include <Ticker.h>
-
-extern "C" {
-#include "c_types.h"
-#include "eagle_soc.h"
-#include "ets_sys.h"
-#include "osapi.h"
-#include "os_type.h"
-#include "user_interface.h"
-}
-
-#define SIG 0x56
-
-// definition 
-ESP8266WebServer server ( 80 );
-
-// real-time clock initialization
-RtcDS3231 Rtc;
-
-// Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
-RF24 radio(16,15);
-
-AcHtml html;
-AcStorage storage;
-
-Ticker tk;
-
-#define user_procTaskPrio        1
-#define user_procTaskQueueLen    1
-os_event_t    user_procTaskQueue[user_procTaskQueueLen];
-
-static void ICACHE_FLASH_ATTR user_procTask(os_event_t *events)
+static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
-    Serial.println("ONLYONE!!");
+  opaq_controller.run_task_ds3231();
 
-    Controller.run_task_ds3231();
-    Controller.run_task_nrf24();
-    Controller.run_task_rf433ook();
-    
+  opaq_controller.run_task_nrf24();
+
+  opaq_controller.run_task_rf433ook();
 }
 
-static void testfun()
+static void _devicesTask_timmingEvent()
 {
-  Serial.println("ON!");
-  system_os_post(user_procTaskPrio, 0, 0 );
+  system_os_post ( deviceTaskPrio, 0, 0 );
 }
 
-static String str;
+// non-class functions end
 
-OpenAq_Controller::OpenAq_Controller()
-{ 
-  str.reserve(2048);
+
+/*=============================================================================
+=                              Opaq public methods                            =
+=============================================================================*/
+
+OpenAq_Controller::OpenAq_Controller() :
+  server ( ESP8266WebServer ( 80 ) ),
+  timming_events ( Ticker() ),
+  rtc ( RtcDS3231() ),
+  radio ( RF24 ( 16, 15 ) ),
+  html ( AcHtml() ),
+  storage ( AcStorage() ),
+  str ( String() )
+{
+  str.reserve ( 2048 );
 }
 
 
 void OpenAq_Controller::setup_controller()
 {
-  delay(2000);
+  delay ( 2000 );
 
   // initialize seed for code generation
-  randomSeed(ESP.getCycleCount());
-  
+  randomSeed ( ESP.getCycleCount() );
+
   // setup serial for a baundrate of 115200
-  Serial.begin(115200);
-  Serial.setDebugOutput(true);
+  Serial.begin ( 115200 );
+  Serial.setDebugOutput ( true );
 
   if ( storage.getSignature() != SIG )
   {
-    factory_defaults(SIG); // uncomment to set the factory defaults
-    Serial.println("default settings applied.");
+    factory_defaults ( SIG ); // uncomment to set the factory defaults
+    Serial.println ( "default settings applied." );
   }
 
-  
+
   // read openaq mode from eeprom
   bool mode = storage.getModeOperation() & 0b00000001;
-  
-  if (mode)
+
+  if ( mode )
   {
-    const char *ssid = storage.getSSID();
-    
-    Serial.print("SSID: ");
-    Serial.println(ssid);
-    
+    const char* ssid = storage.getSSID();
+
+    Serial.print ( "SSID: " );
+    Serial.println ( ssid );
+
     // setup the access point
-    WiFi.softAP(ssid); // now without password and fixed ssid [TODO]
+    WiFi.softAP ( ssid ); // now without password and fixed ssid [TODO]
   }
   else
   {
     // or setup the station
+    const char* ssid = storage.getClientSSID();
+    const char* pwd = storage.getClientPwd();
     
+    Serial.print ( "Connecting to " );
+    Serial.println ( ssid );
+
+    WiFi.begin ( ssid, pwd );
+
+    while ( WiFi.status() != WL_CONNECTED )
+    {
+      delay ( 500 );
+      Serial.print ( "." );
+    }
+
+    Serial.println ( "WiFi connected" );
+    Serial.println ( "IP address: " );
+    Serial.println ( WiFi.localIP() );
   }
-  
+
   // setup webserver
-  server.on("/", std::bind(&OpenAq_Controller::handleRoot,this));
-  server.on("/light", std::bind(&OpenAq_Controller::handleLight,this));
-  server.on("/clock", std::bind(&OpenAq_Controller::handleClock,this));
-  server.on("/power", std::bind(&OpenAq_Controller::handlePower,this));
-  server.on("/advset", std::bind(&OpenAq_Controller::handleAdvset,this));
-  server.on("/global", std::bind(&OpenAq_Controller::handleGlobal,this));
-  
+  server.on ( "/"      , std::bind ( &OpenAq_Controller::handleRoot, this ) );
+  server.on ( "/light" , std::bind ( &OpenAq_Controller::handleLight, this ) );
+  server.on ( "/clock" , std::bind ( &OpenAq_Controller::handleClock, this ) );
+  server.on ( "/power" , std::bind ( &OpenAq_Controller::handlePower, this ) );
+  server.on ( "/advset", std::bind ( &OpenAq_Controller::handleAdvset, this ) );
+  server.on ( "/global", std::bind ( &OpenAq_Controller::handleGlobal, this ) );
+
   // setup webfiles for webserver
-  for(int fl=0; fl < N_FILES; fl++)
-  { 
-    server.on(files[fl].filename, [=](){
-      server.sendHeader("Content-Length", String(files[fl].len));
-      server.send_P( 200, files[fl].mime, (PGM_P)files[fl].content, files[fl].len);
-    });
-  }
-  
-  server.onNotFound ( [=](){
-    server.send ( 404, "  text/plain", String("    ") );
+  for ( int fl = 0; fl < N_FILES; fl++ )
+  {
+    server.on ( files[fl].filename, [ = ]()
+    {
+      server.sendHeader ( "Content-Length", String ( files[fl].len ) );
+      server.send_P ( 200, files[fl].mime, ( PGM_P )files[fl].content,
+                      files[fl].len );
     } );
-  
+  }
+
+  server.onNotFound ( [ = ]()
+  {
+    server.send ( 404, "  text/plain", String ( "    " ) );
+  } );
+
   // start server
   server.begin();
-  
-  // RF433 setup 
-  Rf433_transmitter.set_pin(2);
-  Rf433_transmitter.set_encoding(Rf433_transmitter.CHANON_DIO_DEVICE);
-  
+
+  // RF433 setup
+  Rf433_transmitter.set_pin ( 2 );
+  Rf433_transmitter.set_encoding ( Rf433_transmitter.CHANON_DIO_DEVICE );
+
   // RTC setup
-  Rtc.Begin();
-  Wire.begin(4, 5);
-  
+  rtc.Begin();
+  Wire.begin ( 4, 5 );
+
   // NRF24 setup and radio configuration
   radio.begin();
   //radio.setChannel(1);
   //radio.setDataRate(RF24_2MBPS);
-  
+
   // configure pipe 0x1122334455 for NRF24
   //radio.openWritingPipe(0x1122334455LL);
-  
+
   // manual test
-  uint8_t buf[5] = {0x11,0x22,0x33,0x44,0x55};
-  radio.write_register(TX_ADDR, buf, 5);
-  radio.write_register(SETUP_AW, 0x3 );
-  radio.write_register(EN_AA, 0x0 );
-  radio.write_register(EN_RXADDR, 0x0 );
-  radio.write_register(SETUP_RETR, 0x0 );
-  radio.write_register(RF_CH, 0x1 );
-  radio.write_register(RF_SETUP, 0x7 );
-  radio.write_register(CONFIG, 0xE );
-  
-  // for debug purposes
+  uint8_t buf[5] = {0x11, 0x22, 0x33, 0x44, 0x55};
+  radio.write_register ( TX_ADDR, buf, 5 );
+  radio.write_register ( SETUP_AW, 0x3 );
+  radio.write_register ( EN_AA, 0x0 );
+  radio.write_register ( EN_RXADDR, 0x0 );
+  radio.write_register ( SETUP_RETR, 0x0 );
+  radio.write_register ( RF_CH, 0x1 );
+  radio.write_register ( RF_SETUP, 0x7 );
+  radio.write_register ( CONFIG, 0xE );
+
+  // for debug purposes of radio transceiver
   radio.printDetails();
 
-  //
-  //static volatile os_timer_t network_timer;
-  //os_timer_arm(&network_timer, 10000, 1);
-  tk.attach_ms(1000, testfun);
+  // registers deviceTask in the OS control structures
+  system_os_task ( _deviceTaskLoop, deviceTaskPrio, deviceTaskQueue,
+                   deviceTaskQueueLen );
 
-  system_os_task(user_procTask, user_procTaskPrio, user_procTaskQueue, user_procTaskQueueLen);
+  // Attach deviceTask event trigger function for periodic releases
+  timming_events.attach_ms ( 1000, _devicesTask_timmingEvent );
 }
 
 void OpenAq_Controller::run_controller()
 {
   server.handleClient();
-  
+
 }
 
-void doState(uint8_t pdeviceId)
+void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
 {
   bool vector[36] = { 0 };
-    // vector is organized as follows :
-    // |-----------ID-----------||-GROUPFLAG-||-ON/OFF-||-GROUPID-||-DIMMER-|
-    // 00111101111110001011111110    0           1         0000       0000
-    // 00111101111110001011111110    0           1         0001       0000
-    
-    int j=0;
-    uint32_t code = storage.getPDeviceCode(pdeviceId);
-    
-    while ( j < 26 && code )
-    {
-      vector[j++] = code & 1;
-      code >>= 1;
-    }
+  // vector is organized as follows :
+  // |-----------ID-----------||-GROUPFLAG-||-ON/OFF-||-GROUPID-||-DIMMER-|
+  // 00111101111110001011111110    0           1         0000       0000
+  // 00111101111110001011111110    0           1         0001       0000
 
-    // set group flag
-    vector[26] = 0;
+  int j = 0;
+  uint32_t code = storage.getPDeviceCode ( pdeviceId );
 
-    // set state
-    uint8_t state = storage.getPDeviceState(pdeviceId);
-    if ( state == OFF || state == UNBINDING )
-    {
-      vector[27] = 0;
-    }
-    else
-    {
-      vector[27] = 1;
-    }
+  while ( j < 26 && code )
+  {
+    vector[j++] = code & 1;
+    code >>= 1;
+  }
 
-    for ( int i=0; i<36; i++)
-      DEBUGV("%d,",vector[i]);
-    DEBUGV("\n");
-    // lets sent a test message
-    //bool bvector[36] = {1,1,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0, 0, vector[27], 0,0,0,0, 0,0,0,0}; // max message is 36bits
-    
-    for(int i=0; i<2; i++) {
-      Rf433_transmitter.sendMessage(vector);
-      delayMicroseconds(10000);
-    }
+  // set group flag
+  vector[26] = 0;
+
+  // set state
+  uint8_t state = storage.getPDeviceState ( pdeviceId );
+
+  if ( state == OFF || state == UNBINDING )
+  {
+    vector[27] = 0;
+  }
+  else
+  {
+    vector[27] = 1;
+  }
+
+  for ( int i = 0; i < 36; i++ )
+  {
+    DEBUGV ( "%d,", vector[i] );
+  }
+
+  DEBUGV ( "\n" );
+  // lets sent a test message
+  //bool bvector[36] = {1,1,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0, 0, vector[27], 0,0,0,0, 0,0,0,0}; // max message is 36bits
+
+  for ( int i = 0; i < 2; i++ )
+  {
+    Rf433_transmitter.sendMessage ( vector );
+    delayMicroseconds ( 10000 );
+  }
 }
 
 void OpenAq_Controller::run_task_rf433ook()
-{ 
+{
   // check if some device is binding...
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices(); pdeviceId++ )
+  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
+        pdeviceId++ )
   {
-    if (storage.getPDeviceState(pdeviceId) == BINDING)
+    if ( storage.getPDeviceState ( pdeviceId ) == BINDING )
     {
       // do binding
 
-      doState(pdeviceId);
+      updatePowerOutlets ( pdeviceId );
 
       return;
     }
   }
 
   // check if some device is unbinding
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices(); pdeviceId++ )
+  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
+        pdeviceId++ )
   {
-    if (storage.getPDeviceState(pdeviceId) == UNBINDING)
+    if ( storage.getPDeviceState ( pdeviceId ) == UNBINDING )
     {
       // do unbinding
 
-      doState(pdeviceId);
+      updatePowerOutlets ( pdeviceId );
 
       return;
     }
   }
-  
+
 
   // normal execution
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices(); pdeviceId++ )
+  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
+        pdeviceId++ )
   {
-    DEBUGV("ac:: power %d\r\n", storage.getPDeviceState(pdeviceId));
-    
-    doState(pdeviceId);
+    DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
+
+    updatePowerOutlets ( pdeviceId );
   }
 }
 
 void OpenAq_Controller::run_task_ds3231()
 {
   // update clock
-  clock = Rtc.GetDateTime();
+  clock = rtc.GetDateTime();
 }
+
+
+/*--------------------  nrf24 device controller task  ---------------------*/
 
 void OpenAq_Controller::run_task_nrf24()
 {
   float clktmp;
-  
-  for ( int deviceId = 1; deviceId <= storage.getNumberOfLightDevices(); deviceId++ )
+
+  for ( int deviceId = 1; deviceId <= storage.getNumberOfLightDevices();
+        deviceId++ )
   {
-    // case device is 
-    if (storage.getDeviceType(deviceId) == ZETLIGHT_LANCIA_2CH)
+    // case device is
+    if ( storage.getDeviceType ( deviceId ) == ZETLIGHT_LANCIA_2CH )
     {
       // compute signal values according to the clock
-      uint8_t signal1=0;
-      uint8_t signal2=0;
+      uint8_t signal1 = 0;
+      uint8_t signal2 = 0;
 
-      clktmp = ((float)clock.Hour()) + (((float)clock.Minute())/60) + (((float)clock.Second())/3600);
-      storage.getLinearInterpolatedPoint(deviceId, 1, clktmp, &signal1);
-      storage.getLinearInterpolatedPoint(deviceId, 2, clktmp, &signal2);
-      
+      clktmp = ( ( float )clock.Hour() ) + ( ( ( float )clock.Minute() ) / 60 )
+               + ( ( ( float )clock.Second() ) / 3600 );
+      storage.getLinearInterpolatedPoint ( deviceId, 1, clktmp, &signal1 );
+      storage.getLinearInterpolatedPoint ( deviceId, 2, clktmp, &signal2 );
+
       //                                       <-     LIGTH     ->                                               <LRC>
       //                                  <Mode>            <Mode2>
-      uint8_t buf[32] = {0xEE,0xD,0xA,    0x03,      signal1,    0x00,     signal2,   0x10,0x0,0x0,0x0,0x0,0x0,0x0,      0x00  ,    0xEC,0x0,0x0,0x0,0xF2,0x83,0x1D,0x4A,0x17,0x0,0x0,0x68,0x71,0x0,0x0,0x0,0x0};
+      uint8_t buf[32] = {0xEE, 0xD, 0xA,    0x03,      signal1,    0x00,     signal2,   0x10, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,      0x00  ,    0xEC, 0x0, 0x0, 0x0, 0xF2, 0x83, 0x1D, 0x4A, 0x17, 0x0, 0x0, 0x68, 0x71, 0x0, 0x0, 0x0, 0x0};
       //  <Mode>= DAM(0x03); SUNRISE(0xb6); DAYTIME(0xb6); SUNSET(0xD4); NIGHTTIME(0x06)
       //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
-      
+
       // calculate LRC - longitudinal redundancy check
       uint8_t LRC = 0;
-      for (int j = 1; j < 14; j++)
+
+      for ( int j = 1; j < 14; j++ )
       {
-          LRC ^= buf[j];
+        LRC ^= buf[j];
       }
-      
+
       buf[14] = LRC;
-      
+
       // send message
-      
-      radio.startWrite(buf, 32);
-      
+
+      radio.startWrite ( buf, 32 );
+
       //radio.printDetails();
     }
   }
-  
+
 }
 
-void OpenAq_Controller::factory_defaults(uint8_t sig)
+/*----------------  Set default settings for Opaq hardware  -----------------*/
+
+void OpenAq_Controller::factory_defaults ( uint8_t sig )
 {
-  storage.defauls(sig);
+  storage.defauls ( sig );
   storage.save();
 }
 
-// ##################
-// ## PRIVATE PART ##
-// ##################
+/*======================  End of Opaq public methods  =======================*/
+
+
+
+
+/*=============================================================================
+=                      Opaq controller private handlers                       =
+=============================================================================*/
 
 void OpenAq_Controller::handleRoot()
 {
-   // begin sending webpage content in blocks
-  server.send( 200, " text/html", String("") );
-  
+  // begin sending webpage content in blocks
+  server.send ( 200, " text/html", String ( "" ) );
+
   // use global str
   str = "";
-  
-  str.concat( html.get_begin() );
-  str.concat( html.get_header() );
-  str.concat( html.get_body_begin() );
-  str.concat( html.get_menu() );
 
-static const char ss_tmp[] PROGMEM = R"=====(
+  str.concat ( html.get_begin() );
+  str.concat ( html.get_header() );
+  str.concat ( html.get_body_begin() );
+  str.concat ( html.get_menu() );
+
+  static const char ss_tmp[] PROGMEM = R"=====(
 <style>
 .setting {
   position:relative;
@@ -433,9 +466,9 @@ void OpenAq_Controller::handleLight()
   if(server.hasArg("sigdev") && server.hasArg("asigid") && server.hasArg("asigpt") && server.hasArg("asigxy") && server.hasArg("asigvalue"))
   {
     uint8_t sig_dev = atoi(server.arg("sigdev").c_str());
-    uint8_t sig_id = atoi(server.arg("asigid").c_str());
-    uint8_t sig_pt = atoi(server.arg("asigpt").c_str());
-    uint8_t sig_xy = atoi(server.arg("asigxy").c_str());
+    uint8_t sig_id  = atoi(server.arg("asigid").c_str());
+    uint8_t sig_pt  = atoi(server.arg("asigpt").c_str());
+    uint8_t sig_xy  = atoi(server.arg("asigxy").c_str());
     uint8_t sig_val = atoi(server.arg("asigvalue").c_str());
 
     DEBUGV("::ac %d %d %d %d %d\r\n", sig_dev, sig_id, sig_pt, sig_xy, sig_val);
@@ -449,8 +482,9 @@ void OpenAq_Controller::handleLight()
 
   if ( server.hasArg("sdevice") && server.hasArg("tdevice") )
   {
-    uint8_t id = atoi(server.arg("sdevice").c_str());
+    uint8_t id   = atoi(server.arg("sdevice").c_str());
     uint8_t type = atoi(server.arg("tdevice").c_str());
+    
     storage.setDeviceType(id, type);
 
     server.send(200, "text/html", String("<h3>Set device done</h3>"));
@@ -494,7 +528,7 @@ void OpenAq_Controller::handleLight()
   str += html.get_light_settings_mend();
   sendBlock(&str);
   
-  RtcTemperature temp = Rtc.GetTemperature();
+  RtcTemperature temp = rtc.GetTemperature();
   str += String(temp.AsWholeDegrees());
   str += ".";
   str += String(temp.GetFractional());
@@ -526,7 +560,7 @@ void OpenAq_Controller::sendBlock(String *str)
     *str = ((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
   }
 
-  Serial.println("Block sended: " + String(index));
+  Serial.println("Block sent: " + String(index));
 }
 
 void OpenAq_Controller::handleAdvset()
@@ -616,7 +650,7 @@ void OpenAq_Controller::handleClock()
           else
             return;
 
-  Rtc.SetDateTime(dt);
+  rtc.SetDateTime(dt);
   
 }
 
@@ -670,5 +704,7 @@ void OpenAq_Controller::handleGlobal()
   }
 }
 
-OpenAq_Controller Controller;
+/*=====  End of Opaq controller private methods  ======*/
+
+OpenAq_Controller opaq_controller;
 

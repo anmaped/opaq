@@ -17,11 +17,12 @@
 
 #define DEBUG
 
+
 void setup() {
-  Controller.setup_controller();
+  opaq_controller.setup_controller();
   
 }
 
 void loop() {
-  Controller.run_controller();
+  opaq_controller.run_controller();
 }

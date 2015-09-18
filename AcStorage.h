@@ -1,4 +1,28 @@
-
+/*
+ *  Opaq is an Open AQuarium Controller firmware. It has been developed for
+ *  supporting several aquarium devices such as ligh dimmers, power management
+ *  outlets, water sensors, and peristaltic pumps. The main purpose is to
+ *  control fresh and salt water aquariums.
+ *
+ *    Copyright (c) 2015 Andre Pedro. All rights reserved.
+ *
+ *  This file is part of opaq firmware for aquarium controllers.
+ *
+ *  opaq firmware is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  opaq firmware is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with opaq firmware.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+ 
 #ifndef ACSTORAGE_H
 #define ACSTORAGE_H
 
@@ -41,99 +65,105 @@
 
 #define id2idx(id) id-1
 
-enum type {OPENAQV1=1, ZETLIGHT_LANCIA_2CH};
+enum type {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH};
 
-enum ptype {CHANON_DIO=1, OTHERS};
+enum ptype {CHANON_DIO = 1, OTHERS};
 
-enum pstate {OFF=0, ON, BINDING, UNBINDING};
+enum pstate {OFF = 0, ON, BINDING, UNBINDING};
 
-class AcStorage: EEPROMClass {
-  private:
-  
+class AcStorage: EEPROMClass
+{
+private:
+
     struct device_descriptor
     {
-      uint8_t id;
-      uint8_t type;
-      uint8_t codeid[10];
-      bool linear;
-      uint8_t signal[N_SIGNALS][S_LEN_EACH];
-    } __attribute__((packed));
+        uint8_t id;
+        uint8_t type;
+        uint8_t codeid[10];
+        bool linear;
+        uint8_t signal[N_SIGNALS][S_LEN_EACH];
+    } __attribute__ ( ( packed ) );
 
 
     struct pdeviceDesciptor
     {
-      uint8_t id;
-      uint8_t type;
-      uint8_t state;
-      uint32_t code;
-    } __attribute__((packed));
+        uint8_t id;
+        uint8_t type;
+        uint8_t state;
+        uint32_t code;
+    } __attribute__ ( ( packed ) );
 
-    
-    uint8_t *flashPointer;
+
+    uint8_t* flashPointer;
     uint8_t* signature;
     char* ssid;
     char* pwd;
     uint8_t* op;
-    
+
     struct device_descriptor* lightDevice;
     struct pdeviceDesciptor* powerDevice;
-    
+
     uint8_t* numberOfLightDevices;
     uint8_t cLidx_device;
     uint8_t* numberOfPowerDevices;
-  
-  public:
-  
+
+public:
+
     typedef struct device_descriptor deviceLightDescriptor;
     typedef struct pdeviceDesciptor deviceDescriptorPW;
-    
+
     AcStorage();
 
     /* restore default settings */
-    void defauls(uint8_t sig);
+    void defauls ( uint8_t sig );
     /* store current settings */
     void save();
 
     /* getters for device structure arrays and their sizes */
     deviceLightDescriptor* getLightDevices() { return lightDevice; };
     unsigned int getNumberOfLightDevices() { return *numberOfLightDevices; };
-    
+
     uint8_t getNLDevice() { return *numberOfLightDevices; };
-    uint8_t getLDeviceId(uint8_t idx) { return lightDevice[idx].id; };
-    uint8_t getLDeviceSignal(const uint8_t x, const uint8_t y) { return lightDevice[getCurrentSelLDevice()].signal[x][y]; };
-    uint8_t getLDeviceSignal(const uint8_t idx, const uint8_t x, const uint8_t y) { return lightDevice[idx].signal[x][y]; };
-    
+    uint8_t getLDeviceId ( uint8_t idx ) { return lightDevice[idx].id; };
+    uint8_t getLDeviceSignal ( const uint8_t x, const uint8_t y ) { return lightDevice[getCurrentSelLDevice()].signal[x][y]; };
+    uint8_t getLDeviceSignal ( const uint8_t idx, const uint8_t x,
+                               const uint8_t y ) { return lightDevice[idx].signal[x][y]; };
+
     uint8_t getCurrentSelLDevice() { return cLidx_device; };
-    void selectLDevice(const uint8_t idx) { cLidx_device = idx; };
-    
+    void selectLDevice ( const uint8_t idx ) { cLidx_device = idx; };
+
     deviceDescriptorPW* getPowerDevices() { return powerDevice; };
     unsigned int getNumberOfPowerDevices() { return *numberOfPowerDevices; };
 
     /* sig symbol for eeprom verification */
     const uint8_t getSignature();
-    
+
     /* request SSID for acess point operation */
-    const char* getSSID();
+    const char* getSSID() { return ( const char* ) ssid; };
+    const char* getClientSSID() { return ( const char* ) ""; };
+    const char* getClientPwd() { return ( const char* ) ""; };
 
     /* get settings for operating as access point or client */
     uint8_t getModeOperation();
 
     /* light device management functions */
     void addLightDevice();
-    void addSignal(uint8_t deviceId, uint8_t signalId, uint8_t pointId, uint8_t xy, uint8_t value);
-    
-    void getLinearInterpolatedPoint(uint8_t deviceId, uint8_t signalId, float value, uint8_t *y);
+    void addSignal ( uint8_t deviceId, uint8_t signalId, uint8_t pointId,
+                     uint8_t xy, uint8_t value );
 
-    void setDeviceType(const uint8_t deviceId, const uint8_t type);
-    uint8_t getDeviceType(uint8_t);
+    void getLinearInterpolatedPoint ( uint8_t deviceId, uint8_t signalId,
+                                      float value, uint8_t* y );
+
+    void setDeviceType ( const uint8_t deviceId, const uint8_t type );
+    uint8_t getDeviceType ( uint8_t );
 
     /* power socket functions */
     void addPowerDevice();
-    void setPowerDeviceState(const uint8_t pdeviceId, const uint8_t state);
+    void setPowerDeviceState ( const uint8_t pdeviceId, const uint8_t state );
 
-    uint32_t getPDeviceCode(uint8_t pdeviceId) { return powerDevice[pdeviceId-1].code; }; // unsafe
-    uint8_t getPDeviceState(uint8_t pdeviceId) { return powerDevice[pdeviceId-1].state; }; // unsafe
-    
+    uint32_t getPDeviceCode ( uint8_t pdeviceId ) { return powerDevice[pdeviceId - 1].code; }; // unsafe
+    uint8_t getPDeviceState ( uint8_t pdeviceId ) { return powerDevice[pdeviceId - 1].state; }; // unsafe
+
 };
 
 
