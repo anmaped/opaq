@@ -25,7 +25,7 @@
 
 #include <pgmspace.h>
 
-#include "OpenAq_Controller.h"
+#include "OPAQ_controller.h"
 #include "Rf433ook.h"
 #include "websites.h"
 
@@ -180,7 +180,7 @@ void OpenAq_Controller::setup_controller()
                    deviceTaskQueueLen );
 
   // Attach deviceTask event trigger function for periodic releases
-  timming_events.attach_ms ( 1000, _devicesTask_timmingEvent );
+  timming_events.attach_ms ( 5000, _devicesTask_timmingEvent );
 }
 
 void OpenAq_Controller::run_controller()
@@ -287,6 +287,19 @@ void OpenAq_Controller::run_task_ds3231()
 
 /*--------------------  nrf24 device controller task  ---------------------*/
 
+uint8_t calculate_lrc(uint8_t *buf)
+{
+  // calculate LRC - longitudinal redundancy check
+  uint8_t LRC = 0;
+
+  for ( int j = 1; j < 14; j++ )
+  {
+    LRC ^= buf[j];
+  }
+
+  return LRC;
+}
+
 void OpenAq_Controller::run_task_nrf24()
 {
   float clktmp;
@@ -306,25 +319,70 @@ void OpenAq_Controller::run_task_nrf24()
       storage.getLinearInterpolatedPoint ( deviceId, 1, clktmp, &signal1 );
       storage.getLinearInterpolatedPoint ( deviceId, 2, clktmp, &signal2 );
 
-      //                                       <-     LIGTH     ->                                               <LRC>
-      //                                  <Mode>            <Mode2>
-      uint8_t buf[32] = {0xEE, 0xD, 0xA,    0x03,      signal1,    0x00,     signal2,   0x10, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,      0x00  ,    0xEC, 0x0, 0x0, 0x0, 0xF2, 0x83, 0x1D, 0x4A, 0x17, 0x0, 0x0, 0x68, 0x71, 0x0, 0x0, 0x0, 0x0};
+      // normal message
+      uint8_t buf[32] = {
+      //<3byte static signature>
+        0xEE, 0xD, 0xA,
+      // <------------------------------ LIGHT -------------------------------------------------->
       //  <Mode>= DAM(0x03); SUNRISE(0xb6); DAYTIME(0xb6); SUNSET(0xD4); NIGHTTIME(0x06)
       //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
+      // Normal mode (N_MODE)
+      //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE>             < binding mode >  <groupId>    <LRC>
+        0x03,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
+      //<unknown> = 0xEC
+        0xEC, 
+      //<fixed values>
+        0x0, 0x0, 0x0,
+      //<5bytes controllerID>
+        0xF2, 0x83, 0x1D, 0x4A, 0x17,
+      //<fixed values>
+        0x0, 0x0,
+      //<unknown bytes>
+        0x68, 0x71,
+      //<2bytes group binding>
+        0x0, 0x0,   // means group 1
+      //<unknown values>
+        0x0, 0x0};
 
-      // calculate LRC - longitudinal redundancy check
-      uint8_t LRC = 0;
+      buf[14] = calculate_lrc(buf);
+      
 
-      for ( int j = 1; j < 14; j++ )
+      // binding message
+      uint8_t binding_data[32] = {
+      //<3byte static signature>
+        0xEE, 0xD, 0xA,
+      // BINDING mode
+      //                                            <N_MODE>             < binding mode >  <groupId>    <LRC>
+        0x0,         0x0,      0x0,      0x0,        0x0,      0x0, 0x0, 0x23, 0xdc, 0x0,    0x01,      0x00,
+      //<unknown> = 0xEC
+        0xEC, 
+      //<fixed values>
+        0x0, 0x0, 0x0,
+      //<5bytes controllerID>
+        0xF2, 0x83, 0x1D, 0x4A, 0x17,
+      //<fixed values>
+        0x0, 0x0,
+      //<unknown bytes>
+        0x68, 0x71,
+      //<2bytes group binding>
+        0x7b, 0x15,   // means group 1
+      //<unknown values>
+        0x0, 0x0};
+
+      binding_data[14] = calculate_lrc(binding_data);
+      Serial.println(binding_data[14]);
+
+      if( storage.getLState( deviceId ) == ON )
       {
-        LRC ^= buf[j];
+        DEBUGV("ac:: ON msg sent\n");
+        radio.startWrite ( buf, 32 );
       }
 
-      buf[14] = LRC;
-
-      // send message
-
-      radio.startWrite ( buf, 32 );
+      if( storage.getLState( deviceId ) == BINDING )
+      {
+        DEBUGV("ac:: BIND msg sent\n");
+        radio.startWrite ( binding_data, 32 );
+      }
 
       //radio.printDetails();
     }
@@ -496,8 +554,19 @@ void OpenAq_Controller::handleLight()
   if ( server.hasArg("sdevice") && server.hasArg("setcurrent") )
   {
     uint8_t id = atoi(server.arg("sdevice").c_str());
-    storage.selectLDevice(id2idx(id));
+    storage.selectLDevice( id2idx(id) );
     server.send(200, "text/html", String("<h3>Device selected</h3>"));
+    
+    return;
+  }
+
+  if ( server.hasArg("sdevice") && server.hasArg("lstate") )
+  {
+    uint8_t idx = atoi(server.arg("sdevice").c_str());
+    uint8_t state = atoi(server.arg("lstate").c_str());
+
+    storage.setLState( idx, (pstate)state );
+    server.send(200, "text/html", String("<h3>LDevice State Changed.</h3>"));
     
     return;
   }
@@ -518,7 +587,7 @@ void OpenAq_Controller::handleLight()
   str += html.get_menu();
   sendBlock(&str);
   
-  html.get_light_script(&str, storage.getNumberOfLightDevices(), storage.getLightDevices());
+  html.get_light_script(&storage, &str);
   str += html.get_light_settings_mbegin();
   sendBlock(&str);
   
@@ -538,7 +607,7 @@ void OpenAq_Controller::handleLight()
   str += html.get_body_end();
   str += html.get_end();
 
-  server.client().write(str.c_str(), (str.length() % 4)==0? str.length() : str.length() + (4-(str.length()%4)));
+  server.client().write( str.c_str(), str.length() );
   //server.send(200, "text/html", str.c_str());
   
   Serial.println("L#Packet Lenght: " + String(str.length()));
@@ -599,6 +668,10 @@ void OpenAq_Controller::handleAdvset()
   sendBlock(&str);
 
   html.get_advset_psockets(&str, storage.getNumberOfPowerDevices(), storage.getPowerDevices());
+  sendBlock(&str);
+
+  html.get_advset_psockets_step(&storage, &str, &server);
+  DEBUGV("acH:: %d\n", str.length());
   sendBlock(&str);
   
   str.concat(html.get_body_end());
@@ -690,6 +763,21 @@ void OpenAq_Controller::handlePower()
     
     return;
   }
+
+
+  if ( server.hasArg("pdevice") && server.hasArg("psid") && server.hasArg("pvalue") )
+  {
+    uint8_t p_id = atoi(server.arg("pdevice").c_str());
+    uint8_t step_id = atoi(server.arg("psid").c_str());
+    uint8_t val = atoi(server.arg("pvalue").c_str());
+    
+    storage.setPDeviceStep(p_id, step_id, val);
+
+    server.send(200, "text/html", String("<h3>Power socket value set</h3>"));
+    
+    return;
+  }
+  
 }
 
 void OpenAq_Controller::handleGlobal()

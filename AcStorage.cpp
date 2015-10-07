@@ -28,6 +28,8 @@
 #include <user_interface.h>
 #include <mem.h>
 
+static_assert( !(MAXIMUM_SETTINGS_STORAGE >= SPI_FLASH_SEC_SIZE) , "SETTINGS EXCEED ALLOWED SIZE");
+
 AcStorage::AcStorage() : EEPROMClass()
 {
   // initialize eeprom
@@ -60,7 +62,7 @@ void AcStorage::defauls ( uint8_t sig )
   *signature = sig;
 
   // SSID setting
-  static const char* lssid PROGMEM = "opaq-AAAA";
+  static const char* lssid PROGMEM = "opaq-0001";
   memcpy ( ssid, lssid, SSID_LEN );
 
   // default PWD
@@ -99,34 +101,15 @@ void AcStorage::addLightDevice()
   if ( *numberOfLightDevices >= N_LIGHT_DEVICES )
     return;
 
-  /*const deviceLightDescriptor device = {
-    .id = (uint8_t)((*numberOfLightDevices)+((uint8_t)1)),
-    .type = OPENAQV1,
-    .codeid = {0x00},
-    .linear = true,
-    .signal = {0x00},
-  };*/
-
-
-  //memcpy(((uint8_t*)lightDevice) + (*numberOfLightDevices*N_LIGHT_DEVICES), &device, LD_LEN_EACH);
-  //memset(&lightDevice[*numberOfLightDevices], 0, LD_LEN_EACH);
-
   lightDevice[*numberOfLightDevices].id = *numberOfLightDevices + 1;
   lightDevice[*numberOfLightDevices].type = OPENAQV1;
   lightDevice[*numberOfLightDevices].linear = true;
-
-  //lightDevice[*numberOfLightDevices].signal = (((uint8_t*)lightDevice) + 13);
-  /*for(int i=0; i<N_SIGNALS; i++)
-  {
-    for(int j=0; j<S_LEN_EACH; j++)
-      lightDevice[*numberOfLightDevices].signal[i][j] = 1;
-  }*/
+  lightDevice[*numberOfLightDevices].state = ON;
 
   ( *numberOfLightDevices )++;
 
   Serial.println ( *numberOfLightDevices );
   Serial.println ( LD_LEN_EACH );
-  //Serial.println(system_get_free_heap_size());
 }
 
 void AcStorage::addSignal ( uint8_t deviceId, uint8_t signalId, uint8_t pointId,
@@ -216,7 +199,7 @@ void AcStorage::addPowerDevice()
     return;
 
   powerDevice[*numberOfPowerDevices].id = *numberOfPowerDevices + 1;
-  powerDevice[*numberOfPowerDevices].type = CHANON_DIO;
+  powerDevice[*numberOfPowerDevices].type = CHACON_DIO;
   powerDevice[*numberOfPowerDevices].state = OFF;
   powerDevice[*numberOfPowerDevices].code = random ( 0x1, 0x3ffffff );
 

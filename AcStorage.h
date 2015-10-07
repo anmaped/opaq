@@ -30,9 +30,9 @@
 
 #include <EEPROM.h>
 
-#define N_LIGHT_DEVICES 3
+#define N_LIGHT_DEVICES 10
 #define N_SIGNALS 3
-#define N_POWER_DEVICES 4
+#define N_POWER_DEVICES 20
 
 // offsets for permanent storage
 #define OFFSET_SIGNATURE 0x00
@@ -63,11 +63,15 @@
 #define PD_LEN_EACH (sizeof(AcStorage::deviceDescriptorPW))
 #define PD_LEN (PD_LEN_EACH * N_POWER_DEVICES)
 
+#define MAXIMUM_SETTINGS_STORAGE OFFSET_PD + PD_LEN
+
+#define LIGHT_CODE_ID_LENGTH 5
+
 #define id2idx(id) id-1
 
 enum type {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH};
 
-enum ptype {CHANON_DIO = 1, OTHERS};
+enum ptype {CHACON_DIO = 1, OTHERS};
 
 enum pstate {OFF = 0, ON, BINDING, UNBINDING};
 
@@ -79,7 +83,8 @@ private:
     {
         uint8_t id;
         uint8_t type;
-        uint8_t codeid[10];
+        uint8_t codeid[LIGHT_CODE_ID_LENGTH];
+        pstate state;
         bool linear;
         uint8_t signal[N_SIGNALS][S_LEN_EACH];
     } __attribute__ ( ( packed ) );
@@ -91,6 +96,9 @@ private:
         uint8_t type;
         uint8_t state;
         uint32_t code;
+        /* step is enconded by the clock value and the respectite boolean value;
+           the value of the last element indicates the number of steps */
+        uint8_t step[S_LEN_EACH];
     } __attribute__ ( ( packed ) );
 
 
@@ -128,12 +136,18 @@ public:
     uint8_t getLDeviceSignal ( const uint8_t x, const uint8_t y ) { return lightDevice[getCurrentSelLDevice()].signal[x][y]; };
     uint8_t getLDeviceSignal ( const uint8_t idx, const uint8_t x,
                                const uint8_t y ) { return lightDevice[idx].signal[x][y]; };
+   pstate getLState( const uint8_t id ) { return id-1 < 0 ? OFF : lightDevice[id-1].state; };
+   void setLState( const uint8_t idx, pstate st ) { lightDevice[idx].state = st; };
 
     uint8_t getCurrentSelLDevice() { return cLidx_device; };
     void selectLDevice ( const uint8_t idx ) { cLidx_device = idx; };
 
+
+    uint8_t getPDeviceStep ( const uint8_t pid, const uint8_t st ) { return powerDevice[pid].step[st]; };
     deviceDescriptorPW* getPowerDevices() { return powerDevice; };
     unsigned int getNumberOfPowerDevices() { return *numberOfPowerDevices; };
+
+    void setPDeviceStep( const uint8_t pid, const uint8_t st, const uint8_t value ) { powerDevice[pid].step[st] = value; };
 
     /* sig symbol for eeprom verification */
     const uint8_t getSignature();

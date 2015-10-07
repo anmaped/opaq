@@ -23,7 +23,7 @@ public:
   const __FlashStringHelper* get_body_begin();
   const __FlashStringHelper* get_body_end();
   
-  void get_light_script(String *, unsigned int, AcStorage::deviceLightDescriptor *);
+  void get_light_script(AcStorage * const lstorage, String * const str);
   
   void get_light_settings_mclock(String*, const RtcDateTime);
   const __FlashStringHelper* get_light_settings_mbegin();
@@ -39,6 +39,7 @@ public:
 
   void get_advset_clock(String *, const RtcDateTime);
   void get_advset_psockets(String *str, unsigned int n_powerDevices, AcStorage::deviceDescriptorPW* pdevice);
+  void get_advset_psockets_step( AcStorage * const lstorage, String * const str, ESP8266WebServer * server );
 };
 
 #endif // ACHTML_H

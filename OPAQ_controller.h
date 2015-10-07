@@ -46,7 +46,7 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x56
+#define SIG 0x58
 
 #define deviceTaskPrio        1
 #define deviceTaskQueueLen    1

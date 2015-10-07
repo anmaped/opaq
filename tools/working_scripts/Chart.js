@@ -1299,10 +1299,15 @@
 						{
 							//alert("moving...");
 							pointOne.radius = 5;
-							//var scalingFactor = this.drawingArea() / (this.min - this.max);
-							if (this.scale.calculateYREV(evt.layerY) <= 100 && this.scale.calculateYREV(evt.layerY) >= 0)
+
+							// if Y axis hold is false then do not allow to move on y axis
+							if (!pointOne.holdY)
 							{
-								pointOne.value = this.scale.calculateYREV(evt.layerY);
+								//var scalingFactor = this.drawingArea() / (this.min - this.max);
+								if (this.scale.calculateYREV(evt.layerY) <= 100 && this.scale.calculateYREV(evt.layerY) >= 0)
+								{
+									pointOne.value = this.scale.calculateYREV(evt.layerY);
+								}
 							}
 
 							if (this.scale.calculateXREVS(evt.layerX) * pointOne.step >= 0)
@@ -1310,26 +1315,58 @@
 								pointOne.value2 = this.scale.calculateXREVS(evt.layerX) * pointOne.step;
 							}
 
-							var datasetIndex = 1, pointsIndex = 1, savePoint;
+							var datasetIndex = 1, pointsIndex = 1, savePoint, next, lastpoint;
 
+							
 							// CONSTRAINT first and last points of all datasets
 							helpers.each(this.datasets,function(dataset){
 								pointsIndex = 1;
+								next = false;
 								helpers.each(dataset.points,function(point){
+									// if Y axis hold is false then no automatic constraint is performed
+									if (!pointOne.holdY)
+									{
+										if (pointsIndex==1)
+										{
+											savePoint = point;
+										}
 
-									if (pointsIndex==1) {
-										savePoint = point;
+										if (pointsIndex==dataset.points.length && (point == pointOne || pointOne == savePoint))
+									  	{
+											point.value2 = 24;
+											point.value = savePoint.value;
+											savePoint.value2 = 0;
+
+											pointTwo = point;
+										}
+									}
+									else
+									{
+										if (pointsIndex==1)
+										{
+											lastpoint = point;
+										}
+										if( next )
+										{
+											if( pointOne.value2 > point.value2)
+											{
+												pointOne.value2 = point.value2;
+											}
+
+											next = false;
+										}
+
+										if( point==pointOne )
+										{
+											next = true;
+
+											if(lastpoint.value2 > point.value2)
+											{
+												point.value2 = lastpoint.value2;
+											}
+										}
 									}
 
-									if (pointsIndex==dataset.points.length && (point == pointOne || pointOne == savePoint))
-								  	{
-										point.value2 = 24;
-										point.value = savePoint.value;
-										savePoint.value2 = 0;
-
-										pointTwo = point;
-									}
-							
 									pointsIndex = pointsIndex+1;
 				  				});
 				 				datasetIndex = datasetIndex+1;
@@ -1348,22 +1385,31 @@
 						pointOne.radius = 4;
 						this.draw();
 						mouse_cursor_moving = false;
+
+						var normalize = function(value,a,b)
+						{
+							return Math.round(a * (Number(value.toFixed(1)) - 0) / b);
+						};
 						
 
 						// collect actual settings
-					
-
+						
 						// let's do the update using the get method
 						var req = new XMLHttpRequest();
+
+						// if point is a signal point then store it
+						if( !pointOne.holdY )
+						{
+						
 						req.open("GET", "light?sigdev=" + data.device + 
 								"&asigid=" + pointOne.external_data[0] + 
 								"&asigpt=" + pointOne.external_data[1] + 
-								"&asigxy=0&asigvalue=" + 255 * (Number(pointOne.value.toFixed(1)) - 0) / 100, false);
+								"&asigxy=0&asigvalue=" + normalize( pointOne.value, 255, 24 ), false);
 						req.send(null);
 						req.open("GET", "light?sigdev=" + data.device + 
 								"&asigid=" + pointOne.external_data[0] + 
 								"&asigpt=" + pointOne.external_data[1] + 
-								"&asigxy=1&asigvalue=" + 255 * (Number(pointOne.value2.toFixed(1)) - 0) / 24, false);
+								"&asigxy=1&asigvalue=" + normalize( pointOne.value2, 255, 24 ), false);
 						req.send(null);
 
 						if (pointTwo != null && pointTwo != pointOne)
@@ -1371,12 +1417,22 @@
 							req.open("GET", "light?sigdev=" + data.device + 
 									"&asigid=" + pointTwo.external_data[0] + 
 									"&asigpt=" + pointTwo.external_data[1] + 
-									"&asigxy=0&asigvalue=" + 255 * (Number(pointTwo.value.toFixed(1)) - 0) / 100, false);
+									"&asigxy=0&asigvalue=" +  normalize( pointTwo.value, 255, 24 ), false);
 							req.send(null);
 							req.open("GET", "light?sigdev=" + data.device + 
 									"&asigid=" + pointTwo.external_data[0] + 
 									"&asigpt=" + pointTwo.external_data[1] + 
-									"&asigxy=1&asigvalue=" + 255 * (Number(pointTwo.value2.toFixed(1)) - 0) / 24, false);
+									"&asigxy=1&asigvalue=" + normalize( pointTwo.value2, 255, 24 ), false);
+							req.send(null);
+						}
+						}
+
+						// if point is a discrete signal point then store it as power step
+						if( pointOne.holdY )
+						{
+							req.open("GET", "power?pdevice=" + pointOne.external_data[0] + 
+								"&psid=" + pointOne.external_data[1] +
+								"&pvalue=" + normalize( pointOne.value2, 255, 24 ), false);
 							req.send(null);
 						}
 						
@@ -1412,6 +1468,7 @@
 						value2 : dPoint[1] / 255 * 24,
 						external_data : dPoint[2],
 						step : data.labelsspace,
+						holdY : dataset.holdY,
 						label : data.labels[index],
 						datasetLabel: dataset.label,
 						strokeColor : dataset.pointStrokeColor,
