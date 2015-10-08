@@ -7,14 +7,13 @@ Supported features:
 - Easy graphical management for light and power settings
 - Advanced menus for customization purposes
 
-Supported devices:
+External supported devices:
 - Light
   * two channel Zetlight Lancia dimmers
-  * four channel Opaq N1 dimmer
 - Power outlets
   * Chacon RF power sockets
 
-Hardware:
+Opaq devices:
 - Opaq C1 - the controller device
 - Opaq N1 - four channel dimmer device that is capable to connect with any led light with minor changes
 
