@@ -4,6 +4,8 @@
 //#include "flash.h"
 //#include "websites.h"
 
+#include "OPAQ_controller.h"
+
 AcHtml::AcHtml()
 {
   
@@ -24,7 +26,7 @@ const __FlashStringHelper* AcHtml::get_header_light()
   // return string with menu
   return F(" \
     <head> \
-    <title>Aqua Controller</title> \
+    <title>Opaq C1</title> \
     <meta charset=\"utf-8\" /> \
     <link rel=\"stylesheet\" href=\"style.css\"> \
     <script src=\"Chart.min.js\"></script> \
@@ -105,7 +107,9 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
   )=====";
   
   *str += FPSTR(&script_chart[0]);
-  *str += "device : " + String( lstorage->getNLDevice() ) + ",";
+  *str += F("device : ");
+  *str += String( lstorage->getNLDevice() );
+  *str += F(",");
   *str += F("datasets : [");
   
   if (lstorage->getNLDevice() > 0)
@@ -116,29 +120,78 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
       int lend = lstorage->getLDeviceSignal( s, S_LEN_EACH-1 );
       if (lend != 0)
       {
-        *str += "{";
+        *str += F("{");
   
-        *str += "fillColor : \"rgba(172,194,132,0)\",";
-        *str += "strokeColor : \"#ACC200\",";
-        *str += "pointColor : \"#fff\",";
-        *str += "pointStrokeColor : \"#90086D\",";
-        *str += "data : [";
+        *str += F("fillColor : \"rgba(172,194,132,0)\",");
+        *str += F("strokeColor : \"#ACC200\",");
+        *str += F("pointColor : \"#fff\",");
+        *str += F("pointStrokeColor : \"#90086D\",");
+
+        *str += F("holdY: false,");
+        *str += F("data : [");
+        
         for (int i=0; i < lend ; i++)
         {
-          *str += "[";
+          *str += F("[");
           *str += String( lstorage->getLDeviceSignal( s, i*2 ) );
-          *str += ",";
+          *str += F(",");
           *str += String( lstorage->getLDeviceSignal( s, i*2+1 ) );
-          *str += ",[";
+          *str += F(",[");
           *str += String(s+1);
-          *str += ",";
+          *str += F(",");
           *str += String(i+1);
-          *str += "]],";
+          *str += F("]],");
         }
-        *str += "]},";
+        
+        *str += F("]},");
       }
     }
   }
+
+
+  // get all power devices states that were assigned to the current light device
+  char colorarrayLines[4][7] = { "FFAAAA", "8685BA", "F9FDA9", "A57E39" };
+  char colorarrayPoints[4][7] = { "550000", "11103B", "4D5013", "845500" };
+  // draw step functions
+  const uint8_t value = 240;
+  uint8_t limit = 0;
+  
+  for ( int limit=0; limit < 16; limit += 2 )
+    for ( int idx=0; idx < lstorage->getNumberOfPowerDevices() ; idx++ )
+    {
+      *str += F("{");
+    
+      *str += F("fillColor : \"rgba(172,194,132,0)\",");
+      *str += F("strokeColor : \"#");
+      *str += String( colorarrayLines[ idx % 4 ] );
+      *str += F("\",");
+      *str += F("pointColor : \"#fff\",");
+      *str += F("pointStrokeColor : \"#");
+      *str += String( colorarrayPoints[ idx % 4 ] );
+      *str += F("\",");
+
+      *str += F("holdY: true,");
+      *str += F("data : [");
+      
+      for ( int step=limit; step < lstorage->getPDeviceStepSize(idx) && step < limit+2; step++ )
+      {
+        *str += F("[");
+        *str += String( value-(idx*15) );
+        *str += F(",");
+        *str += String( lstorage->getPDeviceStep( idx, step ) );
+        
+        *str += F(",[");
+        *str += String( idx + 1 );
+        *str += F(",");
+        *str += String( step + 1 );
+        *str += F("]],");
+
+      }
+
+      *str += F("]},");
+      
+    }
+
   
   *str += FPSTR(&script_chart2[0]);
 }
@@ -620,5 +673,110 @@ void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * cons
 
   *str += F("</table></div><br></div>");
   
+}
+
+void AcHtml::send_status_div(String * const str, ESP8266WebServer * server, AcStorage * const lstorage)
+{
+
+  auto sendBlock = [&server](String *str)
+  {
+    int index;
+    for (index=0; index < floor((*str).length()/HTTP_DOWNLOAD_UNIT_SIZE); index++)
+    {
+      server->client().write((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
+    }
+    
+    if ( index != 0 )
+    {
+      *str = ((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
+    }
+  
+    Serial.println("Block sent: " + String(index));
+  };
+
+  static const char ss_tmp[] PROGMEM = R"=====(
+<style>
+.setting {
+  position:relative;
+  margin-bottom:.453em;
+  line-height:1.993em;
+  width:100%;
+}
+.setting .label {
+  float:left;
+  width:18.931em;
+}
+fieldset .setting .label {
+  width:18.116em;
+}
+.setting .default {
+  display:block;
+  position:absolute;
+  color:#666;
+  top:0;
+  right:0;
+  width:16.304em;
+}
+fieldset {
+  border:solid .09em #ccc;
+  padding:.725em;
+  margin:0;
+}
+fieldset legend {
+  font-weight:bold;
+  margin-left:-.362em;
+  padding:0 .272em;
+  background:#fff;
+}
+</style>
+
+<div class="settings" id="settings"><h2><a href="#">System Information</a></h2>
+  <fieldset>
+<legend>Controller</legend>
+<div class="setting">
+  <div class="label">Model</div>
+)=====";
+
+  *str += FPSTR(&ss_tmp[0]);
+  sendBlock(str);
+
+  *str += F("Opaq v");
+  *str += String( OPAQ_VERSION );
+  *str += String(" C");
+  *str += String( ESP.getFlashChipId() );
+
+  *str += F("</div><div class=\"setting\"><div class=\"label\">Wireless MAC</div><span id=\"wl_mac\" style=\"cursor:pointer; text-decoration:underline;\" title=\"OUI Search\">");
+
+  // sample: 00:14:BF:3B:F8:DD
+  *str += WiFi.softAPmacAddress();
+
+  *str += F("</span></div></fieldset><br>");
+
+  *str += F("<fieldset><legend>Wireless</legend><div class=\"setting\"><div class=\"label\">Radio Time Restrictions</div><span id=\"wl_radio\">Radio is On</span>&nbsp;</div><div class=\"setting\"><div class=\"label\">Mode</div>");
+
+  if ( lstorage->getModeOperation() )
+  {
+    *str += F("softAP");
+  }
+  else
+  {
+    *str += F("client");
+  }
+
+  *str += F("</div><div class=\"setting\"><div class=\"label\">SSID</div>");
+
+  // sample: opaq-AAAA
+  *str += String( lstorage->getSSID() );
+
+  *str += F("</div><div class=\"setting\"><div class=\"label\">DHCP Server</div>Enabled&nbsp;</div><div class=\"setting\"><div class=\"label\">Channel</div><span id=\"wl_channel\">");
+
+  // sample: 6
+  *str += String ( WiFi.channel() );
+
+  *str += F("</span>&nbsp;</div></fieldset><br>");
+
+
+  *str += F("</div>");
+  sendBlock(str);
 }
 

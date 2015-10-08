@@ -144,6 +144,7 @@ public:
 
 
     uint8_t getPDeviceStep ( const uint8_t pid, const uint8_t st ) { return powerDevice[pid].step[st]; };
+    uint8_t getPDeviceStepSize ( const uint8_t pid ) { return powerDevice[pid].step[S_LEN_EACH-1]; };
     deviceDescriptorPW* getPowerDevices() { return powerDevice; };
     unsigned int getNumberOfPowerDevices() { return *numberOfPowerDevices; };
 

@@ -40,6 +40,8 @@ public:
   void get_advset_clock(String *, const RtcDateTime);
   void get_advset_psockets(String *str, unsigned int n_powerDevices, AcStorage::deviceDescriptorPW* pdevice);
   void get_advset_psockets_step( AcStorage * const lstorage, String * const str, ESP8266WebServer * server );
+
+  void send_status_div(String * const str, ESP8266WebServer * server, AcStorage * const lstorage);
 };
 
 #endif // ACHTML_H

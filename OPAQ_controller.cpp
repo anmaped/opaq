@@ -340,7 +340,7 @@ void OpenAq_Controller::run_task_nrf24()
       //<unknown bytes>
         0x68, 0x71,
       //<2bytes group binding>
-        0x0, 0x0,   // means group 1
+        0x0, 0x0,   // means nothing
       //<unknown values>
         0x0, 0x0};
 
@@ -410,7 +410,7 @@ void OpenAq_Controller::factory_defaults ( uint8_t sig )
 void OpenAq_Controller::handleRoot()
 {
   // begin sending webpage content in blocks
-  server.send ( 200, " text/html", String ( "" ) );
+  server.send ( 200, "text/html", String ( "" ) );
 
   // use global str
   str = "";
@@ -420,90 +420,10 @@ void OpenAq_Controller::handleRoot()
   str.concat ( html.get_body_begin() );
   str.concat ( html.get_menu() );
 
-  static const char ss_tmp[] PROGMEM = R"=====(
-<style>
-.setting {
-  position:relative;
-  margin-bottom:.453em;
-  line-height:1.993em;
-  width:100%;
-}
-.setting .label {
-  float:left;
-  width:18.931em;
-}
-fieldset .setting .label {
-  width:18.116em;
-}
-.setting .default {
-  display:block;
-  position:absolute;
-  color:#666;
-  top:0;
-  right:0;
-  width:16.304em;
-}
-fieldset {
-  border:solid .09em #ccc;
-  padding:.725em;
-  margin:0;
-}
-fieldset legend {
-  font-weight:bold;
-  margin-left:-.362em;
-  padding:0 .272em;
-  background:#fff;
-}
-</style>
-<div class="settings" id="settings"><h2><a href="#">System Information</a></h2>
-  <fieldset>
-<legend>Controller</legend>
-<div class="setting">
-  <div class="label">Model</div>
-  Opaq v1.0&nbsp;
-</div>
-<div class="setting">
-  <div class="label">Wireless MAC</div>
-  <span id="wl_mac" style="cursor:pointer; text-decoration:underline;" title="OUI Search" onclick="getOUIFromMAC(&#39;00:14:BF:3B:F8:DD&#39;)">00:14:BF:3B:F8:DD</span>&nbsp;
-</div>
-</fieldset><br>
+  html.send_status_div( &str, &server, &storage );
 
-<fieldset>
-<legend>Wireless</legend>
-<div class="setting">
-<div class="label">Radio Time Restrictions</div>
-<span id="wl_radio">Radio is On</span>&nbsp;
-</div>
-<div class="setting">
-<div class="label">Mode</div>
-AP&nbsp;
-&nbsp;
-</div>
-<div class="setting">
-<div class="label">SSID</div>
-opaq-AAAA&nbsp;
-</div>
-<div class="setting">
-<div class="label">DHCP Server</div>
-Enabled&nbsp;
-</div>
-<div class="setting">
-<div class="label">Channel</div>
-<span id="wl_channel">6</span>&nbsp;
-</div>
-<div class="setting">
-<div class="label">Rate</div>
-<span id="wl_rate">54 Mbps</span>&nbsp;
-</div>
-</fieldset><br>
-</div>
-)=====";
-
-  str += FPSTR(&ss_tmp[0]);
-  sendBlock(&str);
-
-  str.concat(html.get_body_end());
-  str.concat(html.get_end());
+  str.concat( html.get_body_end() );
+  str.concat( html.get_end() );
 
   server.client().write( str.c_str(), str.length() );
 }
@@ -771,7 +691,7 @@ void OpenAq_Controller::handlePower()
     uint8_t step_id = atoi(server.arg("psid").c_str());
     uint8_t val = atoi(server.arg("pvalue").c_str());
     
-    storage.setPDeviceStep(p_id, step_id, val);
+    storage.setPDeviceStep( id2idx(p_id), id2idx(step_id), val );
 
     server.send(200, "text/html", String("<h3>Power socket value set</h3>"));
     

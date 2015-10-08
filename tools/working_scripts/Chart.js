@@ -1401,30 +1401,30 @@
 						if( !pointOne.holdY )
 						{
 						
-						req.open("GET", "light?sigdev=" + data.device + 
-								"&asigid=" + pointOne.external_data[0] + 
-								"&asigpt=" + pointOne.external_data[1] + 
-								"&asigxy=0&asigvalue=" + normalize( pointOne.value, 255, 24 ), false);
-						req.send(null);
-						req.open("GET", "light?sigdev=" + data.device + 
-								"&asigid=" + pointOne.external_data[0] + 
-								"&asigpt=" + pointOne.external_data[1] + 
-								"&asigxy=1&asigvalue=" + normalize( pointOne.value2, 255, 24 ), false);
-						req.send(null);
+							req.open("GET", "light?sigdev=" + data.device + 
+									"&asigid=" + pointOne.external_data[0] + 
+									"&asigpt=" + pointOne.external_data[1] + 
+									"&asigxy=0&asigvalue=" + normalize( pointOne.value, 255, 100 ), false);
+							req.send(null);
+							req.open("GET", "light?sigdev=" + data.device + 
+									"&asigid=" + pointOne.external_data[0] + 
+									"&asigpt=" + pointOne.external_data[1] + 
+									"&asigxy=1&asigvalue=" + normalize( pointOne.value2, 255, 24 ), false);
+							req.send(null);
 
-						if (pointTwo != null && pointTwo != pointOne)
-						{
-							req.open("GET", "light?sigdev=" + data.device + 
-									"&asigid=" + pointTwo.external_data[0] + 
-									"&asigpt=" + pointTwo.external_data[1] + 
-									"&asigxy=0&asigvalue=" +  normalize( pointTwo.value, 255, 24 ), false);
-							req.send(null);
-							req.open("GET", "light?sigdev=" + data.device + 
-									"&asigid=" + pointTwo.external_data[0] + 
-									"&asigpt=" + pointTwo.external_data[1] + 
-									"&asigxy=1&asigvalue=" + normalize( pointTwo.value2, 255, 24 ), false);
-							req.send(null);
-						}
+							if (pointTwo != null && pointTwo != pointOne)
+							{
+								req.open("GET", "light?sigdev=" + data.device + 
+										"&asigid=" + pointTwo.external_data[0] + 
+										"&asigpt=" + pointTwo.external_data[1] + 
+										"&asigxy=0&asigvalue=" +  normalize( pointTwo.value, 255, 100 ), false);
+								req.send(null);
+								req.open("GET", "light?sigdev=" + data.device + 
+										"&asigid=" + pointTwo.external_data[0] + 
+										"&asigpt=" + pointTwo.external_data[1] + 
+										"&asigxy=1&asigvalue=" + normalize( pointTwo.value2, 255, 24 ), false);
+								req.send(null);
+							}
 						}
 
 						// if point is a discrete signal point then store it as power step
