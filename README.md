@@ -1,6 +1,5 @@
-# Opaq C
-## An OPen AQuarium Controller firmware
-### Release 1.0.1
+# Opaq controller firmware
+#### Release 1.0.1
 
 ![Screenshot](/tools/images/opaq_sample_frame2.png?raw=true "Optional Title")
 
