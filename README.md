@@ -1,5 +1,6 @@
-# Opaq C - An OPen AQuarium Controller firmware
-Release 1.0.1
+# Opaq C
+## An OPen AQuarium Controller firmware
+### Release 1.0.1
 
 ![Screenshot](/tools/images/opaq_sample_frame2.png?raw=true "Optional Title")
 
@@ -9,9 +10,9 @@ Supported features:
 
 Supported devices:
 - Light
-  . two channel Zetlight Lancia dimmers
+  * two channel Zetlight Lancia dimmers
 - Power outlets
-  . Chacon RF power sockets
+  * Chacon RF power sockets
 
 Further features:
 - Support for sensor logging (PH, NO3)
