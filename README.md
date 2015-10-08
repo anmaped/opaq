@@ -13,11 +13,16 @@ Supported devices:
 - Power outlets
   * Chacon RF power sockets
 
-Further features:
+Hardware:
+- Opaq C1 (controller device)
+- Opaq N1 - four channel dimmer device that is capable to connect with any led light with minor changes
+
+Expected features:
 - Support for sensor logging (PH, NO3)
 - Management of peristaltic pumps for automatic fertilization regimes for fresh and salt water
 - Aquarium and Pond pre-defined settings
 
-Hardware:
-- Opaq C1 (controller)
-- Opaq N1 (dimmer)
+Expected Hardware:
+- Opaq N2 (probe device)
+
+
