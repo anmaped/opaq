@@ -1,7 +1,7 @@
 # Opaq C - An OPen AQuarium Controller firmware
 Release 1.0.1
 
-![Screenshot](/relative/path/to/img.jpg?raw=true "Optional Title")
+![Screenshot](/tools/images/opaq_sample_frame2.png?raw=true "Optional Title")
 
 Supported features:
 - Easy graphical management for light and power settings
