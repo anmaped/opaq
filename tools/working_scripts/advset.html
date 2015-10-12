@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Advanced Settings</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+	    <!--<h1>OpenAq Controller</h1>-->
+            <img height="100px" src="logo.png"/>
+	    <!--bar menu -->
+<nav class="dropdownmenu">
+  <ul>
+    <li><a href="../">Status</a></li><!--
+    --><li><a href="#">Settings</a>
+    <ul id="submenu">
+        <li><a href="light">Light</a></li>
+        <li><a href="co2">CO2</a></li>
+        <li><a href="advst">Advanced Settings</a></li>
+      </ul>
+    </li><!--
+    --><li><a href="info">Info</a></li>
+  </ul>
+</nav>
+<br><br>
+
+<script type="text/javascript">
+ 
+function toggle(id) {
+  var e = document.getElementById(id);
+ 
+  if (e.style.display == '')
+    e.style.display = 'none';
+  else
+    e.style.display = '';
+}
+ 
+</script>
+
+
+<div class="settings" id="settings">
+	<h2><a href="#" onclick="toggle('wrapper')">Light Controller</a></h2>
+	<div id="wrapper" class="open" style="display:none">
+	Devices:<table style="width:100%;border: 1px solid black;border-collapse: collapse;">
+		<tr>
+			<td>Id</td>
+			<td>Type</td>
+			<td>CodeID</td>
+			<td>Linear</td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td>L1</td>
+			<td><select>
+  <option value="zetlight">Zetlight Lancia</option>
+	  </select></td>
+	  <td>xxx</td>
+	  <td><input type="checkbox" name="linear" value="linear"></td>
+	  <td><button>Bind</button></td>
+	  <td><button>Remove</button></td>
+		</tr>
+	</table>
+	<button>Add Device</button>
+	<br><br>
+	<h3>Light Settings (Points of lines or splines)</h3>
+	Device Selected: <select>
+	<option value="L1">L1</option></select>
+<table style="width:100%;border: 1px solid black;border-collapse: collapse;">
+  <tr>
+	  <td></td>
+	  <td>v1</td>
+    <td>v2</td> 
+    <td>v3</td>
+    <td>v4</td>
+    <td>v5</td>
+    <td>v6</td>
+    <td>v7</td>
+    <td>v8</td>
+  </tr>
+  <tr>
+	  <td>1</td>
+	  <td>0x</td>
+    <td>0x</td> 
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+     <td>0x</td>
+  </tr>
+  <tr>
+	  <td>2</td>
+    <td>0x</td>
+    <td>0x</td> 
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+     <td>0x</td>
+  </tr>
+  <tr>
+	  <td>3</td>
+    <td>0x</td>
+    <td>0x</td> 
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+     <td>0x</td>
+  </tr>
+  <tr>
+	  <td>4</td>
+    <td>0x</td>
+    <td>0x</td> 
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+     <td>0x</td>
+  </tr>
+  <tr>
+	  <td>5</td>
+    <td>0x</td>
+    <td>0x</td> 
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+    <td>0x</td>
+     <td>0x</td>
+  </tr>
+</table>
+Line:<select>
+	<option value="one">1</option>
+	<option value="two">2</option>
+	<option value="three">3</option>
+	<option value="four">4</option>
+	<option value="five">5</option>
+</select>
+ Column:<select>
+	<option value="one">v1</option>
+	<option value="two">v2</option>
+	<option value="three">v3</option>
+	<option value="four">v4</option>
+	<option value="five">v5</option>
+	<option value="six">v6</option>
+	<option value="seven">v7</option>
+	<option value="eight">v8</option>
+</select> Val:<input text></input text><button>Set</button>
+</div>
+
+<h2><a href="#" onclick="toggle('wrapper2')">Real-time clock</a></h2>
+<div id="wrapper2" class="open" style="display:none">
+<table style="width:100%;border: 1px solid black;border-collapse: collapse;">
+  <tr>
+    <td>Hour</td>
+    <td>Minutes</td> 
+    <td>Seconds</td>
+    <td>Day</td>
+    <td>Month</td>
+    <td>Year</td>
+  </tr>
+  <tr>
+	  <td>08</td>
+	  <td>30</td>
+	  <td>45</td>
+	  <td>03</td>
+	  <td>09</td>
+	  <td>2015</td>
+  </tr>
+</table>
+<select>
+	<option value="hour">Hour</option>
+	<option value="minutes">Minutes</option>
+	<option value="day">Day</option>
+	<option value="month">Month</option>
+	<option value="year">Year</option>
+</select>
+Val:<input text></input text><button>Set</button>
+</div>
+
+<h2><a href="#" onclick="toggle('wrapper3')">Power Sockets</a></h2>
+<div id="wrapper3" class="open" style="display:none">
+<table style="width:100%;border: 1px solid black;border-collapse: collapse;">
+  <tr>
+	  <td>ID</td>
+	  <td>CodeID</td>
+	  <td>Devide</td>
+	  <td></td>
+	  <td></td>
+  </tr>
+  <tr>
+	  <td>1</td>
+	  <td>00111101111110001011111110</td>
+	  <td>CHANON_DIO</td>
+	  <td><button>Bind</button></td>
+	  <td><button>Remove</button></td>
+  </tr>
+  <tr>
+	  <td>2</td>
+	  <td>00111101111110001011111110</td>
+	  <td>CHANON_DIO</td>
+	  <td><button>Bind</button></td>
+	  <td><button>Remove</button></td>
+  </tr>
+  </table>
+	  <button>Add Device</button>
+	  
+  </div>
+  <br>
+  </div>
+    </body>
+</html>
+
