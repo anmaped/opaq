@@ -35,45 +35,65 @@
 #define N_POWER_DEVICES 20
 
 // offsets for permanent storage
+// SIGNATURE
 #define OFFSET_SIGNATURE 0x00
 #define SIGNATURE_LEN 1
 
+// SSID for softAP mode
 #define OFFSET_SSID OFFSET_SIGNATURE + SIGNATURE_LEN
-#define SSID_LEN 16
+#define SSID_LEN 32 + 1 // 1 for '\0' character
 
+// PASSWORD for softAP mode
 #define OFFSET_PWD OFFSET_SSID + SSID_LEN
-#define PWD_LEN 11 + 1 // 1 for '\0' character
+#define PWD_LEN 32 + 1 // 1 for '\0' character
 
-#define OFFSET_SET OFFSET_PWD + PWD_LEN
+// SSID for CLIENT mode
+#define OFFSET_C_SSID OFFSET_PWD + PWD_LEN
+#define C_SSID_LEN 32 + 1 // 1 for '\0' character
+
+// PASSWORD for CLIENT mode
+#define OFFSET_C_PWD OFFSET_C_SSID + C_SSID_LEN
+#define C_PWD_LEN 64 + 1 // 1 for '\0' character
+
+// modes os operation (first bit means CLIENT or softAP)
+#define OFFSET_SET OFFSET_C_PWD + C_PWD_LEN
 #define SET_LEN 1
 
+// number of light devices
 #define OFFSET_NLD OFFSET_SET + SET_LEN //(OFFSET_LD + LD_LEN)
 #define NLD_LEN 1
 
+// light device settings
 #define OFFSET_LD OFFSET_NLD + NLD_LEN
 #define LD_LEN_EACH (sizeof(AcStorage::deviceLightDescriptor))
 #define LD_LEN (LD_LEN_EACH * N_LIGHT_DEVICES)
 
 #define S_LEN_EACH 32 + 1 // a multiple of two + 1 byte for storing the number of points
 
+// number of power devices
 #define OFFSET_NPD OFFSET_LD + LD_LEN
 #define NPD_LEN 1
 
+// power devices settings
 #define OFFSET_PD OFFSET_NPD + NPD_LEN
 #define PD_LEN_EACH (sizeof(AcStorage::deviceDescriptorPW))
 #define PD_LEN (PD_LEN_EACH * N_POWER_DEVICES)
 
+// offset of the end of the permanent storage
 #define MAXIMUM_SETTINGS_STORAGE OFFSET_PD + PD_LEN
 
+// code length for light devices
 #define LIGHT_CODE_ID_LENGTH 5
 
+// conversion from id to index, and vice-versa
 #define id2idx(id) id-1
+#define idx2id(idx) idx+1
 
+// enumerations for light and power devices settings
 enum type {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH};
-
 enum ptype {CHACON_DIO = 1, OTHERS};
+enum pstate {OFF = 0, ON, BINDING, UNBINDING, ON_PERMANENT, OFF_PERMANENT, AUTO};
 
-enum pstate {OFF = 0, ON, BINDING, UNBINDING};
 
 class AcStorage: EEPROMClass
 {
@@ -106,6 +126,8 @@ private:
     uint8_t* signature;
     char* ssid;
     char* pwd;
+    char* c_ssid;
+    char* c_pwd;
     uint8_t* op;
 
     struct device_descriptor* lightDevice;
@@ -123,7 +145,7 @@ public:
     AcStorage();
 
     /* restore default settings */
-    void defauls ( uint8_t sig );
+    void defaults ( uint8_t sig );
     /* store current settings */
     void save();
 
@@ -136,15 +158,16 @@ public:
     uint8_t getLDeviceSignal ( const uint8_t x, const uint8_t y ) { return lightDevice[getCurrentSelLDevice()].signal[x][y]; };
     uint8_t getLDeviceSignal ( const uint8_t idx, const uint8_t x,
                                const uint8_t y ) { return lightDevice[idx].signal[x][y]; };
-   pstate getLState( const uint8_t id ) { return id-1 < 0 ? OFF : lightDevice[id-1].state; };
-   void setLState( const uint8_t idx, pstate st ) { lightDevice[idx].state = st; };
+    pstate getLState( const uint8_t id ) { return id-1 < 0 ? OFF : lightDevice[id-1].state; };
+    void setLState( const uint8_t idx, pstate st ) { lightDevice[idx].state = st; };
+    uint8_t * getCodeId( const uint8_t idx ) { return lightDevice[id2idx(idx)].codeid; };
 
     uint8_t getCurrentSelLDevice() { return cLidx_device; };
     void selectLDevice ( const uint8_t idx ) { cLidx_device = idx; };
 
 
-    uint8_t getPDeviceStep ( const uint8_t pid, const uint8_t st ) { return powerDevice[pid].step[st]; };
-    uint8_t getPDeviceStepSize ( const uint8_t pid ) { return powerDevice[pid].step[S_LEN_EACH-1]; };
+    uint8_t getPDeviceStep ( const uint8_t pidx, const uint8_t st ) { return powerDevice[pidx].step[st]; };
+    uint8_t getPDeviceStepSize ( const uint8_t pidx ) { return powerDevice[pidx].step[S_LEN_EACH-1]; };
     deviceDescriptorPW* getPowerDevices() { return powerDevice; };
     unsigned int getNumberOfPowerDevices() { return *numberOfPowerDevices; };
 
@@ -155,11 +178,16 @@ public:
 
     /* request SSID for acess point operation */
     const char* getSSID() { return ( const char* ) ssid; };
-    const char* getClientSSID() { return ( const char* ) ""; };
-    const char* getClientPwd() { return ( const char* ) ""; };
+    const char* getPwd() { return ( const char* ) pwd; };
+    const char* getClientSSID() { return ( const char* ) c_ssid; };
+    const char* getClientPwd() { return ( const char* ) c_pwd; };
+    void setClientSSID( const char* ssid ) { if( strlen(ssid) < C_SSID_LEN ) memcpy ( c_ssid, ssid, strlen(ssid) );  };
+    void setClientPwd( const char* pwd ) { if( strlen(pwd) < C_PWD_LEN ) memcpy ( c_pwd, pwd, strlen(pwd) ); };
 
     /* get settings for operating as access point or client */
-    uint8_t getModeOperation();
+    uint8_t getModeOperation() { return *op; };
+    void enableSoftAP() { *op |= 0x1; };
+    void enableClient() { *op &= ~0x1; };
 
     /* light device management functions */
     void addLightDevice();
@@ -178,6 +206,7 @@ public:
 
     uint32_t getPDeviceCode ( uint8_t pdeviceId ) { return powerDevice[pdeviceId - 1].code; }; // unsafe
     uint8_t getPDeviceState ( uint8_t pdeviceId ) { return powerDevice[pdeviceId - 1].state; }; // unsafe
+    bool getPDevicePoint( const uint8_t stepId, const uint8_t value );
 
 };
 

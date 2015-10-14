@@ -38,7 +38,7 @@ const __FlashStringHelper* AcHtml::get_header()
   // return string with menu
   return F(" \
     <head> \
-    <title>Aqua Controller</title> \
+    <title>Opaq C1</title> \
     <meta charset=\"utf-8\" /> \
     <link rel=\"stylesheet\" href=\"style.css\"> \
     </head> ");
@@ -57,11 +57,15 @@ const __FlashStringHelper* AcHtml::get_menu()
   function store() {
       sendGet("\global?storesettings=" + 1);
   };
+  function selectLDevice(elem) {
+    sendGet( "\light?sdevice=" +  elem[elem.selectedIndex].value  + "&setcurrent=true" );
+    location.reload(true);
+  };
   </script>
   <img height="100px" src="logo.png"/>
   <nav class="dropdownmenu">
   <ul>
-    <li><a href="..">Status</a></li><!--
+    <li><a href="..">Opaq Status</a></li><!--
     --><li><a href="#">Settings</a>
     <ul id="submenu">
         <li><a href="light">Light-CO2</a></li>
@@ -69,7 +73,7 @@ const __FlashStringHelper* AcHtml::get_menu()
         <li><a href="advset">Advanced Settings</a></li>
       </ul>
     </li><!--
-    --><li><a href="info">Info</a></li>
+    --><li><a href="https://github.com/anmaped/opaq">Opaq on GitHub</a></li>
   </ul>
 </nav>
   )=====");
@@ -79,23 +83,26 @@ const __FlashStringHelper* AcHtml::get_menu()
 
 const __FlashStringHelper* AcHtml::get_body_begin()
 {
-  return F(" <body> ");
+  return F("<body>");
 }
 
 const __FlashStringHelper* AcHtml::get_body_end()
 {
-  return F(" </body> ");
+  return F("</body>");
 }
 
 void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
 {
+  *str += F("<canvas class=\"lightsignals\" id=\"light\"></canvas><font size=\"4\">Current setting: </font><select onchange=\"selectLDevice(this);\" id=\"selDev\">");
+  
+  gen_listbox_lightdevices(lstorage, str);
+
   static const char script_chart[] PROGMEM = R"=====(
-  <canvas class="lightsignals" id="light"></canvas>
-  <font size="4">Light device: </font><select><option>1</option></select> <button onclick="store()">Apply Settings</button>
+  </select> <button onclick="store()">Set Permanent</button>
   <script>
     var buyerData = {
-    labels : ["0am", "4am","8am","12am","4pm","8pm","12pm"],
-    labelsspace : 4,
+    labels : ["0am","","","", "4am","","","","8am","","","","12am","","","","4pm","","","","8pm","","","","12pm"],
+    labelsspace : 1,
   )=====";
 
   static const char script_chart2[] PROGMEM = R"=====(
@@ -108,9 +115,13 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
   
   *str += FPSTR(&script_chart[0]);
   *str += F("device : ");
-  *str += String( lstorage->getNLDevice() );
+  *str += String( idx2id( lstorage->getCurrentSelLDevice() ) );
   *str += F(",");
   *str += F("datasets : [");
+
+  // colors
+  char colorL[4][7] = { "354F64", "AAB0A2", "F9FDA9", "A57E39" };
+  char colorP[4][7] = { "283743", "9CAB89", "4D5013", "845500" };
   
   if (lstorage->getNLDevice() > 0)
   {
@@ -123,9 +134,13 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
         *str += F("{");
   
         *str += F("fillColor : \"rgba(172,194,132,0)\",");
-        *str += F("strokeColor : \"#ACC200\",");
+        *str += F("strokeColor : \"#");
+        *str += String( colorL[ s % 4 ] );
+        *str += F("\",");
         *str += F("pointColor : \"#fff\",");
-        *str += F("pointStrokeColor : \"#90086D\",");
+        *str += F("pointStrokeColor : \"#");
+        *str += String( colorP[ s % 4 ] );
+        *str += F("\",");
 
         *str += F("holdY: false,");
         *str += F("data : [");
@@ -153,7 +168,7 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
   char colorarrayLines[4][7] = { "FFAAAA", "8685BA", "F9FDA9", "A57E39" };
   char colorarrayPoints[4][7] = { "550000", "11103B", "4D5013", "845500" };
   // draw step functions
-  const uint8_t value = 240;
+  const uint8_t value = 245;
   uint8_t limit = 0;
   
   for ( int limit=0; limit < 16; limit += 2 )
@@ -176,7 +191,7 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
       for ( int step=limit; step < lstorage->getPDeviceStepSize(idx) && step < limit+2; step++ )
       {
         *str += F("[");
-        *str += String( value-(idx*15) );
+        *str += String( value-(idx*7) );
         *str += F(",");
         *str += String( lstorage->getPDeviceStep( idx, step ) );
         
@@ -353,10 +368,6 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     function unbindLDevice(deviceId) {
       sendGet( "\light?sdevice=" + deviceId  + "&lstate=" + 1 );
     };
-    function selectLDevice(elem) {
-      sendGet( "\light?sdevice=" +  elem[elem.selectedIndex].value  + "&setcurrent=true" );
-      location.reload(true);
-    };
     function removeDevice() {
       sendGet( "\light?rdevice=true" );
     };
@@ -384,7 +395,7 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     function bindPDevice(id) {
       sendGet("\power?pdevice=" + id + "&pstate=" + 2);
-      if (confirm("Are you sure that your power outlet has been binded? Only accept this operation if your power socket has emitted some vibration."))
+      if (confirm("Are you sure that your power outlet has been binded? Accept this check box if your power socket has been looked."))
       {
         sendGet("\power?pdevice=" + id + "&pstate=" + 1);
       }
@@ -395,7 +406,7 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     function unbindPDevice(id) {
       sendGet("\power?pdevice=" + id + "&pstate=" + 3);
-      if (confirm("Are you sure that your power outlet has been unbinded? Take care that your power outlet is already unbinded since a socket registered with an unkwnown code could not be further binded."))
+      if (confirm("Are you sure that your power outlet has been unbinded? WARNING!! Any socket registered with an unkwnown code should not be binded anymore."))
       {
         sendGet("\power?pdevice=" + id + "&pstate=" + 0);
       }
@@ -408,19 +419,46 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
       //alert(pid + " " + v + " " + el.value);
       sendGet("\power?pdevice=" + pid + "&psid=" + sid + "&pvalue=" + el.value);
     };
+    function setReboot()
+    {
+      sendGet("\global?setreboot=" + 1);
+    }
+    function setFactory()
+    {
+      if (confirm("This action will set default settings. Are you sure ?"))
+      {
+        sendGet("\global?setfactorysettings=" + 1);
+      }
+    }
+    function setPermanent()
+    {
+      store();
+    }
     </script>
   )=====";
 
   *str += FPSTR(&scripts[0]);
 }
 
-void AcHtml::get_advset_light_devicesel(AcStorage * const lstorage, String * const str)
+void AcHtml::gen_listbox_lightdevices(AcStorage * const lstorage, String * const str)
 {
   // list devices to select
   for(int i=0; i < lstorage->getNLDevice(); i++)
   {
-    *str += "<option value=\"" + String(lstorage->getLDeviceId(i)) + "\">DEVICE " + String(lstorage->getLDeviceId(i)) + "</option>";
+    *str += F("<option ");
+    if ( i == lstorage->getCurrentSelLDevice() )
+      *str += F("selected ");
+    *str += F("value=\"");
+    *str += String( lstorage->getLDeviceId(i) );
+    *str += F("\">DEVICE ");
+    *str += String(lstorage->getLDeviceId(i));
+    *str += F("</option>");
   }
+}
+
+void AcHtml::get_advset_light_devicesel(AcStorage * const lstorage, String * const str)
+{
+  gen_listbox_lightdevices(lstorage, str);
 
   if ( lstorage->getNLDevice() )
     *str +=  F("</select><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\">");
@@ -560,8 +598,9 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
   <tr>
     <td>ID</td>
     <td>CodeID</td>
-    <td>Devide</td>
-    <td>Action</td>
+    <td>Devide Id</td>
+    <td></td>
+    <td>State</td>
     <td></td>
     <td></td>
   </tr>
@@ -594,9 +633,22 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
 
     *str += F("<td><button onclick=\"setPDeviceState(");
     *str += String(pdevice[i].id);
-    *str += F(",1);\">On</button> <button onclick=\"setPDeviceState(");
+    *str += F(",4);\">On</button> <button onclick=\"setPDeviceState(");
     *str += String(pdevice[i].id);
-    *str += F(",0);\">Off</button></td>");
+    *str += F(",5);\">Off</button> ");
+    *str += F("<button onclick=\"setPDeviceState(");
+    *str += String(pdevice[i].id);
+    *str += F(",6);\">AUTO</button></td>");
+
+    *str += F("<td>");
+    *str += (pdevice[i].state == ON ) ? F("ON") :
+    ( (pdevice[i].state == OFF ) ? F("OFF") :
+    ( (pdevice[i].state == BINDING ) ? F("BINDING") :
+    ( (pdevice[i].state == UNBINDING ) ? F("UNBINDING") :
+    ( (pdevice[i].state == ON_PERMANENT ) ? F("PERMANENT ON") :
+    ( (pdevice[i].state == OFF_PERMANENT ) ? F("PERMANENT OFF") :
+    (F(".")) ) ) ) ) );
+    *str += F("</td>");
     
     *str += F("<td><button  onclick=\"bindPDevice(");
     *str += String(pdevice[i].id);
@@ -617,24 +669,8 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
   *str += FPSTR(&psockets2[0]);
 }
 
-void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * const str , ESP8266WebServer * server )
-{
-  auto sendBlock = [&server](String *str)
-  {
-    int index;
-    for (index=0; index < floor((*str).length()/HTTP_DOWNLOAD_UNIT_SIZE); index++)
-    {
-      server->client().write((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
-    }
-    
-    if ( index != 0 )
-    {
-      *str = ((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
-    }
-  
-    Serial.println("Block sent: " + String(index));
-  };
-  
+void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * const str , ESP8266WebServer * server, std::function<void (String*)> sendBlock )
+{ 
   char tmp[10];
   *str += F("<h3>Power Outlet Activation Signals (any cell check is discarded)</h3><style>.tdp {border: 1px solid gray;border-collapse: collapse;} .inputp {width:100%; background: transparent; border: none; text-align:center;}</style><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\"><tr><th colspan=\"2\">a1</th><th colspan=\"2\">b1</th><th colspan=\"2\">c1</th><th colspan=\"2\">d1</th><th colspan=\"2\">a2</th><th colspan=\"2\">b2</th><th colspan=\"2\">c2</th><th colspan=\"2\">d2</th><th colspan=\"2\">a3</th><th colspan=\"2\">b3</th><th colspan=\"2\">c3</th><th colspan=\"2\">d3</th><th colspan=\"2\">a4</th><th colspan=\"2\">b4</th><th colspan=\"2\">c4</th><th colspan=\"2\">d4</th><th>Size</th></tr>");
 
@@ -650,7 +686,7 @@ void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * cons
         {
           *str += F("\" onchange=\"changePSettings(");
           
-          sprintf(tmp, "%i,%i", i, j);
+          sprintf(tmp, "%i,%i", idx2id(i), idx2id(j) );
           *str += String( tmp );
           
           *str += F(",this)\" class=\"inputp\" /></td>");
@@ -660,7 +696,7 @@ void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * cons
         
         *str += F("\" onchange=\"changePSettings(");
         
-        sprintf(tmp, "%i,%i", i, (j != S_LEN_EACH-1) ? j+1 : j);
+        sprintf(tmp, "%i,%i", idx2id(i),  (j != S_LEN_EACH-1) ? idx2id(j+1) : idx2id(j) );
         *str += String( tmp );
         
         *str += F(",this)\" class=\"inputp\" /></td>");
@@ -671,28 +707,12 @@ void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * cons
     sendBlock(str);
   }
 
-  *str += F("</table></div><br></div>");
+  *str += F("</table></div><button onClick=\"setReboot()\">Reboot</button> <button onClick=\"setFactory()\">Factory Settings</button> <button onClick=\"setPermanent()\">Set Settings Permanent</button><br></div>");
   
 }
 
-void AcHtml::send_status_div(String * const str, ESP8266WebServer * server, AcStorage * const lstorage)
+void AcHtml::send_status_div(String * const str, AcStorage * const lstorage, std::function<void (String*)> sendBlock )
 {
-
-  auto sendBlock = [&server](String *str)
-  {
-    int index;
-    for (index=0; index < floor((*str).length()/HTTP_DOWNLOAD_UNIT_SIZE); index++)
-    {
-      server->client().write((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
-    }
-    
-    if ( index != 0 )
-    {
-      *str = ((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
-    }
-  
-    Serial.println("Block sent: " + String(index));
-  };
 
   static const char ss_tmp[] PROGMEM = R"=====(
 <style>

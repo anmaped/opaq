@@ -42,6 +42,8 @@ AcStorage::AcStorage() : EEPROMClass()
   signature = ( uint8_t* ) flashPointer + OFFSET_SIGNATURE;
   ssid = ( char* ) flashPointer + OFFSET_SSID;
   pwd = ( char* ) flashPointer + OFFSET_PWD;
+  c_ssid = ( char* ) flashPointer + OFFSET_C_SSID;
+  c_pwd = ( char* ) flashPointer + OFFSET_C_PWD;
   op = ( uint8_t* ) flashPointer + OFFSET_SET;
 
   lightDevice = reinterpret_cast<deviceLightDescriptor*> ( flashPointer +
@@ -55,7 +57,7 @@ AcStorage::AcStorage() : EEPROMClass()
   numberOfPowerDevices = ( uint8_t* ) flashPointer + OFFSET_NPD;
 }
 
-void AcStorage::defauls ( uint8_t sig )
+void AcStorage::defaults ( uint8_t sig )
 {
   for ( int i = 0; i < SPI_FLASH_SEC_SIZE; i++ ) {flashPointer[i] = 0x00;}
 
@@ -63,15 +65,19 @@ void AcStorage::defauls ( uint8_t sig )
 
   // SSID setting
   static const char* lssid PROGMEM = "opaq-0001";
-  memcpy ( ssid, lssid, SSID_LEN );
+  memcpy_P ( ssid, lssid, strlen_P(lssid) );
 
   // default PWD
-  static const char* lpwd PROGMEM = "1234567890";
-  memcpy ( pwd, lpwd, PWD_LEN );
+  static const char* lpwd PROGMEM = "opacopac";
+  memcpy_P ( pwd, lpwd, strlen_P(lpwd) );
 
   // operation modes for controller
   // access point mode enabled - bit 0b---- ---X
-  *op = 0b00000001;
+  // *op = 0b00000001;
+
+  // enable softAP by default
+  enableSoftAP();
+  
 
   *numberOfLightDevices = 0;
 
@@ -90,11 +96,6 @@ const uint8_t AcStorage::getSignature()
   return ( const uint8_t ) * signature;
 }
 
-uint8_t AcStorage::getModeOperation()
-{
-  return *op;
-}
-
 void AcStorage::addLightDevice()
 {
   // defensive case
@@ -105,6 +106,11 @@ void AcStorage::addLightDevice()
   lightDevice[*numberOfLightDevices].type = OPENAQV1;
   lightDevice[*numberOfLightDevices].linear = true;
   lightDevice[*numberOfLightDevices].state = ON;
+  
+  for( int i=0; i < LIGHT_CODE_ID_LENGTH; i++ )
+  {
+    lightDevice[*numberOfLightDevices].codeid[i] = random ( 0x0, 0xff );
+  }
 
   ( *numberOfLightDevices )++;
 
@@ -217,5 +223,19 @@ void AcStorage::setPowerDeviceState ( const uint8_t pdeviceId,
     }
   }
 }
+
+bool AcStorage::getPDevicePoint( const uint8_t stepId, const uint8_t value )
+{
+  for( int s=0; s < getPDeviceStepSize( id2idx(stepId) ); s += 2 )
+  {
+    if ( getPDeviceStep( id2idx(stepId), s ) <= value && value < getPDeviceStep( id2idx(stepId), s + 1 ) )
+    {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 
 

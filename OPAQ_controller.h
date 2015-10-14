@@ -46,11 +46,14 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x58
-#define OPAQ_VERSION "1.0.1"
+#define SIG 0x61
+#define OPAQ_VERSION "1.0.2"
 
-#define deviceTaskPrio        1
-#define deviceTaskQueueLen    1
+#define deviceTaskPrio           2
+#define deviceTaskQueueLen       1
+#define _10hzLoopTaskPrio        1
+#define _10hzLoopTaskQueueLen    1
+
 
 class OpenAq_Controller
 {
@@ -62,6 +65,7 @@ private:
 
   // Set up alarms to call periodic tasks
   Ticker timming_events;
+  Ticker t_evt;
 
   // real-time clock initialization
   RtcDS3231 rtc;
@@ -83,6 +87,7 @@ private:
 
   // stores event that triggers deviceTask
   os_event_t deviceTaskQueue[deviceTaskQueueLen];
+  os_event_t _10hzLoopQueue[deviceTaskQueueLen];
 
   void handleRoot();
   void handleLight();
@@ -93,7 +98,7 @@ private:
 
   void updatePowerOutlets ( uint8_t pdeviceId );
 
-  void sendBlock ( String* str );
+  std::function<void(String*)> sendBlockGlobal( ESP8266WebServer* sv, uint16_t* count, uint8_t* step );
 
 public:
 

@@ -36,12 +36,13 @@ public:
   void get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String * a);
   void get_advset_light_devicesel(AcStorage * const lstorage, String * const a);
   void get_advset_light_device_signals(AcStorage * const lstorage, String * a);
+  void gen_listbox_lightdevices(AcStorage * const lstorage, String * const str);
 
   void get_advset_clock(String *, const RtcDateTime);
   void get_advset_psockets(String *str, unsigned int n_powerDevices, AcStorage::deviceDescriptorPW* pdevice);
-  void get_advset_psockets_step( AcStorage * const lstorage, String * const str, ESP8266WebServer * server );
+  void get_advset_psockets_step( AcStorage * const lstorage, String * const str, ESP8266WebServer * server, std::function<void (String*)> sendBlock );
 
-  void send_status_div(String * const str, ESP8266WebServer * server, AcStorage * const lstorage);
+  void send_status_div(String * const str, AcStorage * const lstorage, std::function<void (String*)> sendBlock );
 };
 
 #endif // ACHTML_H

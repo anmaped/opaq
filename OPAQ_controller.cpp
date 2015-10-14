@@ -34,15 +34,21 @@
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
   opaq_controller.run_task_ds3231();
+}
 
+static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
+{
   opaq_controller.run_task_nrf24();
-
-  opaq_controller.run_task_rf433ook();
 }
 
 static void _devicesTask_timmingEvent()
 {
   system_os_post ( deviceTaskPrio, 0, 0 );
+}
+
+static void _10hzLoop_timmingEvent()
+{
+  system_os_post ( _10hzLoopTaskPrio, 0, 0 );
 }
 
 // non-class functions end
@@ -94,7 +100,7 @@ void OpenAq_Controller::setup_controller()
     Serial.println ( ssid );
 
     // setup the access point
-    WiFi.softAP ( ssid ); // now without password and fixed ssid [TODO]
+    WiFi.softAP ( ssid , storage.getPwd() ); // with password and fixed ssid
   }
   else
   {
@@ -107,10 +113,21 @@ void OpenAq_Controller::setup_controller()
 
     WiFi.begin ( ssid, pwd );
 
+    int count_tries = 0;
+
     while ( WiFi.status() != WL_CONNECTED )
     {
       delay ( 500 );
       Serial.print ( "." );
+      count_tries++;
+
+      if (count_tries > 100)
+      {
+        Serial.println ( "returning to AP mode. Reboot." );
+        storage.enableSoftAP();
+        storage.save();
+        ESP.restart();
+      }
     }
 
     Serial.println ( "WiFi connected" );
@@ -155,22 +172,25 @@ void OpenAq_Controller::setup_controller()
 
   // NRF24 setup and radio configuration
   radio.begin();
-  //radio.setChannel(1);
-  //radio.setDataRate(RF24_2MBPS);
-
-  // configure pipe 0x1122334455 for NRF24
-  //radio.openWritingPipe(0x1122334455LL);
-
+  radio.setChannel(1);
+  radio.setDataRate(RF24_1MBPS);
+  radio.setAutoAck(false);
+  //radio.disableCRC();
+  radio.openWritingPipe( 0x5544332211LL ); // set address for outcoming messages
+  radio.openReadingPipe( 1, 0x5544332211LL ); // set address for incoming messages
+  
   // manual test
-  uint8_t buf[5] = {0x11, 0x22, 0x33, 0x44, 0x55};
-  radio.write_register ( TX_ADDR, buf, 5 );
-  radio.write_register ( SETUP_AW, 0x3 );
-  radio.write_register ( EN_AA, 0x0 );
-  radio.write_register ( EN_RXADDR, 0x0 );
-  radio.write_register ( SETUP_RETR, 0x0 );
-  radio.write_register ( RF_CH, 0x1 );
-  radio.write_register ( RF_SETUP, 0x7 );
-  radio.write_register ( CONFIG, 0xE );
+  //uint8_t buf[5] = {0x11, 0x22, 0x33, 0x44, 0x55};
+  //radio.write_register ( TX_ADDR, buf, 5 );
+  //radio.write_register ( SETUP_AW, 0x3 );
+  //radio.write_register ( EN_AA, 0x0 ); // mandatory - no ACK
+  //radio.write_register ( EN_RXADDR, 0x0 );
+  //radio.write_register ( SETUP_RETR, 0x0 );
+  //radio.write_register ( RF_CH, 0x1 );
+  //radio.write_register ( RF_SETUP, 0x7 );
+  //radio.write_register ( CONFIG, 0xE ); // mandatory
+
+  //radio.startListening();
 
   // for debug purposes of radio transceiver
   radio.printDetails();
@@ -179,13 +199,26 @@ void OpenAq_Controller::setup_controller()
   system_os_task ( _deviceTaskLoop, deviceTaskPrio, deviceTaskQueue,
                    deviceTaskQueueLen );
 
+  system_os_task ( _10hzLoop, _10hzLoopTaskPrio, _10hzLoopQueue,
+                   _10hzLoopTaskQueueLen );
+
   // Attach deviceTask event trigger function for periodic releases
   timming_events.attach_ms ( 5000, _devicesTask_timmingEvent );
+
+  t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );
 }
 
+int count=0;
 void OpenAq_Controller::run_controller()
 {
   server.handleClient();
+
+  if (count == 100000)
+  {
+    opaq_controller.run_task_rf433ook();
+    count=0;
+  }
+  count++;
 
 }
 
@@ -237,6 +270,16 @@ void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
   }
 }
 
+uint16_t normalizeClock(RtcDateTime * clock, const uint16_t a, const uint16_t b )
+{
+  float clktmp = ( ( float )clock->Hour() ) + ( ( ( float )clock->Minute() ) / 60 )
+               + ( ( ( float )clock->Second() ) / 3600 );
+               
+  clktmp = (clktmp*255.)/24.;
+
+  return (uint16_t)clktmp;
+}
+
 void OpenAq_Controller::run_task_rf433ook()
 {
   // check if some device is binding...
@@ -267,7 +310,8 @@ void OpenAq_Controller::run_task_rf433ook()
     }
   }
 
-
+  static bool wait_next_change[N_POWER_DEVICES] = { false };
+  
   // normal execution
   for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
         pdeviceId++ )
@@ -275,7 +319,51 @@ void OpenAq_Controller::run_task_rf433ook()
     DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
 
     updatePowerOutlets ( pdeviceId );
+
+    pstate auto_state = (pstate)storage.getPDevicePoint( pdeviceId, normalizeClock(&clock, 0, 255) );
+
+    // update Power outlet state according to the step functions
+    DEBUGV("::ac nclock %d\n", normalizeClock(&clock, 0, 255));
+    DEBUGV("::ac val %d\n", auto_state );
+    
+    // get state, if state is "permanent on"
+    if( storage.getPDeviceState( pdeviceId ) == ON_PERMANENT )
+    {
+      // set on until next state change
+      wait_next_change[ id2idx( pdeviceId ) ] = true;
+      storage.setPowerDeviceState( pdeviceId, ON );
+      return;
+    }
+
+    // get state, if state is "permanent off"
+    if( storage.getPDeviceState( pdeviceId ) == OFF_PERMANENT )
+    {
+      // set off until next change
+      wait_next_change[ id2idx( pdeviceId ) ] = true;
+      storage.setPowerDeviceState( pdeviceId, OFF );
+      return;
+    }
+
+    // detect change
+    if ( storage.getPDeviceState( pdeviceId ) == AUTO )
+    {
+      wait_next_change[ id2idx( pdeviceId ) ] = false;
+    }
+
+    if ( !wait_next_change[ id2idx( pdeviceId ) ] )
+    {
+      if ( auto_state )
+      {
+        storage.setPowerDeviceState( pdeviceId, ON );
+      }
+      else
+      {
+        storage.setPowerDeviceState( pdeviceId, OFF );
+      }
+    }
   }
+
+  
 }
 
 void OpenAq_Controller::run_task_ds3231()
@@ -302,11 +390,40 @@ uint8_t calculate_lrc(uint8_t *buf)
 
 void OpenAq_Controller::run_task_nrf24()
 {
+  static uint8_t deviceId=1;
   float clktmp;
+  
+  // read...
 
-  for ( int deviceId = 1; deviceId <= storage.getNumberOfLightDevices();
-        deviceId++ )
+  /*radio.setChannel(100);
+  
+  uint8_t buf[32];
+
+  //radio.stopListening();
+
+  if ( radio.available() )
   {
+    bool done = false;
+    while (!done)
+    {
+      done = radio.read( buf, 32 );
+
+      char tmp[5];
+      for(int ib=0; ib < 32; ib++)
+      {
+        sprintf(tmp, "%02x ", buf[ib]);
+        Serial.print(tmp);
+      }
+      Serial.println("recv.");
+    }
+  }*/
+  
+  //radio.stopListening();
+
+  bool binding=false;
+  //for ( int deviceId = 1; deviceId <= storage.getNumberOfLightDevices();
+  //      deviceId++ )
+  //{
     // case device is
     if ( storage.getDeviceType ( deviceId ) == ZETLIGHT_LANCIA_2CH )
     {
@@ -328,19 +445,19 @@ void OpenAq_Controller::run_task_nrf24()
       //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
       // Normal mode (N_MODE)
       //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE>             < binding mode >  <groupId>    <LRC>
-        0x03,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
+        0x00,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
       //<unknown> = 0xEC
         0xEC, 
       //<fixed values>
         0x0, 0x0, 0x0,
       //<5bytes controllerID>
-        0xF2, 0x83, 0x1D, 0x4A, 0x17,
+        0xF2, 0x83, 0x1D, 0x4A, 0x20,
       //<fixed values>
         0x0, 0x0,
       //<unknown bytes>
         0x68, 0x71,
       //<2bytes group binding>
-        0x0, 0x0,   // means nothing
+        0x00, 0x0,   // means nothing
       //<unknown values>
         0x0, 0x0};
 
@@ -350,7 +467,7 @@ void OpenAq_Controller::run_task_nrf24()
       // binding message
       uint8_t binding_data[32] = {
       //<3byte static signature>
-        0xEE, 0xD, 0xA,
+        0xEE, 0x0D, 0x0A,
       // BINDING mode
       //                                            <N_MODE>             < binding mode >  <groupId>    <LRC>
         0x0,         0x0,      0x0,      0x0,        0x0,      0x0, 0x0, 0x23, 0xdc, 0x0,    0x01,      0x00,
@@ -359,42 +476,75 @@ void OpenAq_Controller::run_task_nrf24()
       //<fixed values>
         0x0, 0x0, 0x0,
       //<5bytes controllerID>
-        0xF2, 0x83, 0x1D, 0x4A, 0x17,
+        0xF2, 0x83, 0x1D, 0x4A, 0x20,
       //<fixed values>
         0x0, 0x0,
       //<unknown bytes>
         0x68, 0x71,
       //<2bytes group binding>
-        0x7b, 0x15,   // means group 1
+        0x00, 0x00,   // 0x08, 0x06 -  0x7b, 0x15,
       //<unknown values>
         0x0, 0x0};
 
       binding_data[14] = calculate_lrc(binding_data);
       Serial.println(binding_data[14]);
 
+      uint8_t * codepointer = storage.getCodeId( deviceId );
+
       if( storage.getLState( deviceId ) == ON )
       {
-        DEBUGV("ac:: ON msg sent\n");
+        //DEBUGV("ac:: ON msg sent\n");
+
+        buf[19] = codepointer[0];
+        buf[20] = codepointer[1];
+        buf[21] = codepointer[2];
+        buf[22] = codepointer[3];
+        buf[23] = codepointer[4];
+        
         radio.startWrite ( buf, 32 );
+        
       }
 
-      if( storage.getLState( deviceId ) == BINDING )
+      if( storage.getLState( deviceId ) == BINDING && !binding )
       {
-        DEBUGV("ac:: BIND msg sent\n");
+        binding = true;
+        //DEBUGV("ac:: BIND msg sent\n");
+        
+        radio.setChannel(100);
+
+        binding_data[19] = codepointer[0];
+        binding_data[20] = codepointer[1];
+        binding_data[21] = codepointer[2];
+        binding_data[22] = codepointer[3];
+        binding_data[23] = codepointer[4];
+          
+        binding_data[28] = 0x7B;
+        binding_data[29] = 0x15;
+        
         radio.startWrite ( binding_data, 32 );
+
+        delayMicroseconds(10000);
+        radio.setChannel(1);
+          
       }
 
-      //radio.printDetails();
     }
-  }
 
+  //}
+
+  //radio.startListening();
+
+  deviceId++;
+  
+  if (deviceId > storage.getNumberOfLightDevices())
+    deviceId = 1;
 }
 
 /*----------------  Set default settings for Opaq hardware  -----------------*/
 
 void OpenAq_Controller::factory_defaults ( uint8_t sig )
 {
-  storage.defauls ( sig );
+  storage.defaults ( sig );
   storage.save();
 }
 
@@ -407,25 +557,85 @@ void OpenAq_Controller::factory_defaults ( uint8_t sig )
 =                      Opaq controller private handlers                       =
 =============================================================================*/
 
+void sendBlockS(String* str, ESP8266WebServer *sv)
+{
+  int index;
+  for (index=0; index < floor((*str).length()/HTTP_DOWNLOAD_UNIT_SIZE); index++)
+  {
+    sv->client().write((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
+  }
+  
+  if ( index != 0 )
+  {
+    *str = (char *)((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
+  }
+
+  DEBUGV( "ac:: B %d", index );
+}
+
+void sendBlockCS(String* str, ESP8266WebServer *sv, uint16_t* count)
+{
+  int index;
+  for (index=0; index < floor((*str).length()/HTTP_DOWNLOAD_UNIT_SIZE); index++)
+  {
+    *count += HTTP_DOWNLOAD_UNIT_SIZE;
+  }
+  
+  if ( index != 0 )
+  {
+    *str = (char *)((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
+  }
+
+  DEBUGV( "ac:: CS %d", *count );
+}
+
+std::function<void(String*)> OpenAq_Controller::sendBlockGlobal( ESP8266WebServer* sv, uint16_t* count, uint8_t* step )
+{
+    if ( *step )
+    {
+      return std::function<void(String*)>( [&sv]( String *str ) -> void { sendBlockS(str, sv); } );
+    }
+    else
+    {
+      return std::function<void(String*)>( [&sv,&count]( String *str ) -> void { sendBlockCS(str, sv, count); } );
+    }
+};
+
 void OpenAq_Controller::handleRoot()
 {
-  // begin sending webpage content in blocks
-  server.send ( 200, "text/html", String ( "" ) );
+  ESP8266WebServer *sv = &server;
+  uint16_t count = 0;
+  uint8_t step;
+  
+  // sends webpage content in chunks
 
-  // use global str
-  str = "";
+  // first calculate the expected size of the webpage and then sends the webpage
+  for( step=0; step < 2; step++ )
+  {
+    // reset global str
+    str = "";
 
-  str.concat ( html.get_begin() );
-  str.concat ( html.get_header() );
-  str.concat ( html.get_body_begin() );
-  str.concat ( html.get_menu() );
+    if( step == 1 )
+    {
+      server.sendHeader ( "Content-Length", String ( count ) );
+      server.send ( 200, "text/html", String ( "" ) );
+    }
+    
+    str.concat ( html.get_begin() );
+    str.concat ( html.get_header() );
+    str.concat ( html.get_body_begin() );
+    str.concat ( html.get_menu() );
 
-  html.send_status_div( &str, &server, &storage );
-
-  str.concat( html.get_body_end() );
-  str.concat( html.get_end() );
-
-  server.client().write( str.c_str(), str.length() );
+    html.send_status_div( &str, &storage, sendBlockGlobal(sv, &count, &step) );
+  
+    str.concat( html.get_body_end() );
+    str.concat( html.get_end() );
+  
+    if ( step == 0 )
+      count += str.length();
+    else
+      server.client().write( str.c_str(), str.length() );
+  }
 }
 
 void OpenAq_Controller::handleLight()
@@ -494,41 +704,53 @@ void OpenAq_Controller::handleLight()
   // default light webpage
   DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
 
-  // begin send blocks of data
-  server.send(200, "   text/html", String(""));
-  
-  //String str = String("");
-  // use external str
-  str = "";
-  
-  str += html.get_begin();
-  str += html.get_header_light();
-  str += html.get_body_begin();
-  str += html.get_menu();
-  sendBlock(&str);
-  
-  html.get_light_script(&storage, &str);
-  str += html.get_light_settings_mbegin();
-  sendBlock(&str);
-  
-  html.get_light_settings_mclock(&str, clock);
-  sendBlock(&str);
-  
-  str += html.get_light_settings_mend();
-  sendBlock(&str);
-  
-  RtcTemperature temp = rtc.GetTemperature();
-  str += String(temp.AsWholeDegrees());
-  str += ".";
-  str += String(temp.GetFractional());
-  str += F("º</div>");
-  sendBlock(&str);
-  
-  str += html.get_body_end();
-  str += html.get_end();
+  ESP8266WebServer *sv = &server;
+  uint16_t count = 0;
+  uint8_t step;
 
-  server.client().write( str.c_str(), str.length() );
-  //server.send(200, "text/html", str.c_str());
+  // first calculate the expected size of the webpage and then sends the webpage
+  for( step=0; step < 2; step++ )
+  {
+    // reset global str
+    str = "";
+
+    if( step == 1 )
+    {
+      server.sendHeader ( "Content-Length", String ( count ) );
+      server.send ( 200, "text/html", String ( "" ) );
+    }
+  
+    str += html.get_begin();
+    str += html.get_header_light();
+    str += html.get_body_begin();
+    str += html.get_menu();
+    sendBlockGlobal(sv, &count, &step)(&str);
+    
+    html.get_light_script(&storage, &str);
+    str += html.get_light_settings_mbegin();
+    sendBlockGlobal(sv, &count, &step)(&str);
+    
+    html.get_light_settings_mclock(&str, clock);
+    sendBlockGlobal(sv, &count, &step)(&str);
+    
+    str += html.get_light_settings_mend();
+    sendBlockGlobal(sv, &count, &step)(&str);
+    
+    RtcTemperature temp = rtc.GetTemperature();
+    str += String(temp.AsWholeDegrees());
+    str += ".";
+    str += String(temp.GetFractional());
+    str += F("º</div>");
+    sendBlockGlobal(sv, &count, &step)(&str);
+    
+    str += html.get_body_end();
+    str += html.get_end();
+
+    if ( step == 0 )
+      count += str.length();
+    else
+      server.client().write( str.c_str(), str.length() );
+  }
   
   Serial.println("L#Packet Lenght: " + String(str.length()));
   Serial.println("L#Heap Size: " + String(ESP.getFreeHeap()));
@@ -536,72 +758,69 @@ void OpenAq_Controller::handleLight()
   return;
 }
 
-void OpenAq_Controller::sendBlock(String *str)
-{
-  int index;
-  for (index=0; index < floor((*str).length()/HTTP_DOWNLOAD_UNIT_SIZE); index++)
-  {
-    server.client().write((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
-  }
-  
-  if ( index != 0 )
-  {
-    *str = ((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
-  }
-
-  Serial.println("Block sent: " + String(index));
-}
-
 void OpenAq_Controller::handleAdvset()
 {
   DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
 
-  // BEGIN: send blocks of data
-  server.send( 200, " text/html", String("") );
-  
-  // use global str
-  str = "";
-  
-  str.concat( html.get_begin() );
-  str.concat( html.get_header() );
-  str.concat( html.get_body_begin() );
-  str.concat( html.get_menu() );
-  
-  html.get_advset_light1( &str );
-  sendBlock( &str );
-  
-  html.get_advset_light_device(storage.getNumberOfLightDevices(), storage.getLightDevices(), &str);
-  sendBlock(&str);
+  ESP8266WebServer *sv = &server;
+  uint16_t count = 0;
+  uint8_t step;
 
-  html.get_advset_light2(&storage, &str);
+  // first calculate the expected size of the webpage and then sends the webpage
+  for( step=0; step < 2; step++ )
+  {
+    // reset global str
+    str = "";
+
+    if( step == 1 )
+    {
+      server.sendHeader ( "Content-Length", String ( count ) );
+      server.send ( 200, "text/html", String ( "" ) );
+    }
   
-  html.get_advset_light_devicesel(&storage, &str);
-  sendBlock(&str);
+    str.concat( html.get_begin() );
+    str.concat( html.get_header() );
+    str.concat( html.get_body_begin() );
+    str.concat( html.get_menu() );
+    
+    html.get_advset_light1( &str );
+    sendBlockGlobal( sv, &count, &step )( &str );
+    
+    html.get_advset_light_device(storage.getNumberOfLightDevices(), storage.getLightDevices(), &str);
+    sendBlockGlobal( sv, &count, &step )( &str );
   
-  html.get_advset_light_device_signals(&storage, &str);
-  sendBlock(&str);
-
-  html.get_advset_light4(&storage, &str);
-  sendBlock(&str);
+    html.get_advset_light2(&storage, &str);
+    
+    html.get_advset_light_devicesel(&storage, &str);
+    sendBlockGlobal( sv, &count, &step )( &str );
+    
+    html.get_advset_light_device_signals(&storage, &str);
+    sendBlockGlobal( sv, &count, &step )( &str );
   
-  html.get_advset_clock(&str, clock);
-  sendBlock(&str);
-
-  html.get_advset_psockets(&str, storage.getNumberOfPowerDevices(), storage.getPowerDevices());
-  sendBlock(&str);
-
-  html.get_advset_psockets_step(&storage, &str, &server);
-  DEBUGV("acH:: %d\n", str.length());
-  sendBlock(&str);
+    html.get_advset_light4(&storage, &str);
+    sendBlockGlobal( sv, &count, &step )( &str );
+    
+    html.get_advset_clock(&str, clock);
+    sendBlockGlobal( sv, &count, &step )( &str );
   
-  str.concat(html.get_body_end());
-  str.concat(html.get_end());
+    html.get_advset_psockets(&str, storage.getNumberOfPowerDevices(), storage.getPowerDevices());
+    sendBlockGlobal( sv, &count, &step )( &str );
+  
+    html.get_advset_psockets_step( &storage, &str, &server, sendBlockGlobal( sv, &count, &step ) );
+    DEBUGV("acH:: %d\n", str.length());
+    sendBlockGlobal( sv, &count, &step )( &str );
+    
+    str.concat(html.get_body_end());
+    str.concat(html.get_end());
+  
+    // send the remaining part
+    sendBlockGlobal( sv, &count, &step )( &str );
 
-  // send the remaining part
-  sendBlock(&str);
-
-  //Serial.println(str);
-  server.client().write( str.c_str(), str.length() );
+    if ( step == 0 )
+      count += str.length();
+    else
+      server.client().write( str.c_str(), str.length() );
+  }
 
   Serial.println("Packet Lenght: " + String(str.length()));
   Serial.println("Heap Size: " + String(ESP.getFreeHeap()));
@@ -709,6 +928,33 @@ void OpenAq_Controller::handleGlobal()
     server.send(200, "text/html", String("<h3>Storage done</h3>"));
     
     return;
+  }
+
+  if ( server.hasArg("clientssid") && server.hasArg("clientpwd") )
+  {
+    storage.setClientSSID( server.arg("clientssid").c_str() );
+    storage.setClientPwd( server.arg("clientpwd").c_str() );
+
+    storage.enableClient();
+
+    server.send(200, "text/html", String("<h3>Client enabled.</h3>"));
+
+    storage.save();
+    ESP.restart();
+
+    return;
+  }
+
+  if ( server.hasArg("setfactorysettings") )
+  {
+    storage.defaults(SIG);
+    storage.save();
+    ESP.restart();
+  }
+
+  if ( server.hasArg("setreboot") )
+  {
+    ESP.restart();
   }
 }
 
