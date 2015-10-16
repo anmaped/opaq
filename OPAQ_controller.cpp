@@ -24,6 +24,7 @@
  */
 
 #include <pgmspace.h>
+#include <FS.h>
 
 #include "OPAQ_controller.h"
 #include "Rf433ook.h"
@@ -88,6 +89,12 @@ void OpenAq_Controller::setup_controller()
     Serial.println ( "default settings applied." );
   }
 
+  // Initialize file system.
+  if (!SPIFFS.begin())
+  {
+    Serial.println("Failed to mount file system");
+    ESP.restart();
+  }
 
   // read openaq mode from eeprom
   bool mode = storage.getModeOperation() & 0b00000001;
@@ -263,10 +270,10 @@ void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
   // lets sent a test message
   //bool bvector[36] = {1,1,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0, 0, vector[27], 0,0,0,0, 0,0,0,0}; // max message is 36bits
 
-  for ( int i = 0; i < 2; i++ )
+  for ( int i = 0; i < 3; i++ )
   {
     Rf433_transmitter.sendMessage ( vector );
-    delayMicroseconds ( 10000 );
+    delayMicroseconds ( 8000 );
   }
 }
 
@@ -913,6 +920,17 @@ void OpenAq_Controller::handlePower()
     storage.setPDeviceStep( id2idx(p_id), id2idx(step_id), val );
 
     server.send(200, "text/html", String("<h3>Power socket value set</h3>"));
+    
+    return;
+  }
+
+  if ( server.hasArg("pdevice") && server.hasArg("pdesc") )
+  {
+    uint8_t p_id = atoi(server.arg("pdevice").c_str());
+
+    storage.setPDesription( id2idx( p_id ), server.arg("pdesc").c_str() );
+
+     server.send(200, "text/html", String("<h3>Power socket description set</h3>"));
     
     return;
   }

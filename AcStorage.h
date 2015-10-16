@@ -29,6 +29,7 @@
 #include <Arduino.h>
 
 #include <EEPROM.h>
+#include <FS.h>
 
 #define N_LIGHT_DEVICES 10
 #define N_SIGNALS 3
@@ -172,6 +173,7 @@ public:
     unsigned int getNumberOfPowerDevices() { return *numberOfPowerDevices; };
 
     void setPDeviceStep( const uint8_t pid, const uint8_t st, const uint8_t value ) { powerDevice[pid].step[st] = value; };
+    void setPDesription( const uint8_t pidx, const char * desc );
 
     /* sig symbol for eeprom verification */
     const uint8_t getSignature();

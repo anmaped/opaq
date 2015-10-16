@@ -434,6 +434,10 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     {
       store();
     }
+    function changePDescription(pid, el)
+    {
+      sendGet("\power?pdevice=" + pid + "&pdesc=" + el.value);
+    }
     </script>
   )=====";
 
@@ -597,6 +601,7 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
   <table style="width:100%;border: 1px solid black;border-collapse: collapse;">
   <tr>
     <td>ID</td>
+    <td>Description</td>
     <td>CodeID</td>
     <td>Devide Id</td>
     <td></td>
@@ -607,6 +612,10 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
   )=====";
 
   *str += FPSTR(&psockets[0]);
+
+  // openfile to get settings for power outlets
+  File psocketsFile = SPIFFS.open("/psocket_settings.txt", "r");
+  uint8_t buf[31];
   
   // print power devices
   for (int i=0; i < n_powerDevices; i++)
@@ -616,7 +625,17 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
     *str += F("<td>");
     *str += String(pdevice[i].id);
     *str += F("</td>");
-  
+
+    *str += F("<td><input type=\"text\" value=\"");
+    psocketsFile.read( buf, 30 );
+    String str_tmp = String( (char*)buf );
+    str_tmp.replace( "%20", " " );
+    *str += str_tmp;
+    *str += F("\" onchange=\"changePDescription(");
+    *str += String( idx2id( i ) );
+    *str += F(", this)\" class=\"inputp\" /></td>");
+
+    
     *str += F("<td>0x");
     sprintf(tmp,"%07x", pdevice[i].code);
     *str += String(tmp);
@@ -660,6 +679,9 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
     
     *str += F("</tr>");
   }
+
+  // close file stream
+  psocketsFile.close();
 
   static const char psockets2[] PROGMEM =
   R"=====(
