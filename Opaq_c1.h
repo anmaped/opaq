@@ -46,7 +46,7 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x62
+#define SIG 0x63
 #define OPAQ_VERSION "1.0.2"
 
 #define deviceTaskPrio           2

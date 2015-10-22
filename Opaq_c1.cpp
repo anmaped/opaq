@@ -26,7 +26,7 @@
 #include <pgmspace.h>
 #include <FS.h>
 
-#include "OPAQ_controller.h"
+#include "Opaq_c1.h"
 #include "Rf433ook.h"
 #include "websites.h"
 
@@ -35,6 +35,7 @@
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
   opaq_controller.run_task_ds3231();
+  opaq_controller.run_task_rf433ook();
 }
 
 static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
@@ -105,7 +106,9 @@ void OpenAq_Controller::setup_controller()
 
     Serial.print ( "SSID: " );
     Serial.println ( ssid );
-
+    
+    WiFi.mode(WIFI_AP);
+    
     // setup the access point
     WiFi.softAP ( ssid , storage.getPwd() ); // with password and fixed ssid
   }
@@ -222,7 +225,7 @@ void OpenAq_Controller::run_controller()
 
   if (count == 100000)
   {
-    opaq_controller.run_task_rf433ook();
+    //opaq_controller.run_task_rf433ook();
     count=0;
   }
   count++;
@@ -270,10 +273,10 @@ void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
   // lets sent a test message
   //bool bvector[36] = {1,1,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0, 0, vector[27], 0,0,0,0, 0,0,0,0}; // max message is 36bits
 
-  for ( int i = 0; i < 3; i++ )
+  for ( int i = 0; i < 5; i++ )
   {
     Rf433_transmitter.sendMessage ( vector );
-    delayMicroseconds ( 8000 );
+    delayMicroseconds ( 10000 );
   }
 }
 
@@ -318,11 +321,12 @@ void OpenAq_Controller::run_task_rf433ook()
   }
 
   static bool wait_next_change[N_POWER_DEVICES] = { false };
+  static int pdeviceId = 1;
   
   // normal execution
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
-        pdeviceId++ )
-  {
+  //for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
+  //      pdeviceId++ )
+  //{
     DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
 
     updatePowerOutlets ( pdeviceId );
@@ -368,7 +372,12 @@ void OpenAq_Controller::run_task_rf433ook()
         storage.setPowerDeviceState( pdeviceId, OFF );
       }
     }
-  }
+  //}
+
+  pdeviceId++;
+  
+  if (pdeviceId > storage.getNumberOfPowerDevices())
+    pdeviceId = 1;
 
   
 }
@@ -943,7 +952,7 @@ void OpenAq_Controller::handleGlobal()
   {
     storage.save();
 
-    server.send(200, "text/html", String("<h3>Storage done</h3>"));
+    server.send(200, "text/html", String("Stored."));
     
     return;
   }
