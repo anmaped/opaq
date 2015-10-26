@@ -60,13 +60,15 @@ AcStorage::AcStorage() : EEPROMClass((((uint32_t)&_SPIFFS_end - 0x40200000) / SP
 
 void AcStorage::defaults ( uint8_t sig )
 {
-  for ( int i = 0; i < SPI_FLASH_SEC_SIZE; i++ ) {flashPointer[i] = 0x00;}
+  for ( int i = 0; i < SPI_FLASH_SEC_SIZE; i++ ) { flashPointer[i] = 0x00; }
 
   *signature = sig;
 
   // SSID setting
-  static const char* lssid PROGMEM = "opaq-0001";
-  memcpy_P ( ssid, lssid, strlen_P(lssid) );
+  //static const char* lssid PROGMEM = "opaq-0001";
+  char tmp[20];
+  sprintf(tmp, "opaq-%08x", ESP.getFlashChipId());
+  memcpy ( ssid, tmp, strlen(tmp) );
 
   // default PWD
   static const char* lpwd PROGMEM = "opaqopaq";
@@ -83,9 +85,14 @@ void AcStorage::defaults ( uint8_t sig )
   *numberOfPowerDevices = 0;
 
   SPIFFS.format();
+  SPIFFS.begin();
   
   File psocketsFile = SPIFFS.open("/psocket_settings.txt", "w");
   psocketsFile.close();
+
+  save();
+
+  ESP.restart();
   
 }
 
@@ -213,11 +220,11 @@ void AcStorage::addPowerDevice()
   powerDevice[*numberOfPowerDevices].state = OFF;
   powerDevice[*numberOfPowerDevices].code = random ( 0x1, 0x3ffffff );
 
-  char buf[31];
+  char buf[FILE_DESC_SIZE + 1];
   sprintf( buf, "Description.%d", *numberOfPowerDevices );
   File psocketsFile = SPIFFS.open("/psocket_settings.txt", "r+");
-  psocketsFile.seek( 30 * *numberOfPowerDevices, SeekSet ) ;
-  psocketsFile.write( (uint8_t*)buf, 30 );
+  psocketsFile.seek( FILE_DESC_SIZE * *numberOfPowerDevices, SeekSet ) ;
+  psocketsFile.write( (uint8_t*)buf, FILE_DESC_SIZE );
   psocketsFile.close();
 
   ( *numberOfPowerDevices )++;
@@ -252,8 +259,8 @@ void AcStorage::setPDesription( const uint8_t pidx, const char * desc )
 {
   File psocketsFile = SPIFFS.open("/psocket_settings.txt", "r+");
   // set position
-  psocketsFile.seek( 30 * pidx, SeekSet ) ;
-  psocketsFile.write( (uint8_t*)desc, 30 );
+  psocketsFile.seek( FILE_DESC_SIZE * pidx, SeekSet ) ;
+  psocketsFile.write( (uint8_t*)desc, FILE_DESC_SIZE );
   psocketsFile.close();
 }
 

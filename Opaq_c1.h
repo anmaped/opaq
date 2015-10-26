@@ -47,7 +47,7 @@ extern "C" {
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
 #define SIG 0x63
-#define OPAQ_VERSION "1.0.2"
+#define OPAQ_VERSION "1.0.3"
 
 #define deviceTaskPrio           2
 #define deviceTaskQueueLen       1
@@ -69,6 +69,7 @@ private:
 
   // real-time clock initialization
   RtcDS3231 rtc;
+  bool clockIsReady = 0;
 
   // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
   RF24 radio;
@@ -100,12 +101,17 @@ private:
 
   std::function<void(String*)> sendBlockGlobal( ESP8266WebServer* sv, uint16_t* count, uint8_t* step );
 
+  void ota();
+
 public:
 
   OpenAq_Controller();
 
   void factory_defaults ( uint8_t sig );
   void setup_controller();
+
+  void setClockReady() { clockIsReady = true; };
+  bool isClockReady() { return clockIsReady; };
 
   void run_controller();
   void run_task_rf433ook();

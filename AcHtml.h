@@ -47,7 +47,7 @@ public:
   const __FlashStringHelper* get_body_begin();
   const __FlashStringHelper* get_body_end();
   
-  void get_light_script(AcStorage * const lstorage, String * const str);
+  void get_light_script(AcStorage * const lstorage, String * const str, std::function<void (String*)> sendBlock);
   
   void get_light_settings_mclock(String*, const RtcDateTime);
   const __FlashStringHelper* get_light_settings_mbegin();

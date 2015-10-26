@@ -25,7 +25,7 @@
  
 #include "AcHtml.h"
 
-#include "OPAQ_controller.h"
+#include "Opaq_c1.h"
 
 AcHtml::AcHtml()
 {
@@ -76,7 +76,13 @@ const __FlashStringHelper* AcHtml::get_menu()
       xmlHttp.send( null );
   };
   function store() {
-      sendGet("\global?storesettings=" + 1);
+      //sendGet("\global?storesettings=" + 1);
+      var xmlHttp = new XMLHttpRequest();
+      
+      xmlHttp.open( "GET", "\global?storesettings=" + 1, false );
+      xmlHttp.send( null );
+
+      alert(xmlHttp.responseText);
   };
   function selectLDevice(elem) {
     sendGet( "\light?sdevice=" +  elem[elem.selectedIndex].value  + "&setcurrent=true" );
@@ -112,7 +118,7 @@ const __FlashStringHelper* AcHtml::get_body_end()
   return F("</body>");
 }
 
-void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
+void AcHtml::get_light_script(AcStorage * const lstorage, String * const str, std::function<void (String*)> sendBlock)
 {
   *str += F("<canvas class=\"lightsignals\" id=\"light\"></canvas><font size=\"4\">Current setting: </font><select onchange=\"selectLDevice(this);\" id=\"selDev\">");
   
@@ -181,6 +187,8 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
         
         *str += F("]},");
       }
+
+      sendBlock(str);
     }
   }
 
@@ -225,6 +233,8 @@ void AcHtml::get_light_script(AcStorage * const lstorage, String * const str)
       }
 
       *str += F("]},");
+
+      sendBlock(str);
       
     }
 
@@ -355,9 +365,7 @@ void AcHtml::get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceL
     
     *a += F("<td><button onclick=\"bindLDevice(");
     *a += String(i);
-    *a += F(");\">Bind</button><button onclick=\"unbindLDevice(");
-    *a += String(i);
-    *a += F(");\">Unbind</button></td><td>");
+    *a += F(");\">Bind</button></td><td>");
     if ( i == n_ldevices-1)
     {
       *a += F("<button onclick=\"removeDevice();\">Remove</button>");
@@ -373,7 +381,7 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
   *str += F("</table><input id=\"adevice\" type=\"button\" value=\"Add Device\" onclick=\"addDevice();\" />");
 
   if(lstorage->getNLDevice())
-    *str += F("<br><br><h3>Light Settings (Points of lines or splines)</h3>Device Selected: <select onchange=\"selectLDevice(this);\" id=\"selDev\">");
+    *str += F("<br><br><h3>Dimming Settings for each Signal</h3>Device Selected: <select onchange=\"selectLDevice(this);\" id=\"selDev\">");
   
   static const char scripts[] PROGMEM = R"=====(
     <script>
@@ -385,6 +393,8 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     function bindLDevice(deviceId) {
       sendGet( "\light?sdevice=" + deviceId  + "&lstate=" + 2 );
+      confirm("Are you already plugged in the light device to bind ?")
+      sendGet( "\light?sdevice=" + deviceId  + "&lstate=" + 1 );
     };
     function unbindLDevice(deviceId) {
       sendGet( "\light?sdevice=" + deviceId  + "&lstate=" + 1 );
@@ -416,7 +426,7 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     function bindPDevice(id) {
       sendGet("\power?pdevice=" + id + "&pstate=" + 2);
-      if (confirm("Are you sure that your power outlet has been binded? Accept this check box if your power socket has been looked."))
+      if (confirm("Are you plugged in the power outlet device ? It starts blinking and ends emiting a relay sound."))
       {
         sendGet("\power?pdevice=" + id + "&pstate=" + 1);
       }
@@ -427,7 +437,7 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     function unbindPDevice(id) {
       sendGet("\power?pdevice=" + id + "&pstate=" + 3);
-      if (confirm("Are you sure that your power outlet has been unbinded? WARNING!! Any socket registered with an unkwnown code should not be binded anymore."))
+      if (confirm("Are you unplugged in and re-plugged in the power outlet device? This will clear any registered controller."))
       {
         sendGet("\power?pdevice=" + id + "&pstate=" + 0);
       }
@@ -438,7 +448,7 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     function changePSettings(pid, sid, el){
       //alert(pid + " " + v + " " + el.value);
-      sendGet("\power?pdevice=" + pid + "&psid=" + sid + "&pvalue=" + el.value);
+      sendGet("\power?pdevice=" + pid + "&psid=" + sid + "&pvalue=" + (el.value * 255) / 24 );
     };
     function setReboot()
     {
@@ -458,6 +468,10 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     function changePDescription(pid, el)
     {
       sendGet("\power?pdevice=" + pid + "&pdesc=" + el.value);
+    }
+    function selectStepSize(pid, sid, el)
+    {
+      sendGet("\power?pdevice=" + pid + "&psid=" + sid + "&pvalue=" + el[el.selectedIndex].value );
     }
     </script>
   )=====";
@@ -493,16 +507,28 @@ void AcHtml::get_advset_light_device_signals(AcStorage * const lstorage, String*
 { 
   if(!lstorage->getNLDevice())
     return;
+
+  *s += F("<tr style=\"border: 1px solid black;\"><th></th><th colspan=\"2\">A1</th><th colspan=\"2\">A2</th><th colspan=\"2\">A3</th><th colspan=\"2\">A4</th><th colspan=\"2\">B1</th><th colspan=\"2\">B2</th><th colspan=\"2\">B3</th><th colspan=\"2\">B4</th><th>Size</th></tr>");
   
   // get selected device
   for (int i=0; i < N_SIGNALS; i++)
   {
-    *s += "<tr>";
+    *s += F("<tr> <td>Signal ");
+    *s += String(i+1);
+    *s += F("</td>");
+    
     for (int j=0; j < S_LEN_EACH-1; j+=2)
     {
-      *s += "<td>" + String(lstorage->getLDeviceSignal(i,j)) + "," + String(lstorage->getLDeviceSignal(i,j+1)) + "</td>";
+      *s += F("<td>");
+      *s += String(lstorage->getLDeviceSignal(i,j));
+      *s += ",";
+      *s += String(lstorage->getLDeviceSignal(i,j+1));
+      *s += F("</td>");
     }
-    *s += "<td>" + String(lstorage->getLDeviceSignal(i,S_LEN_EACH-1)) + "</td></tr>";
+    
+    *s += F("<td>");
+    *s += String(lstorage->getLDeviceSignal(i,S_LEN_EACH-1));
+    *s += F("</td></tr>");
   }
 }
 
@@ -620,7 +646,7 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
   <h2><a href="#" onclick="toggle('wrapper3')">Power Sockets</a></h2>
   <div id="wrapper3" class="wrapper" style="display:none">
   <table style="width:100%;border: 1px solid black;border-collapse: collapse;">
-  <tr>
+  <tr style="border: 1px solid black;">
     <td>ID</td>
     <td>Description</td>
     <td>CodeID</td>
@@ -636,7 +662,7 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
 
   // openfile to get settings for power outlets
   File psocketsFile = SPIFFS.open("/psocket_settings.txt", "r");
-  uint8_t buf[31];
+  uint8_t buf[FILE_DESC_SIZE + 1];
   
   // print power devices
   for (int i=0; i < n_powerDevices; i++)
@@ -648,7 +674,7 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
     *str += F("</td>");
 
     *str += F("<td><input type=\"text\" value=\"");
-    psocketsFile.read( buf, 30 );
+    psocketsFile.read( buf, FILE_DESC_SIZE );
     String str_tmp = String( (char*)buf );
     str_tmp.replace( "%20", " " );
     *str += str_tmp;
@@ -715,7 +741,7 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
 void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * const str , ESP8266WebServer * server, std::function<void (String*)> sendBlock )
 { 
   char tmp[10];
-  *str += F("<h3>Power Outlet Activation Signals (any cell check is discarded)</h3><style>.tdp {border: 1px solid gray;border-collapse: collapse;} .inputp {width:100%; background: transparent; border: none; text-align:center;}</style><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\"><tr><th colspan=\"2\">a1</th><th colspan=\"2\">b1</th><th colspan=\"2\">c1</th><th colspan=\"2\">d1</th><th colspan=\"2\">a2</th><th colspan=\"2\">b2</th><th colspan=\"2\">c2</th><th colspan=\"2\">d2</th><th colspan=\"2\">a3</th><th colspan=\"2\">b3</th><th colspan=\"2\">c3</th><th colspan=\"2\">d3</th><th colspan=\"2\">a4</th><th colspan=\"2\">b4</th><th colspan=\"2\">c4</th><th colspan=\"2\">d4</th><th>Size</th></tr>");
+  *str += F("<h3>Activation Signals for RF Power Switches</h3><style>.tdp {border: 1px solid gray;border-collapse: collapse;} .inputp {width:100%; background: transparent; border: none; text-align:center;}</style><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\"><tr><th colspan=\"2\">a1</th><th colspan=\"2\">b1</th><th colspan=\"2\">c1</th><th colspan=\"2\">d1</th><th colspan=\"2\">a2</th><th colspan=\"2\">b2</th><th colspan=\"2\">c2</th><th colspan=\"2\">d2</th><th colspan=\"2\">a3</th><th colspan=\"2\">b3</th><th colspan=\"2\">c3</th><th colspan=\"2\">d3</th><th colspan=\"2\">a4</th><th colspan=\"2\">b4</th><th colspan=\"2\">c4</th><th colspan=\"2\">d4</th><th>Size</th></tr>");
 
   for (int i=0; i < lstorage->getNumberOfPowerDevices(); i++)
   {
@@ -723,10 +749,11 @@ void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * cons
 
       for (int j=0; j < S_LEN_EACH ; j+=2)
       {
-        *str += F("<td class=\"tdp\"><input type=\"text\" value=\"");
-        *str += String( lstorage->getPDeviceStep(i, j) );
-        if( j != S_LEN_EACH-1 )
+        if ( j != S_LEN_EACH-1 )
         {
+          *str += F("<td class=\"tdp\"><input type=\"text\" value=\"");
+          *str += String( (float)( lstorage->getPDeviceStep(i, j) * 24 ) / 255 );
+
           *str += F("\" onchange=\"changePSettings(");
           
           sprintf(tmp, "%i,%i", idx2id(i), idx2id(j) );
@@ -734,15 +761,48 @@ void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * cons
           
           *str += F(",this)\" class=\"inputp\" /></td>");
           *str += F("<td class=\"tdp\"><input type=\"text\" value=\"");
-          *str += String( lstorage->getPDeviceStep(i, j+1) );
+          *str += String( (float)( lstorage->getPDeviceStep(i, j+1) * 24 ) / 255 );
+
+          *str += F("\" onchange=\"changePSettings(");
+        
+          sprintf(tmp, "%i,%i", idx2id(i),  idx2id(j+1) );
+          *str += String( tmp );
+        
+          *str += F(",this)\" class=\"inputp\" /></td>");
+        }
+        else
+        {
+          *str += F("<td class=\"tdp\"><select onchange=\"selectStepSize(");
+          *str += String( idx2id(i) );
+          *str += F(",33,this);\">");
+          uint8_t n_steps = lstorage->getPDeviceStep(i, j);
+
+          for (int op_id=0; op_id <= 16; op_id+=2)
+          {
+            *str += F("<option value=\"");
+            *str += String(op_id);
+            *str += F("\" ");
+            
+            if ( n_steps == op_id )
+              *str += F("selected");
+              
+            *str += F(">");
+            
+            if (op_id == 0)
+            {
+              *str += String(0);
+            }
+            else
+            {
+              *str += String(op_id / 2);
+            }
+            
+            *str += F("</option>");
+          }
+          
+          *str += F("</select>");
         }
         
-        *str += F("\" onchange=\"changePSettings(");
-        
-        sprintf(tmp, "%i,%i", idx2id(i),  (j != S_LEN_EACH-1) ? idx2id(j+1) : idx2id(j) );
-        *str += String( tmp );
-        
-        *str += F(",this)\" class=\"inputp\" /></td>");
       }
       
     *str += F("</tr>");

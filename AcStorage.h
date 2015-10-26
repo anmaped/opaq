@@ -86,9 +86,17 @@
 // code length for light devices
 #define LIGHT_CODE_ID_LENGTH 5
 
+#define FILE_DESC_SIZE 32
+
 // conversion from id to index, and vice-versa
 #define id2idx(id) id-1
 #define idx2id(idx) idx+1
+
+#define SIGNAL_STEP_SIZE 2
+#define SIGNAL_LENGTH ( (S_LEN_EACH - 1) / SIGNAL_STEP_SIZE )
+#define check_deviceIdx(deviceIdx) ( 0 <= deviceIdx && deviceIdx <  N_LIGHT_DEVICES )
+#define check_signalIdx(signalIdx) ( 0 <= signalIdx && signalIdx <  N_SIGNALS )
+#define check_pointId(pointId) ( 0 < pointId && pointId <=  SIGNAL_LENGTH )
 
 // enumerations for light and power devices settings
 enum type {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH};
@@ -163,6 +171,9 @@ public:
     void setLState( const uint8_t idx, pstate st ) { lightDevice[idx].state = st; };
     uint8_t * getCodeId( const uint8_t idx ) { return lightDevice[id2idx(idx)].codeid; };
 
+    uint8_t getLDeviceSignalLength( const uint8_t deviceIdx, const uint8_t signalIdx ) { return lightDevice[deviceIdx].signal[signalIdx][S_LEN_EACH-1]; };
+    void setLDeviceSignalLength( const uint8_t deviceIdx, const uint8_t signalIdx, const uint8_t value ) { lightDevice[deviceIdx].signal[signalIdx][S_LEN_EACH-1] = value; };
+
     uint8_t getCurrentSelLDevice() { return cLidx_device; };
     void selectLDevice ( const uint8_t idx ) { cLidx_device = idx; };
 
@@ -195,6 +206,16 @@ public:
     void addLightDevice();
     void addSignal ( uint8_t deviceId, uint8_t signalId, uint8_t pointId,
                      uint8_t xy, uint8_t value );
+    bool setPointXLD (  uint8_t deviceIdx, uint8_t signalIdx, uint8_t pointId, uint8_t value )
+    {
+      if ( check_deviceIdx(deviceIdx) && check_signalIdx(signalIdx) && check_pointId(pointId) )
+        lightDevice[deviceIdx].signal[signalIdx][pointId * SIGNAL_STEP_SIZE - 2] = value;
+    };
+    bool setPointYLD (  uint8_t deviceIdx, uint8_t signalIdx, uint8_t pointId, uint8_t value )
+    {
+      if ( check_deviceIdx(deviceIdx) && check_signalIdx(signalIdx) && check_pointId(pointId) )
+      lightDevice[deviceIdx].signal[signalIdx][pointId * SIGNAL_STEP_SIZE - 1] = value;
+    };
 
     void getLinearInterpolatedPoint ( uint8_t deviceId, uint8_t signalId,
                                       float value, uint8_t* y );

@@ -25,6 +25,7 @@
 
 #include <pgmspace.h>
 #include <FS.h>
+#include <WiFiClientSecure.h>
 
 #include "Opaq_c1.h"
 #include "Rf433ook.h"
@@ -35,6 +36,8 @@
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
   opaq_controller.run_task_ds3231();
+  opaq_controller.setClockReady();
+  
   opaq_controller.run_task_rf433ook();
 }
 
@@ -87,13 +90,13 @@ void OpenAq_Controller::setup_controller()
   if ( storage.getSignature() != SIG )
   {
     factory_defaults ( SIG ); // uncomment to set the factory defaults
-    Serial.println ( "default settings applied." );
+    Serial.println ( F("default settings applied.") );
   }
 
   // Initialize file system.
   if (!SPIFFS.begin())
   {
-    Serial.println("Failed to mount file system");
+    Serial.println(F("Failed to mount file system"));
     ESP.restart();
   }
 
@@ -104,7 +107,7 @@ void OpenAq_Controller::setup_controller()
   {
     const char* ssid = storage.getSSID();
 
-    Serial.print ( "SSID: " );
+    Serial.print ( F("SSID: ") );
     Serial.println ( ssid );
     
     WiFi.mode(WIFI_AP);
@@ -118,7 +121,7 @@ void OpenAq_Controller::setup_controller()
     const char* ssid = storage.getClientSSID();
     const char* pwd = storage.getClientPwd();
     
-    Serial.print ( "Connecting to " );
+    Serial.print ( F("Connecting to ") );
     Serial.println ( ssid );
 
     WiFi.begin ( ssid, pwd );
@@ -133,15 +136,15 @@ void OpenAq_Controller::setup_controller()
 
       if (count_tries > 100)
       {
-        Serial.println ( "returning to AP mode. Reboot." );
+        Serial.println ( F("returning to AP mode. Reboot.") );
         storage.enableSoftAP();
         storage.save();
         ESP.restart();
       }
     }
 
-    Serial.println ( "WiFi connected" );
-    Serial.println ( "IP address: " );
+    Serial.println ( F("WiFi connected") );
+    Serial.println ( F("IP address: ") );
     Serial.println ( WiFi.localIP() );
   }
 
@@ -213,9 +216,9 @@ void OpenAq_Controller::setup_controller()
                    _10hzLoopTaskQueueLen );
 
   // Attach deviceTask event trigger function for periodic releases
-  timming_events.attach_ms ( 5000, _devicesTask_timmingEvent );
+  timming_events.attach_ms ( 2000, _devicesTask_timmingEvent );
 
-  t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );
+  t_evt.attach_ms ( 100, _10hzLoop_timmingEvent );
 }
 
 int count=0;
@@ -223,12 +226,12 @@ void OpenAq_Controller::run_controller()
 {
   server.handleClient();
 
-  if (count == 100000)
+  /*if (count == 100000)
   {
     //opaq_controller.run_task_rf433ook();
     count=0;
   }
-  count++;
+  count++;*/
 
 }
 
@@ -236,31 +239,45 @@ void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
 {
   bool vector[36] = { 0 };
   // vector is organized as follows :
-  // |-----------ID-----------||-GROUPFLAG-||-ON/OFF-||-GROUPID-||-DIMMER-|
-  // 00111101111110001011111110    0           1         0000       0000
-  // 00111101111110001011111110    0           1         0001       0000
+  //              |---------------------------------------ID------------------------------------|--GROUPFLAG--|--ON/OFF--|---GROUPID---|-DIMMER-|
+  // GLOBAL OFF -- unbinds everything
+  // encoding   : 01 01 10 10 10 10 01 10 10 10 10 10 10 01 01 01 10 01 10 10 10 10 10 10 10 01 |       10         01    | 01 01 01 01 | UNDEF
+  // bit stream : 0  0  1  1  1  1  0  1  1  1  1  1  1  0  0  0  1  0  1  1  1  1  1  1  1  0  |       1          0     |  0  0  0  0 | UNDEF
+  // GLOBAL ON -- do not bind (binds are only allowed when groupflag is zero)
+  // bit stream : 0  0  1  1  1  1  0  1  1  1  1  1  1  0  0  0  1  0  1  1  1  1  1  1  1  0  |       1          1     |  0  0  0  0 | UNDEF
 
-  int j = 0;
+  // get device code id
   uint32_t code = storage.getPDeviceCode ( pdeviceId );
 
+  int j = 0;
   while ( j < 26 && code )
   {
     vector[j++] = code & 1;
     code >>= 1;
   }
-
-  // set group flag
-  vector[26] = 0;
-
-  // set state
+  
+  // get state from settings
   uint8_t state = storage.getPDeviceState ( pdeviceId );
 
-  if ( state == OFF || state == UNBINDING )
+  if ( state == OFF )
   {
+    vector[26] = 0;
     vector[27] = 0;
+  }
+  else if ( state == UNBINDING )
+  {
+    vector[26] = 1;
+    vector[27] = 0;
+  }
+  else if ( state == BINDING )
+  {
+    // set group flag to zero for allowing bind operations
+    vector[26] = 0;
+    vector[27] = 1;
   }
   else
   {
+    vector[26] = 1;
     vector[27] = 1;
   }
 
@@ -268,12 +285,9 @@ void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
   {
     DEBUGV ( "%d,", vector[i] );
   }
-
   DEBUGV ( "\n" );
-  // lets sent a test message
-  //bool bvector[36] = {1,1,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0, 0, vector[27], 0,0,0,0, 0,0,0,0}; // max message is 36bits
 
-  for ( int i = 0; i < 5; i++ )
+  for ( int i = 0; i < 3; i++ )
   {
     Rf433_transmitter.sendMessage ( vector );
     delayMicroseconds ( 10000 );
@@ -324,62 +338,57 @@ void OpenAq_Controller::run_task_rf433ook()
   static int pdeviceId = 1;
   
   // normal execution
-  //for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
-  //      pdeviceId++ )
-  //{
-    DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
+  // ----------------------------------
+  DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
 
-    updatePowerOutlets ( pdeviceId );
+  pstate auto_state = (pstate)storage.getPDevicePoint( pdeviceId, normalizeClock(&clock, 0, 255) );
 
-    pstate auto_state = (pstate)storage.getPDevicePoint( pdeviceId, normalizeClock(&clock, 0, 255) );
+  // update Power outlet state according to the step functions
+  DEBUGV("::ac nclock %d\n", normalizeClock(&clock, 0, 255));
+  DEBUGV("::ac val %d\n", auto_state );
+  
+  // get state, if state is "permanent on"
+  if( storage.getPDeviceState( pdeviceId ) == ON_PERMANENT )
+  {
+    // set on until next state change
+    wait_next_change[ id2idx( pdeviceId ) ] = true;
+    storage.setPowerDeviceState( pdeviceId, ON );
+  }
 
-    // update Power outlet state according to the step functions
-    DEBUGV("::ac nclock %d\n", normalizeClock(&clock, 0, 255));
-    DEBUGV("::ac val %d\n", auto_state );
-    
-    // get state, if state is "permanent on"
-    if( storage.getPDeviceState( pdeviceId ) == ON_PERMANENT )
+  // get state, if state is "permanent off"
+  if( storage.getPDeviceState( pdeviceId ) == OFF_PERMANENT )
+  {
+    // set off until next change
+    wait_next_change[ id2idx( pdeviceId ) ] = true;
+    storage.setPowerDeviceState( pdeviceId, OFF );
+  }
+
+  // detect change
+  if ( storage.getPDeviceState( pdeviceId ) == AUTO )
+  {
+    wait_next_change[ id2idx( pdeviceId ) ] = false;
+  }
+
+  if ( !wait_next_change[ id2idx( pdeviceId ) ] )
+  {
+    if ( auto_state )
     {
-      // set on until next state change
-      wait_next_change[ id2idx( pdeviceId ) ] = true;
       storage.setPowerDeviceState( pdeviceId, ON );
-      return;
     }
-
-    // get state, if state is "permanent off"
-    if( storage.getPDeviceState( pdeviceId ) == OFF_PERMANENT )
+    else
     {
-      // set off until next change
-      wait_next_change[ id2idx( pdeviceId ) ] = true;
       storage.setPowerDeviceState( pdeviceId, OFF );
-      return;
     }
+  }
 
-    // detect change
-    if ( storage.getPDeviceState( pdeviceId ) == AUTO )
-    {
-      wait_next_change[ id2idx( pdeviceId ) ] = false;
-    }
+  updatePowerOutlets ( pdeviceId );
 
-    if ( !wait_next_change[ id2idx( pdeviceId ) ] )
-    {
-      if ( auto_state )
-      {
-        storage.setPowerDeviceState( pdeviceId, ON );
-      }
-      else
-      {
-        storage.setPowerDeviceState( pdeviceId, OFF );
-      }
-    }
-  //}
-
+  // re-send messages cyclically
   pdeviceId++;
   
   if (pdeviceId > storage.getNumberOfPowerDevices())
     pdeviceId = 1;
-
-  
+    
 }
 
 void OpenAq_Controller::run_task_ds3231()
@@ -437,116 +446,116 @@ void OpenAq_Controller::run_task_nrf24()
   //radio.stopListening();
 
   bool binding=false;
-  //for ( int deviceId = 1; deviceId <= storage.getNumberOfLightDevices();
-  //      deviceId++ )
-  //{
-    // case device is
-    if ( storage.getDeviceType ( deviceId ) == ZETLIGHT_LANCIA_2CH )
+  
+  // definition for Zetlight lancia dimmers
+  // ---------------------------------------------------------------------------
+  if ( storage.getDeviceType ( deviceId ) == ZETLIGHT_LANCIA_2CH )
+  {
+    // compute signal values according to the clock
+    uint8_t signal1 = 0;
+    uint8_t signal2 = 0;
+
+    if ( !isClockReady() )
+      return;
+
+    clktmp = ( ( float )clock.Hour() ) + ( ( ( float )clock.Minute() ) / 60 )
+             + ( ( ( float )clock.Second() ) / 3600 );
+    storage.getLinearInterpolatedPoint ( deviceId, 1, clktmp, &signal1 );
+    storage.getLinearInterpolatedPoint ( deviceId, 2, clktmp, &signal2 );
+
+    // normal message
+    uint8_t buf[32] = {
+    //<3byte static signature>
+      0xEE, 0xD, 0xA,
+    // <------------------------------ LIGHT -------------------------------------------------->
+    //  <Mode>= DAM(0x03); SUNRISE(0xb6); DAYTIME(0xb6); SUNSET(0xD4); NIGHTTIME(0x06)
+    //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
+    // Normal mode (N_MODE)
+    //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE>             < binding mode >  <groupId>    <LRC>
+      0x00,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
+    //<unknown> = 0xEC
+      0xEC, 
+    //<fixed values>
+      0x0, 0x0, 0x0,
+    //<5bytes controllerID>
+      0xF2, 0x83, 0x1D, 0x4A, 0x20,
+    //<fixed values>
+      0x0, 0x0,
+    //<unknown bytes>
+      0x68, 0x71,
+    //<2bytes group binding>
+      0x00, 0x0,   // means nothing
+    //<unknown values>
+      0x0, 0x0};
+
+    buf[14] = calculate_lrc(buf);
+    
+
+    // binding message
+    uint8_t binding_data[32] = {
+    //<3byte static signature>
+      0xEE, 0x0D, 0x0A,
+    // BINDING mode
+    //                                            <N_MODE>             < binding mode >  <groupId>    <LRC>
+      0x0,         0x0,      0x0,      0x0,        0x0,      0x0, 0x0, 0x23, 0xdc, 0x0,    0x01,      0x00,
+    //<unknown> = 0xEC
+      0xEC, 
+    //<fixed values>
+      0x0, 0x0, 0x0,
+    //<5bytes controllerID>
+      0xF2, 0x83, 0x1D, 0x4A, 0x20,
+    //<fixed values>
+      0x0, 0x0,
+    //<unknown bytes>
+      0x68, 0x71,
+    //<2bytes group binding>
+      0x00, 0x00,   // 0x08, 0x06 -  0x7b, 0x15,
+    //<unknown values>
+      0x0, 0x0};
+
+    binding_data[14] = calculate_lrc(binding_data);
+
+    uint8_t * codepointer = storage.getCodeId( deviceId );
+
+    if( storage.getLState( deviceId ) == ON )
     {
-      // compute signal values according to the clock
-      uint8_t signal1 = 0;
-      uint8_t signal2 = 0;
+      //DEBUGV("ac:: ON msg sent\n");
 
-      clktmp = ( ( float )clock.Hour() ) + ( ( ( float )clock.Minute() ) / 60 )
-               + ( ( ( float )clock.Second() ) / 3600 );
-      storage.getLinearInterpolatedPoint ( deviceId, 1, clktmp, &signal1 );
-      storage.getLinearInterpolatedPoint ( deviceId, 2, clktmp, &signal2 );
-
-      // normal message
-      uint8_t buf[32] = {
-      //<3byte static signature>
-        0xEE, 0xD, 0xA,
-      // <------------------------------ LIGHT -------------------------------------------------->
-      //  <Mode>= DAM(0x03); SUNRISE(0xb6); DAYTIME(0xb6); SUNSET(0xD4); NIGHTTIME(0x06)
-      //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
-      // Normal mode (N_MODE)
-      //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE>             < binding mode >  <groupId>    <LRC>
-        0x00,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
-      //<unknown> = 0xEC
-        0xEC, 
-      //<fixed values>
-        0x0, 0x0, 0x0,
-      //<5bytes controllerID>
-        0xF2, 0x83, 0x1D, 0x4A, 0x20,
-      //<fixed values>
-        0x0, 0x0,
-      //<unknown bytes>
-        0x68, 0x71,
-      //<2bytes group binding>
-        0x00, 0x0,   // means nothing
-      //<unknown values>
-        0x0, 0x0};
-
-      buf[14] = calculate_lrc(buf);
+      buf[19] = codepointer[0];
+      buf[20] = codepointer[1];
+      buf[21] = codepointer[2];
+      buf[22] = codepointer[3];
+      buf[23] = codepointer[4];
       
-
-      // binding message
-      uint8_t binding_data[32] = {
-      //<3byte static signature>
-        0xEE, 0x0D, 0x0A,
-      // BINDING mode
-      //                                            <N_MODE>             < binding mode >  <groupId>    <LRC>
-        0x0,         0x0,      0x0,      0x0,        0x0,      0x0, 0x0, 0x23, 0xdc, 0x0,    0x01,      0x00,
-      //<unknown> = 0xEC
-        0xEC, 
-      //<fixed values>
-        0x0, 0x0, 0x0,
-      //<5bytes controllerID>
-        0xF2, 0x83, 0x1D, 0x4A, 0x20,
-      //<fixed values>
-        0x0, 0x0,
-      //<unknown bytes>
-        0x68, 0x71,
-      //<2bytes group binding>
-        0x00, 0x00,   // 0x08, 0x06 -  0x7b, 0x15,
-      //<unknown values>
-        0x0, 0x0};
-
-      binding_data[14] = calculate_lrc(binding_data);
-      Serial.println(binding_data[14]);
-
-      uint8_t * codepointer = storage.getCodeId( deviceId );
-
-      if( storage.getLState( deviceId ) == ON )
-      {
-        //DEBUGV("ac:: ON msg sent\n");
-
-        buf[19] = codepointer[0];
-        buf[20] = codepointer[1];
-        buf[21] = codepointer[2];
-        buf[22] = codepointer[3];
-        buf[23] = codepointer[4];
-        
-        radio.startWrite ( buf, 32 );
-        
-      }
-
-      if( storage.getLState( deviceId ) == BINDING && !binding )
-      {
-        binding = true;
-        //DEBUGV("ac:: BIND msg sent\n");
-        
-        radio.setChannel(100);
-
-        binding_data[19] = codepointer[0];
-        binding_data[20] = codepointer[1];
-        binding_data[21] = codepointer[2];
-        binding_data[22] = codepointer[3];
-        binding_data[23] = codepointer[4];
-          
-        binding_data[28] = 0x7B;
-        binding_data[29] = 0x15;
-        
-        radio.startWrite ( binding_data, 32 );
-
-        delayMicroseconds(10000);
-        radio.setChannel(1);
-          
-      }
-
+      radio.startWrite ( buf, 32 );
+      
     }
 
-  //}
+    if( storage.getLState( deviceId ) == BINDING && !binding )
+    {
+      binding = true;
+      //DEBUGV("ac:: BIND msg sent\n");
+      
+      radio.setChannel(100);
+
+      binding_data[19] = codepointer[0];
+      binding_data[20] = codepointer[1];
+      binding_data[21] = codepointer[2];
+      binding_data[22] = codepointer[3];
+      binding_data[23] = codepointer[4];
+        
+      binding_data[28] = 0x7B;
+      binding_data[29] = 0x15;
+      
+      radio.startWrite ( binding_data, 32 );
+
+      delayMicroseconds(10000);
+      radio.setChannel(1);
+        
+    }
+
+  }
+  // Zetlight definition END
 
   //radio.startListening();
 
@@ -654,6 +663,26 @@ void OpenAq_Controller::handleRoot()
   }
 }
 
+void zetlight_template1( uint8_t deviceId, AcStorage * const lstorage )
+{
+  auto apply_template = [&lstorage]( uint8_t deviceId, uint8_t signalId, uint8_t signal[SIGNAL_LENGTH][SIGNAL_STEP_SIZE], const uint8_t signal_len )
+  {
+    for (uint8_t i=1; i <= SIGNAL_LENGTH; i++)
+    {
+      lstorage->setPointXLD( id2idx(deviceId), id2idx(signalId), i, signal[i-1][0] );
+      lstorage->setPointYLD( id2idx(deviceId), id2idx(signalId), i, signal[i-1][1] );
+    }
+    
+    lstorage->setLDeviceSignalLength( id2idx(deviceId), id2idx(signalId), signal_len );
+  };
+  
+  uint8_t signal1[SIGNAL_LENGTH][SIGNAL_STEP_SIZE] = { {28,0}, {63,32}, {24,79}, {0,112}, {235,157}, {242,192},  {106,233},  {28,255},  {0,0},  {0,0},  {0,0},  {0,0},  {0,0},  {0,0},  {0,0},  {0,0} }; // number of steps 8
+  uint8_t signal2[SIGNAL_LENGTH][SIGNAL_STEP_SIZE] = { {0,0}, {0,109}, {234,155}, {244,187}, {147,206}, {0,255}, {0,0},  {0,0}, {0,0},  {0,0},  {0,0},  {0,0},  {0,0},  {0,0},  {0,0},  {0,0} }; // number of steps 6
+  
+  apply_template( deviceId, 1, signal1, 8 );
+  apply_template( deviceId, 2, signal2, 6 );
+}
+
 void OpenAq_Controller::handleLight()
 {
   // lets send light configuration
@@ -662,7 +691,7 @@ void OpenAq_Controller::handleLight()
   {
     storage.addLightDevice();
     
-    server.send(200, "text/html", String("<h3>Add device done</h3>"));
+    server.send(200, "text/html", String(F("<h3>Add device done</h3>")));
     
     return;
   }
@@ -679,7 +708,7 @@ void OpenAq_Controller::handleLight()
     
     storage.addSignal(sig_dev, sig_id, sig_pt, sig_xy, sig_val);
 
-    server.send(200, "text/html", String("<h3>Add signal done</h3>"));
+    server.send(200, "text/html", String(F("<h3>Add signal done</h3>")));
     
     return;
   }
@@ -691,7 +720,13 @@ void OpenAq_Controller::handleLight()
     
     storage.setDeviceType(id, type);
 
-    server.send(200, "text/html", String("<h3>Set device done</h3>"));
+    // set defaults when device is not initialized
+    if ( !( 0 < storage.getLDeviceSignalLength(id2idx(id), 0) ) && type == ZETLIGHT_LANCIA_2CH )
+    {
+      zetlight_template1(id, &storage);
+    }
+
+    server.send(200, "text/html", String(F("<h3>Set device done</h3>")));
     
     return;
   }
@@ -701,7 +736,7 @@ void OpenAq_Controller::handleLight()
   {
     uint8_t id = atoi(server.arg("sdevice").c_str());
     storage.selectLDevice( id2idx(id) );
-    server.send(200, "text/html", String("<h3>Device selected</h3>"));
+    server.send(200, "text/html", String(F("<h3>Device selected</h3>")));
     
     return;
   }
@@ -712,7 +747,7 @@ void OpenAq_Controller::handleLight()
     uint8_t state = atoi(server.arg("lstate").c_str());
 
     storage.setLState( idx, (pstate)state );
-    server.send(200, "text/html", String("<h3>LDevice State Changed.</h3>"));
+    server.send(200, "text/html", String(F("<h3>LDevice State Changed.</h3>")));
     
     return;
   }
@@ -728,7 +763,7 @@ void OpenAq_Controller::handleLight()
   for( step=0; step < 2; step++ )
   {
     // reset global str
-    str = "";
+    str = String("");
 
     if( step == 1 )
     {
@@ -742,7 +777,7 @@ void OpenAq_Controller::handleLight()
     str += html.get_menu();
     sendBlockGlobal(sv, &count, &step)(&str);
     
-    html.get_light_script(&storage, &str);
+    html.get_light_script( &storage, &str, sendBlockGlobal( sv, &count, &step ) );
     str += html.get_light_settings_mbegin();
     sendBlockGlobal(sv, &count, &step)(&str);
     
@@ -888,7 +923,7 @@ void OpenAq_Controller::handlePower()
   {
     storage.addPowerDevice();
     
-    server.send(200, "text/html", String("<h3>Power device added</h3>"));
+    server.send(200, "text/html", String(F("<h3>Power device added</h3>")));
     
     return;
   }
@@ -902,17 +937,17 @@ void OpenAq_Controller::handlePower()
     
     if (state == ON)
     {
-      server.send(200, "text/html", String("<h3>Power socket ON</h3>"));
+      server.send(200, "text/html", String(F("<h3>Power socket ON</h3>")));
     }
     else
     {
       if ( state == OFF )
       {
-        server.send(200, "text/html", String("<h3>Power socket OFF</h3>"));
+        server.send(200, "text/html", String(F("<h3>Power socket OFF</h3>")));
       }
       else
       {
-        server.send(200, "text/html", String("<h3>Power socket BINDING</h3>"));
+        server.send(200, "text/html", String(F("<h3>Power socket BINDING</h3>")));
       }
     }
     
@@ -928,7 +963,7 @@ void OpenAq_Controller::handlePower()
     
     storage.setPDeviceStep( id2idx(p_id), id2idx(step_id), val );
 
-    server.send(200, "text/html", String("<h3>Power socket value set</h3>"));
+    server.send(200, "text/html", String(F("<h3>Power socket value set</h3>")));
     
     return;
   }
@@ -939,7 +974,7 @@ void OpenAq_Controller::handlePower()
 
     storage.setPDesription( id2idx( p_id ), server.arg("pdesc").c_str() );
 
-     server.send(200, "text/html", String("<h3>Power socket description set</h3>"));
+     server.send(200, "text/html", String(F("<h3>Power socket description set</h3>")));
     
     return;
   }
@@ -952,7 +987,7 @@ void OpenAq_Controller::handleGlobal()
   {
     storage.save();
 
-    server.send(200, "text/html", String("Stored."));
+    server.send(200, "text/html", String(F("Settings are stored")));
     
     return;
   }
@@ -964,7 +999,7 @@ void OpenAq_Controller::handleGlobal()
 
     storage.enableClient();
 
-    server.send(200, "text/html", String("<h3>Client enabled.</h3>"));
+    server.send(200, "text/html", String(F("<h3>Client enabled.</h3>")));
 
     storage.save();
     ESP.restart();
@@ -975,14 +1010,40 @@ void OpenAq_Controller::handleGlobal()
   if ( server.hasArg("setfactorysettings") )
   {
     storage.defaults(SIG);
-    storage.save();
-    ESP.restart();
+    //storage.save();
+    //ESP.restart();
   }
 
   if ( server.hasArg("setreboot") )
   {
     ESP.restart();
   }
+
+  if ( server.hasArg("update") )
+  {
+    ota();
+  }
+}
+
+
+void OpenAq_Controller::ota()
+{
+  WiFiClientSecure client;
+  
+  if ( !client.connect("http://raw.githubusercontent.com/anmaped/opaq/master/tools/loop_test.sh", 80) )
+  {
+    Serial.println("unable to connect");
+    server.send(200, "text/html", String(F("<h3>Unable to connect.</h3>")));
+  }
+
+  uint8_t tmp[30 + 1] = "";
+  tmp[30]='\0';
+  while( client.available() )
+  {
+    client.read(tmp, 30);
+    Serial.print((char *)tmp);
+  }
+  
 }
 
 /*=====  End of Opaq controller private methods  ======*/

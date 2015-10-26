@@ -1,11 +1,24 @@
 # Opaq controller firmware
-#### Release 1.0.1
+#### Release 1.0.2
 
-![Screenshot](/tools/images/opaq_sample_frame2.png?raw=true "Optional Title")
+![Opaq Frame](/tools/images/opaq_framev102.png?raw=true "Opaq Frame")
 
 Supported features:
-- Easy graphical management for light and power settings
-- Advanced menus for customization purposes
+- Browser-based graphical management for light and power settings
+- Customizable programming actions
+- Node-based architecture (nodes are authentic - signed)
+
+Opaq devices:
+- Opaq C1 - the main controller device
+- Opaq N1 - four channel dimmer devices capable to connect with any led light (several settings proposed)
+
+Expected features:
+- Support for sensor logging (PH, NO3)
+- Management of peristaltic pumps for automatic fertilization regimes for fresh and salt water
+- Dedicated settings for aquarium and pond systems
+
+Expected Hardware:
+- Opaq N2 (probe device)
 
 External supported devices:
 - Light
@@ -13,16 +26,6 @@ External supported devices:
 - Power outlets
   * Chacon RF power sockets
 
-Opaq devices:
-- Opaq C1 - the controller device
-- Opaq N1 - four channel dimmer device that is capable to connect with any led light with minor changes
 
-Expected features:
-- Support for sensor logging (PH, NO3)
-- Management of peristaltic pumps for automatic fertilization regimes for fresh and salt water
-- Aquarium and Pond pre-defined settings
-
-Expected Hardware:
-- Opaq N2 (probe device)
 
 

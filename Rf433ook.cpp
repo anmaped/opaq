@@ -53,14 +53,14 @@ void Rf433ook::sendOOK(bool b)
   {
     if (b) {
         digitalWrite(pin, HIGH);
-        delayMicroseconds(275);   //275 originally, but tweaked.
+        delayMicroseconds(295);   //275 originally, but tweaked.
         digitalWrite(pin, LOW);
-        delayMicroseconds(1225);  //1225 originally, but tweaked.
+        delayMicroseconds(1203);  //1225 originally, but tweaked.
       } else {
         digitalWrite(pin, HIGH);
-        delayMicroseconds(275);   //275 originally, but tweaked.
+        delayMicroseconds(295);   //275 originally, but tweaked.
         digitalWrite(pin, LOW);
-        delayMicroseconds(275);   //275 originally, but tweaked.
+        delayMicroseconds(295);   //275 originally, but tweaked.
       }
     }
     
