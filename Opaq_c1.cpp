@@ -70,7 +70,8 @@ OpenAq_Controller::OpenAq_Controller() :
   radio ( RF24 ( 16, 15 ) ),
   html ( AcHtml() ),
   storage ( AcStorage() ),
-  str ( String() )
+  str ( String() ),
+  clockIsReady( false )
 {
   str.reserve ( 2048 );
 }
@@ -113,7 +114,7 @@ void OpenAq_Controller::setup_controller()
     WiFi.mode(WIFI_AP);
     
     // setup the access point
-    WiFi.softAP ( ssid , storage.getPwd() ); // with password and fixed ssid
+    WiFi.softAP ( ssid , storage.getPwd(), 6 ); // with password and fixed ssid
   }
   else
   {
@@ -417,6 +418,9 @@ void OpenAq_Controller::run_task_nrf24()
 {
   static uint8_t deviceId=1;
   float clktmp;
+
+  if ( !isClockReady() )
+      return;
   
   // read...
 
@@ -444,8 +448,6 @@ void OpenAq_Controller::run_task_nrf24()
   }*/
   
   //radio.stopListening();
-
-  bool binding=false;
   
   // definition for Zetlight lancia dimmers
   // ---------------------------------------------------------------------------
@@ -454,9 +456,6 @@ void OpenAq_Controller::run_task_nrf24()
     // compute signal values according to the clock
     uint8_t signal1 = 0;
     uint8_t signal2 = 0;
-
-    if ( !isClockReady() )
-      return;
 
     clktmp = ( ( float )clock.Hour() ) + ( ( ( float )clock.Minute() ) / 60 )
              + ( ( ( float )clock.Second() ) / 3600 );
@@ -531,12 +530,12 @@ void OpenAq_Controller::run_task_nrf24()
       
     }
 
-    if( storage.getLState( deviceId ) == BINDING && !binding )
+    if( storage.getLState( deviceId ) == BINDING )
     {
-      binding = true;
       //DEBUGV("ac:: BIND msg sent\n");
       
       radio.setChannel(100);
+      delayMicroseconds(10000);
 
       binding_data[19] = codepointer[0];
       binding_data[20] = codepointer[1];
@@ -570,7 +569,6 @@ void OpenAq_Controller::run_task_nrf24()
 void OpenAq_Controller::factory_defaults ( uint8_t sig )
 {
   storage.defaults ( sig );
-  storage.save();
 }
 
 /*======================  End of Opaq public methods  =======================*/

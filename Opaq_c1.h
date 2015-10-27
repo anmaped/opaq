@@ -69,7 +69,7 @@ private:
 
   // real-time clock initialization
   RtcDS3231 rtc;
-  bool clockIsReady = 0;
+  bool clockIsReady;
 
   // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
   RF24 radio;
