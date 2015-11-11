@@ -46,7 +46,7 @@
 
 		var width = this.width = context.canvas.width;
 		var height = this.height = context.canvas.height;
-		this.aspectRatio = 2;this.width / this.height;
+		this.aspectRatio = this.width / this.height;
 
 		//High pixel density displays - multiply the size of the canvas height/width by the device pixel ratio, then scale.
 		helpers.retinaScale(this);
@@ -584,7 +584,7 @@
 			this.stop();
 			var canvas = this.chart.canvas,
 			maxWidth = getMaximumWidth(this.chart.canvas),
-			maxHeight = getMaximumHeight(this.chart.canvas)-300,
+			maxHeight = getMaximumHeight(this.chart.canvas)-200,
 			newHeight = this.options.maintainAspectRatio ? maxHeight >  maxWidth / this.chart.aspectRatio ? maxWidth / this.chart.aspectRatio : maxHeight : getMaximumHeight(this.chart.canvas),
 			newWidth = maxWidth;
 
@@ -1265,9 +1265,9 @@
 			var pointTwo = null;
 
 			// bind events for moving points
-			helpers.bindEvents(this, ["mousedown", "mouseup", "mousemove"], function(evt) {
+			helpers.bindEvents(this, ["mousedown", "mouseup", "mousemove", "touchstart", "touchend", "touchmove" ], function(evt) {
 				
-				if (evt.type == 'mousedown')
+				if (evt.type == 'mousedown' || evt.type == 'touchstart')
 				{
 					var activePoints = this.getPointsAtEvent(evt);
 					//alert(helpers.getRelativePosition(evt).x + " plu" + evt.pageX);
@@ -1289,8 +1289,26 @@
 					mouse_cursor_moving = true;
 						
 				}
+
+function getOffset(evt) {
+  var el = evt.target,
+      x = 0,
+      y = 0;
+
+  while (el && !isNaN(el.offsetLeft) && !isNaN(el.offsetTop)) {
+    x += el.offsetLeft - el.scrollLeft;
+    y += el.offsetTop - el.scrollTop;
+    el = el.offsetParent;
+  }
+
+  x = evt.clientX - x;
+  y = evt.clientY - y;
+
+  return { x: x, y: y };
+}
+			
 					
-				if (evt.type == 'mousemove')
+				if (evt.type == 'mousemove' || evt.type == 'touchmove')
 				{
 					//alert("mousemove");
 					if (mouse_cursor_moving)
@@ -1300,19 +1318,32 @@
 							//alert("moving...");
 							pointOne.radius = 5;
 
+							var positionX, positionY;
+							
+							if (evt.type == 'touchmove')
+							{
+								positionX = evt.touches[0].pageX;
+								positionY = getOffset(evt.touches[0]).y;
+							}
+							else
+							{
+								positionX = getOffset(evt).x;
+								positionY = getOffset(evt).y;
+							}
+
 							// if Y axis hold is false then do not allow to move on y axis
 							if (!pointOne.holdY)
 							{
 								//var scalingFactor = this.drawingArea() / (this.min - this.max);
-								if (this.scale.calculateYREV(evt.layerY) <= 100 && this.scale.calculateYREV(evt.layerY) >= 0)
+								if (this.scale.calculateYREV(positionY) <= 100 && this.scale.calculateYREV(positionY) >= 0)
 								{
-									pointOne.value = this.scale.calculateYREV(evt.layerY);
+									pointOne.value = this.scale.calculateYREV(positionY);
 								}
 							}
 
-							if (this.scale.calculateXREVS(evt.layerX) * pointOne.step >= 0)
+							if (this.scale.calculateXREVS(positionX) * pointOne.step >= 0)
 							{
-								pointOne.value2 = this.scale.calculateXREVS(evt.layerX) * pointOne.step;
+								pointOne.value2 = this.scale.calculateXREVS(positionX) * pointOne.step;
 							}
 
 							var datasetIndex = 1, pointsIndex = 1, savePoint, next, lastpoint;
@@ -1377,7 +1408,7 @@
 					}
 				}
 
-				if(evt.type == 'mouseup')
+				if(evt.type == 'mouseup' || evt.type == 'touchend')
 				{
 					if (pointOne != null)
 					{

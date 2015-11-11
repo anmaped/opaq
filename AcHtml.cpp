@@ -51,6 +51,7 @@ const __FlashStringHelper* AcHtml::get_header_light()
     <meta charset=\"utf-8\" /> \
     <link rel=\"stylesheet\" href=\"style.css\"> \
     <script src=\"Chart.min.js\"></script> \
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0\"> \
     </head> ");
 }
 
@@ -62,6 +63,7 @@ const __FlashStringHelper* AcHtml::get_header()
     <title>Opaq C1</title> \
     <meta charset=\"utf-8\" /> \
     <link rel=\"stylesheet\" href=\"style.css\"> \
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0\"> \
     </head> ");
 }
 
@@ -89,7 +91,7 @@ const __FlashStringHelper* AcHtml::get_menu()
     location.reload(true);
   };
   </script>
-  <img height="100px" src="logo.png"/>
+  <img height="60px" src="logo.png"/>
   <nav class="dropdownmenu">
   <ul>
     <li><a href="..">Opaq Status</a></li><!--

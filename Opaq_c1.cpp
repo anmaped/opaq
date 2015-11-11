@@ -647,6 +647,8 @@ void OpenAq_Controller::handleRoot()
     str.concat ( html.get_begin() );
     str.concat ( html.get_header() );
     str.concat ( html.get_body_begin() );
+    sendBlockGlobal( sv, &count, &step )( &str );
+    
     str.concat ( html.get_menu() );
 
     html.send_status_div( &str, &storage, sendBlockGlobal(sv, &count, &step) );
@@ -772,6 +774,7 @@ void OpenAq_Controller::handleLight()
     str += html.get_begin();
     str += html.get_header_light();
     str += html.get_body_begin();
+    sendBlockGlobal(sv, &count, &step)(&str);
     str += html.get_menu();
     sendBlockGlobal(sv, &count, &step)(&str);
     
@@ -830,6 +833,7 @@ void OpenAq_Controller::handleAdvset()
     str.concat( html.get_begin() );
     str.concat( html.get_header() );
     str.concat( html.get_body_begin() );
+    sendBlockGlobal( sv, &count, &step )( &str );
     str.concat( html.get_menu() );
     
     html.get_advset_light1( &str );

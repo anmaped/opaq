@@ -1,26 +1,28 @@
 # Opaq controller firmware
-#### Release 1.0.2
+#### Release 1.0.3
 
-![Opaq Frame](/tools/images/opaq_framev102.png?raw=true "Opaq Frame")
+![Opaq Frame](/tools/images/opaq_framev103.png?raw=true "Opaq Frame")
 
 Supported features:
-- Browser-based graphical management for light and power settings
-- Customizable programming actions
-- Node-based architecture (nodes are authentic - signed)
+- Browser-based graphical user interface to control light and power devices of aquarium and pond systems
+- Customizable programming actions for nodes such as automation of CO2 injection or temperature management
+- Node-based architecture (nodes are authentic, secured with SHA256 signatures)
+- Energy cost management that instruct you how to avoid wasting energy
 
 Opaq devices:
-- Opaq C1 - the main controller device
-- Opaq N1 - four channel dimmer devices capable to connect with any led light (several settings proposed)
+- Opaq C1 - the main controller device ![Opaq C1 Frame](/tools/images/opaq_c1framev1.0.png?raw=true "Opaq C1 Frame")
+- Opaq N1 - the four channel dimmer device capable to connect with any led lamp (several settings available)
+- Opaq N2 - the power outlet controller node for 220v devices up to 2400w
 
 Expected features:
-- Support for sensor logging (PH, NO3)
-- Management of peristaltic pumps for automatic fertilization regimes for fresh and salt water
-- Dedicated settings for aquarium and pond systems
+- Support for sensor logging (temperature, humidity, light intensity, PH, Nitrates(NO3))
+- Management of peristaltic pumps for automatic fertilization regimes for fresh and salt water aquariums
+- Dedicated settings for aquarium and pond systems (pond systems can be controlled by Opaq C1 to automatically perform programmable water changes, and feed fishes; pumps are controlled by programmable actions based on the information provided by water level sensor nodes)
 
 Expected Hardware:
-- Opaq N2 (probe device)
+- Opaq N3 (the node for probing PH, light intensity and humidity)
 
-External supported devices:
+External compatible devices:
 - Light
   * two channel Zetlight Lancia dimmers
 - Power outlets
