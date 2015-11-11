@@ -10,7 +10,7 @@ Supported features:
 - Energy cost management that instruct you how to avoid wasting energy
 
 Opaq devices:
-- Opaq C1 - the main controller device ![Opaq C1 Frame](/tools/images/opaq_c1framev1.0.png?raw=true "Opaq C1 Frame")
+- Opaq C1 - the main controller device ![Opaq C1 Frame](/hardware/opac_c1/v1.0/opaqc1_board_top.jpg?raw=true "Opaq C1 Frame")
 - Opaq N1 - the four channel dimmer device capable to connect with any led lamp (several settings available)
 - Opaq N2 - the power outlet controller node for 220v devices up to 2400w
 
