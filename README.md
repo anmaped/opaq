@@ -5,7 +5,7 @@
 
 Supported features:
 - Browser-based graphical user interface to control light and power devices of aquarium and pond systems
-- Customizable programming actions for nodes such as automation of CO2 injection or temperature management
+- Customizable programming actions for nodes such as automation of CO2 injection and temperature management
 - Node-based architecture (nodes are authentic, secured with SHA256 signatures)
 - Energy cost management that instruct you how to avoid wasting energy
 
@@ -23,10 +23,11 @@ Expected Hardware:
 - Opaq N3 (the node for probing PH, light intensity and humidity)
 
 External compatible devices:
+![Opaq Frame](/tools/images/lp_sample.jpeg?raw=true "Opaq Frame")
 - Light
-  * two channel Zetlight Lancia dimmers
+  * two channel Zetlight Lancia aquarium series dimmers (more details [here](http://www.zetlight.com/))
 - Power outlets
-  * Chacon RF power sockets
+  * Chacon RF power sockets (more information [here](http://www.chacon.be/))
 
 
 
