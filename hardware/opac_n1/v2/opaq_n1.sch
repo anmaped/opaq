@@ -5151,56 +5151,6 @@ Standard 0603 ceramic capacitor, and 0.1" leaded capacitor.</description>
 </deviceset>
 </devicesets>
 </library>
-<library name="MySMD">
-<packages>
-<package name="157SW">
-<wire x1="0" y1="-1.27" x2="0" y2="1.27" width="0.127" layer="51"/>
-<wire x1="0" y1="1.27" x2="3.9878" y2="1.27" width="0.127" layer="51"/>
-<wire x1="3.9878" y1="1.27" x2="3.9878" y2="-1.27" width="0.127" layer="51"/>
-<wire x1="3.9878" y1="-1.27" x2="0" y2="-1.27" width="0.127" layer="51"/>
-<wire x1="1.016" y1="1.27" x2="3.048" y2="1.27" width="0.2032" layer="21"/>
-<wire x1="1.016" y1="-1.27" x2="3.048" y2="-1.27" width="0.2032" layer="21"/>
-<circle x="2.032" y="0" radius="0.8131" width="0.2032" layer="21"/>
-<circle x="2.032" y="0" radius="0.8131" width="0.127" layer="51"/>
-<smd name="1" x="0" y="0" dx="1.016" dy="1.9812" layer="1"/>
-<smd name="2" x="4.0005" y="0" dx="1.016" dy="1.9812" layer="1"/>
-<text x="0" y="1.524" size="0.6096" layer="25">&gt;NAME</text>
-<text x="0" y="-2.159" size="0.6096" layer="27">&gt;VALUE</text>
-</package>
-</packages>
-<symbols>
-<symbol name="PBSWITCH">
-<wire x1="-4.572" y1="2.54" x2="-2.286" y2="2.54" width="0.254" layer="94"/>
-<wire x1="-2.286" y1="2.54" x2="2.286" y2="2.54" width="0.254" layer="94"/>
-<wire x1="2.286" y1="2.54" x2="4.572" y2="2.54" width="0.254" layer="94"/>
-<wire x1="-2.286" y1="2.54" x2="-2.286" y2="4.318" width="0.254" layer="94"/>
-<wire x1="-2.286" y1="4.318" x2="2.286" y2="4.318" width="0.254" layer="94"/>
-<wire x1="2.286" y1="4.318" x2="2.286" y2="2.54" width="0.254" layer="94"/>
-<text x="-8.636" y="4.826" size="1.778" layer="95">&gt;NAME</text>
-<text x="-4.318" y="-3.302" size="1.778" layer="96">&gt;VALUE</text>
-<pin name="1" x="-7.62" y="0" visible="off" length="middle" direction="pas" function="dot"/>
-<pin name="2" x="7.62" y="0" visible="off" length="middle" direction="pas" function="dot" rot="R180"/>
-</symbol>
-</symbols>
-<devicesets>
-<deviceset name="PB157" prefix="SW" uservalue="yes">
-<gates>
-<gate name="G$1" symbol="PBSWITCH" x="0" y="0"/>
-</gates>
-<devices>
-<device name="" package="157SW">
-<connects>
-<connect gate="G$1" pin="1" pad="1"/>
-<connect gate="G$1" pin="2" pad="2"/>
-</connects>
-<technologies>
-<technology name=""/>
-</technologies>
-</device>
-</devices>
-</deviceset>
-</devicesets>
-</library>
 <library name="pimoroni">
 <description>&lt;h3&gt;Pimoroni Eagle Bits&lt;/h3&gt;
 Custom Eagle parts that we've created where needed. Please feel free to use, extend, and share!
@@ -14371,6 +14321,160 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 </deviceset>
 </devicesets>
 </library>
+<library name="Wurth_Elektronik_Electromechanic_Board_to_Board_Connectors_rev15c">
+<description>&lt;BR&gt;Wurth Elektronik - Board to Board Connectors&lt;br&gt;&lt;Hr&gt;
+&lt;BR&gt;&lt;BR&gt; 
+&lt;TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0&gt;
+&lt;TR&gt;   
+&lt;TD BGCOLOR="#cccccc" ALIGN=CENTER&gt;&lt;FONT FACE=ARIAL SIZE=3&gt;&lt;BR&gt;&lt;br&gt;
+      &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &amp;nbsp;&lt;BR&gt;
+       &lt;BR&gt;
+       &lt;BR&gt;
+       &lt;BR&gt;&lt;BR&gt;&lt;/FONT&gt;
+    &lt;/TD&gt;
+&lt;TD BGCOLOR="#cccccc" ALIGN=CENTER&gt;&lt;FONT FACE=ARIAL SIZE=3&gt;&lt;br&gt;
+      -----&lt;BR&gt;
+      -----&lt;BR&gt;
+      -----&lt;BR&gt;
+      -----&lt;BR&gt;
+      -----&lt;BR&gt;&lt;BR&gt;&lt;/FONT&gt;
+    &lt;/TD&gt;
+    &lt;TD BGCOLOR="#cccccc" ALIGN=CENTER&gt; &lt;FONT FACE=ARIAL SIZE=3&gt;&lt;br&gt;
+      ---------------------------&lt;BR&gt;
+&lt;B&gt;&lt;I&gt;&lt;span style='font-size:26pt;
+  color:#FF6600;'&gt;WE &lt;/span&gt;&lt;/i&gt;&lt;/b&gt;
+&lt;BR&gt;
+      ---------------------------&lt;BR&gt;&lt;b&gt;Würth Elektronik&lt;/b&gt;&lt;/FONT&gt;
+    &lt;/TD&gt;
+    &lt;TD BGCOLOR="#cccccc" ALIGN=CENTER&gt;&lt;FONT FACE=ARIAL SIZE=3&gt;&lt;br&gt;
+      ---------O---&lt;BR&gt;
+      ----O--------&lt;BR&gt;
+      ---------O---&lt;BR&gt;
+      ----O--------&lt;BR&gt;
+      ---------O---&lt;BR&gt;&lt;BR&gt;&lt;/FONT&gt;
+    &lt;/TD&gt;
+   
+&lt;TD BGCOLOR="#cccccc" ALIGN=CENTER&gt;&lt;FONT FACE=ARIAL SIZE=3&gt;&lt;BR&gt;
+      &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &amp;nbsp;&lt;BR&gt;
+       &lt;BR&gt;
+       &lt;BR&gt;
+       &lt;BR&gt;
+       &lt;BR&gt;&lt;BR&gt;&lt;/FONT&gt;
+    &lt;/TD&gt;
+  &lt;/TR&gt;
+
+  &lt;TR&gt;
+    &lt;TD COLSPAN=7&gt;&amp;nbsp;
+    &lt;/TD&gt;
+  &lt;/TR&gt;
+  
+&lt;/TABLE&gt;
+&lt;B&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;More than you expect&lt;BR&gt;&lt;BR&gt;&lt;BR&gt;&lt;/B&gt;
+
+&lt;HR&gt;&lt;BR&gt;
+&lt;b&gt;Würth Elektronik eiSos GmbH &amp; Co. KG&lt;/b&gt;&lt;br&gt;
+EMC &amp; Inductive Solutions&lt;br&gt;
+
+Max-Eyth-Str.1&lt;br&gt;
+D-74638 Waldenburg&lt;br&gt;
+&lt;br&gt;
+Tel: +49 (0)7942-945-0&lt;br&gt;
+Fax:+49 (0)7942-945-405&lt;br&gt;
+&lt;br&gt;
+&lt;a href="http://www.we-online.com/eagle"&gt;http://www.we-online.com/eagle&lt;/a&gt;&lt;br&gt;
+&lt;a href="mailto:libraries@we-online.com"&gt;libraries@we-online.com&lt;/a&gt; &lt;BR&gt;&lt;BR&gt;
+&lt;br&gt;&lt;HR&gt;&lt;BR&gt;
+Neither CadSoft nor WE-eiSos does warrant that this library is error-free or &lt;br&gt;
+that it meets your specific requirements.&lt;br&gt;&lt;BR&gt;
+Please contact us for more information.&lt;br&gt;&lt;BR&gt;&lt;br&gt;
+&lt;hr&gt;
+Eagle Version 6, Library Revision 2015c, 2015-06-02
+&lt;HR&gt;
+Copyright: Würth Elektronik</description>
+<packages>
+<package name="62101021021">
+<description>&lt;b&gt;WR-PHD 1.27mm Dual SMT Pin Header H=3.80 mm, 14 Pins&lt;b&gt;</description>
+<wire x1="-2.54" y1="-1.7" x2="3.79" y2="-1.7" width="0.127" layer="51"/>
+<wire x1="3.79" y1="-1.7" x2="3.79" y2="1.7" width="0.127" layer="21"/>
+<wire x1="3.79" y1="1.7" x2="-2.54" y2="1.7" width="0.127" layer="51"/>
+<wire x1="-2.54" y1="1.7" x2="-2.54" y2="-1.7" width="0.127" layer="21"/>
+<smd name="1" x="-1.905" y="-1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="2" x="-0.635" y="-1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="3" x="0.635" y="-1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="4" x="1.905" y="-1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="7" x="1.905" y="1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="8" x="0.635" y="1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="9" x="-0.635" y="1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="10" x="-1.905" y="1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="5" x="3.175" y="-1.95" dx="0.75" dy="2.1" layer="1"/>
+<smd name="6" x="3.175" y="1.95" dx="0.75" dy="2.1" layer="1"/>
+<text x="-5.504" y="5.6821" size="1.27" layer="25">&gt;NAME</text>
+<text x="-5.504" y="-7.4602" size="1.27" layer="27">&gt;VALUE</text>
+</package>
+</packages>
+<symbols>
+<symbol name="5/5">
+<wire x1="-5.08" y1="12.7" x2="-5.08" y2="-2.54" width="0.254" layer="94"/>
+<wire x1="-5.08" y1="-2.54" x2="2.54" y2="-2.54" width="0.254" layer="94"/>
+<wire x1="2.54" y1="-2.54" x2="2.54" y2="12.7" width="0.254" layer="94"/>
+<wire x1="2.54" y1="12.7" x2="-5.08" y2="12.7" width="0.254" layer="94"/>
+<wire x1="-1.905" y1="9.525" x2="-1.905" y2="10.795" width="0.254" layer="94" curve="-180"/>
+<wire x1="-1.905" y1="6.985" x2="-1.905" y2="8.255" width="0.254" layer="94" curve="-180"/>
+<wire x1="-1.905" y1="4.445" x2="-1.905" y2="5.715" width="0.254" layer="94" curve="-180"/>
+<wire x1="-1.905" y1="1.905" x2="-1.905" y2="3.175" width="0.254" layer="94" curve="-180"/>
+<wire x1="-1.905" y1="-0.635" x2="-1.905" y2="0.635" width="0.254" layer="94" curve="-180"/>
+<wire x1="-0.635" y1="10.795" x2="-0.635" y2="9.525" width="0.254" layer="94" curve="-180"/>
+<wire x1="-0.635" y1="8.255" x2="-0.635" y2="6.985" width="0.254" layer="94" curve="-180"/>
+<wire x1="-0.635" y1="5.715" x2="-0.635" y2="4.445" width="0.254" layer="94" curve="-180"/>
+<wire x1="-0.635" y1="3.175" x2="-0.635" y2="1.905" width="0.254" layer="94" curve="-180"/>
+<wire x1="-0.635" y1="0.635" x2="-0.635" y2="-0.635" width="0.254" layer="94" curve="-180"/>
+<text x="-5.08" y="-7.62" size="1.27" layer="95">&gt;VALUE</text>
+<text x="-5.08" y="15.24" size="1.27" layer="95">&gt;NAME</text>
+<pin name="1" x="-7.62" y="10.16" visible="pad" length="middle" direction="pas"/>
+<pin name="2" x="-7.62" y="7.62" visible="pad" length="middle" direction="pas"/>
+<pin name="3" x="-7.62" y="5.08" visible="pad" length="middle" direction="pas"/>
+<pin name="4" x="-7.62" y="2.54" visible="pad" length="middle" direction="pas"/>
+<pin name="5" x="-7.62" y="0" visible="pad" length="middle" direction="pas"/>
+<pin name="10" x="5.08" y="10.16" visible="pad" length="middle" direction="pas" rot="R180"/>
+<pin name="9" x="5.08" y="7.62" visible="pad" length="middle" direction="pas" rot="R180"/>
+<pin name="8" x="5.08" y="5.08" visible="pad" length="middle" direction="pas" rot="R180"/>
+<pin name="7" x="5.08" y="2.54" visible="pad" length="middle" direction="pas" rot="R180"/>
+<pin name="6" x="5.08" y="0" visible="pad" length="middle" direction="pas" rot="R180"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="62101021021" prefix="K">
+<description>&lt;b&gt; WR-PHD 1.27mm Dual SMT Pin Header H=3.80 mm, 10 Pins&lt;/b&gt;=&gt;Code : Con_BTB_PHD_1.27_2_62101021021
+&lt;br&gt;&lt;a href="http://katalog.we-online.de/media/thumbs2/eican/thb_Con_BTB_PHD_1.27_2_6210xx21021_pf2.jpg" title="Enlarge picture"&gt;
+&lt;img src="http://katalog.we-online.de/media/thumbs2/eican/thb_Con_BTB_PHD_1.27_2_6210xx21021_pf2.jpg"  width="320"&gt;&lt;/a&gt;&lt;p&gt;
+Details see: &lt;a href="http://katalog.we-online.de/en/em/621_0xx_210_21"&gt;http://katalog.we-online.de/en/em/621_0xx_210_21&lt;/a&gt;&lt;p&gt;
+Created 2014-06-03, Karrer Zheng&lt;br&gt;
+2014 (C) Würth Elektronik</description>
+<gates>
+<gate name="G$1" symbol="5/5" x="0" y="-5.08"/>
+</gates>
+<devices>
+<device name="" package="62101021021">
+<connects>
+<connect gate="G$1" pin="1" pad="1"/>
+<connect gate="G$1" pin="10" pad="10"/>
+<connect gate="G$1" pin="2" pad="2"/>
+<connect gate="G$1" pin="3" pad="3"/>
+<connect gate="G$1" pin="4" pad="4"/>
+<connect gate="G$1" pin="5" pad="5"/>
+<connect gate="G$1" pin="6" pad="6"/>
+<connect gate="G$1" pin="7" pad="7"/>
+<connect gate="G$1" pin="8" pad="8"/>
+<connect gate="G$1" pin="9" pad="9"/>
+</connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+</devicesets>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -14428,9 +14532,6 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <part name="GND6" library="supply1" deviceset="GND" device=""/>
 <part name="P+10" library="SparkFun" deviceset="3.3V" device=""/>
 <part name="GND8" library="supply1" deviceset="GND" device=""/>
-<part name="SW1" library="MySMD" deviceset="PB157" device="" value="RESET">
-<attribute name="PARTNO" value="RS 682-1421"/>
-</part>
 <part name="SUPPLY4" library="SparkFun" deviceset="VCC" device="" value="5v"/>
 <part name="SUPPLY5" library="supply2" deviceset="GND" device=""/>
 <part name="SUPPLY14" library="supply2" deviceset="GND" device=""/>
@@ -14445,7 +14546,6 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <part name="P+11" library="SparkFun" deviceset="VCC" device="" value="5v"/>
 <part name="P+12" library="SparkFun" deviceset="VCC" device="" value="5v"/>
 <part name="IC7" library="LowPowerLab" deviceset="AT25F512B" device="WIDE_5.3MM" value="AT25F512BWIDE_5.3MM"/>
-<part name="SUPPLY1" library="supply2" deviceset="GND" device=""/>
 <part name="C7" library="SparkFun-Passives" deviceset="CAP" device="0402-CAP" value="100pf"/>
 <part name="FRAME2" library="SparkFun-Aesthetics" deviceset="FRAME-LETTER" device="NO_PACKAGE"/>
 <part name="R1" library="resistor" deviceset="R-EU_" device="R0805"/>
@@ -14461,6 +14561,8 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <part name="C2" library="rcl" deviceset="CPOL-EU" device="C/6032-28R"/>
 <part name="C10" library="rcl" deviceset="CPOL-EU" device="D/7343-31R"/>
 <part name="GND11" library="SparkFun" deviceset="GND" device=""/>
+<part name="K1" library="Wurth_Elektronik_Electromechanic_Board_to_Board_Connectors_rev15c" deviceset="62101021021" device=""/>
+<part name="GND15" library="SparkFun-Aesthetics" deviceset="GND" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -14499,9 +14601,6 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <instance part="GND6" gate="1" x="231.14" y="147.32"/>
 <instance part="P+10" gate="G$1" x="170.18" y="96.52"/>
 <instance part="GND8" gate="1" x="165.1" y="91.44" rot="R180"/>
-<instance part="SW1" gate="G$1" x="53.34" y="129.54">
-<attribute name="PARTNO" x="53.34" y="129.54" size="1.778" layer="96" display="off"/>
-</instance>
 <instance part="SUPPLY4" gate="1" x="31.75" y="124.46"/>
 <instance part="SUPPLY5" gate="GND" x="31.75" y="86.36"/>
 <instance part="SUPPLY14" gate="GND" x="41.91" y="50.8"/>
@@ -14516,7 +14615,6 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <instance part="R3" gate="G$1" x="115.57" y="48.26" smashed="yes" rot="R90">
 <attribute name="VALUE" x="121.92" y="49.022" size="1.778" layer="96" rot="R180"/>
 </instance>
-<instance part="SUPPLY1" gate="GND" x="60.96" y="124.46"/>
 <instance part="R1" gate="G$1" x="139.7" y="116.84" rot="R90"/>
 <instance part="R5" gate="G$1" x="147.32" y="127" rot="R180"/>
 <instance part="GND13" gate="1" x="139.7" y="104.14"/>
@@ -14532,6 +14630,8 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <instance part="C2" gate="G$1" x="167.64" y="160.02"/>
 <instance part="C10" gate="G$1" x="96.52" y="165.1"/>
 <instance part="GND11" gate="1" x="96.52" y="152.4"/>
+<instance part="K1" gate="G$1" x="81.28" y="22.86"/>
+<instance part="GND15" gate="1" x="93.98" y="17.78"/>
 </instances>
 <busses>
 </busses>
@@ -14668,11 +14768,6 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <wire x1="115.57" y1="30.48" x2="115.57" y2="33.02" width="0.1524" layer="91"/>
 </segment>
 <segment>
-<pinref part="SUPPLY1" gate="GND" pin="GND"/>
-<pinref part="SW1" gate="G$1" pin="2"/>
-<wire x1="60.96" y1="127" x2="60.96" y2="129.54" width="0.1524" layer="91"/>
-</segment>
-<segment>
 <pinref part="R1" gate="G$1" pin="1"/>
 <pinref part="GND13" gate="1" pin="GND"/>
 <wire x1="139.7" y1="111.76" x2="139.7" y2="106.68" width="0.1524" layer="91"/>
@@ -14701,6 +14796,12 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <pinref part="GND11" gate="1" pin="GND"/>
 <pinref part="C10" gate="G$1" pin="-"/>
 <wire x1="96.52" y1="154.94" x2="96.52" y2="160.02" width="0.1524" layer="91"/>
+</segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="6"/>
+<pinref part="GND15" gate="1" pin="GND"/>
+<wire x1="86.36" y1="22.86" x2="93.98" y2="22.86" width="0.1524" layer="91"/>
+<wire x1="93.98" y1="22.86" x2="93.98" y2="20.32" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="VPLUS_IN" class="1">
@@ -14790,15 +14891,15 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 </net>
 <net name="RST" class="0">
 <segment>
-<label x="42.926" y="109.728" size="1.778" layer="95"/>
+<label x="40.386" y="112.268" size="1.778" layer="95"/>
 <pinref part="IC6" gate="G$1" pin="PC6(/RESET)"/>
-<wire x1="41.91" y1="111.76" x2="43.18" y2="111.76" width="0.1524" layer="91"/>
 <pinref part="R2" gate="G$1" pin="2"/>
-<wire x1="43.18" y1="111.76" x2="44.45" y2="111.76" width="0.1524" layer="91"/>
-<wire x1="43.18" y1="111.76" x2="43.18" y2="129.54" width="0.1524" layer="91"/>
-<junction x="43.18" y="111.76"/>
-<pinref part="SW1" gate="G$1" pin="1"/>
-<wire x1="43.18" y1="129.54" x2="45.72" y2="129.54" width="0.1524" layer="91"/>
+<wire x1="41.91" y1="111.76" x2="44.45" y2="111.76" width="0.1524" layer="91"/>
+</segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="5"/>
+<wire x1="73.66" y1="22.86" x2="63.5" y2="22.86" width="0.1524" layer="91"/>
+<label x="66.04" y="22.86" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$1" class="0">
@@ -14841,6 +14942,11 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <pinref part="R2" gate="G$1" pin="1"/>
 <junction x="31.75" y="111.76"/>
 </segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="8"/>
+<wire x1="86.36" y1="27.94" x2="99.06" y2="27.94" width="0.1524" layer="91"/>
+<label x="88.9" y="27.94" size="1.778" layer="95"/>
+</segment>
 </net>
 <net name="D8" class="0">
 <segment>
@@ -14862,12 +14968,22 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <label x="95.25" y="86.36" size="1.778" layer="95"/>
 <pinref part="IC6" gate="G$1" pin="PD1(TXD)"/>
 </segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="2"/>
+<wire x1="73.66" y1="30.48" x2="63.5" y2="30.48" width="0.1524" layer="91"/>
+<label x="66.04" y="30.48" size="1.778" layer="95"/>
+</segment>
 </net>
 <net name="D0_RX" class="0">
 <segment>
 <wire x1="92.71" y1="88.9" x2="104.14" y2="88.9" width="0.1524" layer="91"/>
 <label x="95.25" y="88.9" size="1.778" layer="95"/>
 <pinref part="IC6" gate="G$1" pin="PD0(RXD)"/>
+</segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="1"/>
+<wire x1="73.66" y1="33.02" x2="63.5" y2="33.02" width="0.1524" layer="91"/>
+<label x="66.04" y="33.02" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="A7" class="0">
@@ -14895,6 +15011,11 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <wire x1="45.72" y1="154.94" x2="63.5" y2="154.94" width="0.1524" layer="91"/>
 <label x="45.72" y="154.94" size="1.778" layer="95"/>
 <pinref part="R16" gate="G$1" pin="1"/>
+</segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="10"/>
+<wire x1="86.36" y1="33.02" x2="99.06" y2="33.02" width="0.1524" layer="91"/>
+<label x="88.9" y="33.02" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="A3" class="0">
@@ -14936,6 +15057,11 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <wire x1="175.26" y1="78.74" x2="157.48" y2="78.74" width="0.1524" layer="91"/>
 <label x="160.02" y="78.74" size="1.778" layer="95"/>
 </segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="7"/>
+<wire x1="86.36" y1="25.4" x2="99.06" y2="25.4" width="0.1524" layer="91"/>
+<label x="88.9" y="25.4" size="1.778" layer="95"/>
+</segment>
 </net>
 <net name="D12_MISO" class="0">
 <segment>
@@ -14947,6 +15073,11 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <pinref part="MODULE1" gate="G$1" pin="MISO"/>
 <wire x1="175.26" y1="76.2" x2="157.48" y2="76.2" width="0.1524" layer="91"/>
 <label x="160.02" y="76.2" size="1.778" layer="95"/>
+</segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="3"/>
+<wire x1="73.66" y1="27.94" x2="63.5" y2="27.94" width="0.1524" layer="91"/>
+<label x="66.04" y="27.94" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="D13_SCK" class="0">
@@ -14960,6 +15091,11 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <wire x1="175.26" y1="81.28" x2="157.48" y2="81.28" width="0.1524" layer="91"/>
 <label x="160.02" y="81.28" size="1.778" layer="95"/>
 </segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="4"/>
+<wire x1="73.66" y1="25.4" x2="63.5" y2="25.4" width="0.1524" layer="91"/>
+<label x="66.04" y="25.4" size="1.778" layer="95"/>
+</segment>
 </net>
 <net name="A5_SCL" class="0">
 <segment>
@@ -14972,6 +15108,11 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 <wire x1="45.72" y1="157.48" x2="53.34" y2="157.48" width="0.1524" layer="91"/>
 <label x="45.72" y="157.48" size="1.778" layer="95"/>
 <pinref part="R17" gate="G$1" pin="1"/>
+</segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="9"/>
+<wire x1="86.36" y1="30.48" x2="99.06" y2="30.48" width="0.1524" layer="91"/>
+<label x="88.9" y="30.48" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$2" class="0">
