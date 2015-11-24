@@ -643,6 +643,17 @@ Basic small signal diode good up to 200mA. SMB footprint. Common part #: BAS16</
 <rectangle x1="-2.794" y1="-1.0922" x2="-2.2606" y2="1.0922" layer="51"/>
 <rectangle x1="2.2606" y1="-1.0922" x2="2.794" y2="1.0922" layer="51"/>
 </package>
+<package name="FIDUCIAL-1.5X3">
+<circle x="0" y="0" radius="0.9055" width="1.27" layer="29"/>
+<smd name="1" x="0" y="0" dx="1.5" dy="1.5" layer="1" roundness="100" cream="no"/>
+</package>
+<package name="FIDUCIAL-1X2">
+<smd name="1" x="0" y="0" dx="1" dy="1" layer="1" roundness="100" cream="no"/>
+</package>
+<package name="FIDUCIAL-1X2.5">
+<circle x="0" y="0" radius="0.9" width="1.27" layer="29"/>
+<smd name="1" x="0" y="0" dx="1" dy="1" layer="1" roundness="100" cream="no"/>
+</package>
 </packages>
 <symbols>
 <symbol name="ACS712">
@@ -720,6 +731,11 @@ Basic small signal diode good up to 200mA. SMB footprint. Common part #: BAS16</
 <text x="2.54" y="-2.3114" size="1.778" layer="96">&gt;VALUE</text>
 <pin name="A" x="-2.54" y="0" visible="off" length="short" direction="pas"/>
 <pin name="C" x="2.54" y="0" visible="off" length="short" direction="pas" rot="R180"/>
+</symbol>
+<symbol name="FIDUCIAL">
+<wire x1="-0.762" y1="0.762" x2="0.762" y2="-0.762" width="0.254" layer="94"/>
+<wire x1="0.762" y1="0.762" x2="-0.762" y2="-0.762" width="0.254" layer="94"/>
+<circle x="0" y="0" radius="1.27" width="0.254" layer="94"/>
 </symbol>
 </symbols>
 <devicesets>
@@ -879,6 +895,30 @@ These are standard reverse protection diodes and small signal diodes. SMA packag
 <connect gate="G$1" pin="A" pad="A"/>
 <connect gate="G$1" pin="C" pad="C"/>
 </connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+<deviceset name="FIDUCIAL" prefix="JP">
+<description>&lt;b&gt;Fiducial Alignment Points&lt;/b&gt;
+Various fiducial points for machine vision alignment.</description>
+<gates>
+<gate name="G$1" symbol="FIDUCIAL" x="0" y="0"/>
+</gates>
+<devices>
+<device name="1.5X3" package="FIDUCIAL-1.5X3">
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+<device name="1X2" package="FIDUCIAL-1X2">
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+<device name="1X2.5" package="FIDUCIAL-1X2.5">
 <technologies>
 <technology name=""/>
 </technologies>
@@ -14563,6 +14603,12 @@ Created 2014-06-03, Karrer Zheng&lt;br&gt;
 <part name="GND11" library="SparkFun" deviceset="GND" device=""/>
 <part name="K1" library="Wurth_Elektronik_Electromechanic_Board_to_Board_Connectors_rev15c" deviceset="62101021021" device=""/>
 <part name="GND15" library="SparkFun-Aesthetics" deviceset="GND" device=""/>
+<part name="JP1" library="SparkFun" deviceset="FIDUCIAL" device="1X2.5"/>
+<part name="JP2" library="SparkFun" deviceset="FIDUCIAL" device="1X2.5"/>
+<part name="R6" library="resistor" deviceset="R-EU_" device="R0805"/>
+<part name="R7" library="resistor" deviceset="R-EU_" device="R0805"/>
+<part name="R8" library="resistor" deviceset="R-EU_" device="R0805"/>
+<part name="R9" library="resistor" deviceset="R-EU_" device="R0805"/>
 </parts>
 <sheets>
 <sheet>
@@ -14632,6 +14678,8 @@ Created 2014-06-03, Karrer Zheng&lt;br&gt;
 <instance part="GND11" gate="1" x="96.52" y="152.4"/>
 <instance part="K1" gate="G$1" x="81.28" y="22.86"/>
 <instance part="GND15" gate="1" x="93.98" y="17.78"/>
+<instance part="JP1" gate="G$1" x="142.24" y="25.4"/>
+<instance part="JP2" gate="G$1" x="142.24" y="20.32"/>
 </instances>
 <busses>
 </busses>
@@ -15180,6 +15228,10 @@ Created 2014-06-03, Karrer Zheng&lt;br&gt;
 <instance part="IC7" gate="G$1" x="50.8" y="121.92" smashed="yes">
 <attribute name="NAME" x="63.246" y="113.538" size="1.778" layer="95" rot="R180"/>
 </instance>
+<instance part="R6" gate="G$1" x="137.16" y="91.44" rot="R180"/>
+<instance part="R7" gate="G$1" x="129.54" y="66.04" rot="R180"/>
+<instance part="R8" gate="G$1" x="172.72" y="91.44" rot="R180"/>
+<instance part="R9" gate="G$1" x="172.72" y="66.04" rot="R180"/>
 </instances>
 <busses>
 </busses>
@@ -15291,30 +15343,30 @@ Created 2014-06-03, Karrer Zheng&lt;br&gt;
 </net>
 <net name="DIM1" class="0">
 <segment>
-<pinref part="Q1" gate="G$1" pin="G"/>
-<wire x1="152.4" y1="91.44" x2="142.24" y2="91.44" width="0.1524" layer="91"/>
-<label x="144.78" y="91.44" size="1.778" layer="95"/>
+<pinref part="R6" gate="G$1" pin="2"/>
+<wire x1="132.08" y1="91.44" x2="114.3" y2="91.44" width="0.1524" layer="91"/>
+<label x="124.46" y="91.44" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="DIM2" class="0">
 <segment>
-<pinref part="Q2" gate="G$1" pin="G"/>
-<wire x1="187.96" y1="91.44" x2="177.8" y2="91.44" width="0.1524" layer="91"/>
-<label x="180.34" y="91.44" size="1.778" layer="95"/>
+<pinref part="R8" gate="G$1" pin="2"/>
+<wire x1="167.64" y1="91.44" x2="162.56" y2="91.44" width="0.1524" layer="91"/>
+<label x="162.56" y="91.44" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="DIM3" class="0">
 <segment>
-<pinref part="Q3" gate="G$1" pin="G"/>
-<wire x1="152.4" y1="66.04" x2="134.62" y2="66.04" width="0.1524" layer="91"/>
-<label x="137.16" y="66.04" size="1.778" layer="95"/>
+<pinref part="R7" gate="G$1" pin="2"/>
+<wire x1="124.46" y1="66.04" x2="111.76" y2="66.04" width="0.1524" layer="91"/>
+<label x="119.38" y="66.04" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="DIM4" class="0">
 <segment>
-<pinref part="Q4" gate="G$1" pin="G"/>
-<wire x1="187.96" y1="66.04" x2="177.8" y2="66.04" width="0.1524" layer="91"/>
-<label x="180.34" y="66.04" size="1.778" layer="95"/>
+<pinref part="R9" gate="G$1" pin="2"/>
+<wire x1="167.64" y1="66.04" x2="162.56" y2="66.04" width="0.1524" layer="91"/>
+<label x="162.56" y="66.04" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="FILT" class="0">
@@ -15470,6 +15522,38 @@ Created 2014-06-03, Karrer Zheng&lt;br&gt;
 <wire x1="63.5" y1="119.38" x2="71.12" y2="119.38" width="0.1524" layer="91"/>
 <label x="63.5" y="119.38" size="1.778" layer="95"/>
 <pinref part="IC7" gate="G$1" pin="SCK"/>
+</segment>
+</net>
+<net name="N$30" class="0">
+<segment>
+<pinref part="Q1" gate="G$1" pin="G"/>
+<wire x1="152.4" y1="91.44" x2="142.24" y2="91.44" width="0.1524" layer="91"/>
+<label x="144.78" y="91.44" size="1.778" layer="95"/>
+<pinref part="R6" gate="G$1" pin="1"/>
+</segment>
+</net>
+<net name="N$31" class="0">
+<segment>
+<pinref part="Q3" gate="G$1" pin="G"/>
+<wire x1="152.4" y1="66.04" x2="134.62" y2="66.04" width="0.1524" layer="91"/>
+<label x="137.16" y="66.04" size="1.778" layer="95"/>
+<pinref part="R7" gate="G$1" pin="1"/>
+</segment>
+</net>
+<net name="N$32" class="0">
+<segment>
+<pinref part="Q2" gate="G$1" pin="G"/>
+<wire x1="187.96" y1="91.44" x2="177.8" y2="91.44" width="0.1524" layer="91"/>
+<label x="180.34" y="91.44" size="1.778" layer="95"/>
+<pinref part="R8" gate="G$1" pin="1"/>
+</segment>
+</net>
+<net name="N$33" class="0">
+<segment>
+<pinref part="Q4" gate="G$1" pin="G"/>
+<wire x1="187.96" y1="66.04" x2="177.8" y2="66.04" width="0.1524" layer="91"/>
+<label x="180.34" y="66.04" size="1.778" layer="95"/>
+<pinref part="R9" gate="G$1" pin="1"/>
 </segment>
 </net>
 </nets>
