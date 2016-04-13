@@ -23,11 +23,23 @@
  *
  */
  
-#include"Opaq_c1.h"
+#include "Opaq_c1.h"
 
 #include <ESP8266WiFi.h> 
 #include <ESP8266WebServer.h>
+#include <ESP8266httpUpdate.h>
+#include <ESP8266httpClient.h>
 #include <JsonParser.h>
+#include <WebSocketsServer.h>
+#include <Hash.h>
+
+#if OPAQ_MDNS_RESPONDER
+#include <ESP8266mDNS.h>
+#endif
+
+#if OPAQ_OTA_ARDUINO
+//#include <ArduinoOTA.h>
+#endif
 
 #include <RtcDS3231.h>
 
@@ -41,10 +53,8 @@
 
 #define DEBUG
 
-
 void setup() {
   opaq_controller.setup_controller();
-  
 }
 
 void loop() {

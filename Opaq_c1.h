@@ -46,8 +46,14 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x63
-#define OPAQ_VERSION "1.0.3"
+#define SIG 0x02
+#define OPAQ_VERSION "1.0.4"
+
+// configuration parameters
+#define OPAQ_URL_FIRMWARE_UPLOAD "ec2-52-29-83-128.eu-central-1.compute.amazonaws.com"
+#define OPAQ_MDNS_RESPONDER 1
+#define OPAQ_OTA_ARDUINO 0
+
 
 #define deviceTaskPrio           2
 #define deviceTaskQueueLen       1
@@ -78,7 +84,7 @@ private:
   AcHtml html;
 
   // manages flash memory block for permanent settings
-  AcStorage storage;
+  //AcStorage storage;
 
   // temporary string container
   String str;
@@ -107,7 +113,6 @@ public:
 
   OpenAq_Controller();
 
-  void factory_defaults ( uint8_t sig );
   void setup_controller();
 
   void setClockReady() { clockIsReady = true; };

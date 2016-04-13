@@ -28,6 +28,8 @@
 #include <user_interface.h>
 #include <mem.h>
 
+AcStorage storage = AcStorage();
+
 static_assert( !(MAXIMUM_SETTINGS_STORAGE >= SPI_FLASH_SEC_SIZE) , "SETTINGS EXCEED ALLOWED SIZE");
 
 extern "C" uint32_t _SPIFFS_end;
@@ -67,7 +69,7 @@ void AcStorage::defaults ( uint8_t sig )
   // SSID setting
   //static const char* lssid PROGMEM = "opaq-0001";
   char tmp[20];
-  sprintf(tmp, "opaq-%08x", ESP.getFlashChipId());
+  sprintf(tmp, "opaq-%08x", ESP.getChipId());
   memcpy ( ssid, tmp, strlen(tmp) );
 
   // default PWD
@@ -100,6 +102,62 @@ void AcStorage::save()
 {
   if ( commit() != true )
     Serial.println ( "storage commit was NOT sucessfull." );
+}
+
+void AcStorage::close()
+{
+  close();
+}
+
+
+
+
+void AcStorage::initOpaqC1Service()
+{
+  ESP8266httpClient client;
+
+  auto storer = [](WiFiClient tcp, size_t l, const char * name)
+  {
+    uint8_t buffer[WIFICLIENT_MAX_PACKET_SIZE];
+    size_t remaining_size=l, buffer_size;
+
+    // open file
+    File f = SPIFFS.open(name, "w");
+    
+    while (remaining_size > 0)
+    {
+      if (remaining_size - WIFICLIENT_MAX_PACKET_SIZE > 0) {
+        buffer_size = tcp.read(buffer, WIFICLIENT_MAX_PACKET_SIZE);
+      }
+      else
+      {
+         buffer_size = tcp.read(buffer, remaining_size);
+      }
+      // save to file buffer with len buffer_size
+      f.write( buffer, buffer_size );
+
+      remaining_size -= buffer_size;
+
+      Serial.println("#NEXT...");
+
+      yield();
+    }
+
+    f.close();
+
+    Serial.println("File transferred.");
+  };
+  
+  // get default opaq c1 UI
+  // request jquery file
+  client.open("http://ec2-52-29-83-128.eu-central-1.compute.amazonaws.com/");
+  client.requestFile("http://ec2-52-29-83-128.eu-central-1.compute.amazonaws.com/opaq/c1/page/jquery.mobile-1.4.5.min.js", storer );
+  
+  // request mobile jquery file
+  
+  
+  // get default opaq c1 settings
+  
 }
 
 const uint8_t AcStorage::getSignature()

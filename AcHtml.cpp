@@ -368,6 +368,14 @@ void AcHtml::get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceL
     *a += F("<td><button onclick=\"bindLDevice(");
     *a += String(i);
     *a += F(");\">Bind</button></td><td>");
+
+    if(device[i].type == ZETLIGHT_LANCIA_2CH)
+    {
+      *a += F("<button onclick=\"setLanciaLightListen(");
+      *a += String(i);
+      *a += F(");\">Listen</button>");
+    }
+    
     if ( i == n_ldevices-1)
     {
       *a += F("<button onclick=\"removeDevice();\">Remove</button>");
@@ -392,6 +400,11 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     function setDeviceOperation(elem) {
       
+    };
+    function setLanciaLightListen(deviceId) {
+      sendGet( "\light?sdevice=" + deviceId  + "&lstate=" + 7 );
+      confirm("Are you already listen Lancia packets ?")
+      sendGet( "\light?sdevice=" + deviceId  + "&lstate=" + 1 );
     };
     function bindLDevice(deviceId) {
       sendGet( "\light?sdevice=" + deviceId  + "&lstate=" + 2 );
@@ -475,10 +488,53 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     {
       sendGet("\power?pdevice=" + pid + "&psid=" + sid + "&pvalue=" + el[el.selectedIndex].value );
     }
-    </script>
   )=====";
 
   *str += FPSTR(&scripts[0]);
+
+  *str += F("var connection = new WebSocket('ws://");
+  *str += WiFi.localIP().toString();
+  *str += F(":81/', ['arduino']);");
+
+  static const char websocket_script[] PROGMEM = R"=====(
+    
+    connection.onopen = function () {
+      connection.send('Message from Browser to ESP8266 yay its Working!! ' + new Date()); 
+      connection.send('ping');
+    };
+    connection.onerror = function (error) {
+      console.log('WebSocket Error ', error);
+    };
+    connection.onmessage = function (e) {
+      console.log('Server: ', e.data);
+
+      opaq_helper = JSON.parse(e.data);
+  )=====";
+
+  *str += FPSTR(&websocket_script[0]);
+
+  for(int i=0; i<storage.getNumberOfPowerDevices(); i++)
+  {
+    *str += "document.getElementById(\"pw";
+    *str += String(i);
+    *str += "\").innerHTML = opaq_helper.pw";
+    *str += String(i);
+    *str += ";";
+    
+  }
+      
+  static const char scripts2[] PROGMEM = R"=====(
+    };
+    
+    setInterval(function() {
+      connection.send('UPDATE');
+    }, 1000);
+
+    </script>
+  )=====";
+
+  
+  *str += FPSTR(&scripts2[0]);
 }
 
 void AcHtml::gen_listbox_lightdevices(AcStorage * const lstorage, String * const str)
@@ -708,7 +764,9 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
     *str += String(pdevice[i].id);
     *str += F(",6);\">AUTO</button></td>");
 
-    *str += F("<td>");
+    *str += F("<td id=\"pw");
+    *str += String(i);
+    *str += F("\">");
     *str += (pdevice[i].state == ON ) ? F("ON") :
     ( (pdevice[i].state == OFF ) ? F("OFF") :
     ( (pdevice[i].state == BINDING ) ? F("BINDING") :

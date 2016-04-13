@@ -1,4 +1,4 @@
-# Opaq controller firmware
+# Opaq - IoT aquarium and pond controllers for everyone
 #### Release 1.0.3
 
 ![Opaq Frame](/tools/images/opaq_framev103.png?raw=true "Opaq Frame")

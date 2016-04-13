@@ -30,6 +30,7 @@
 
 #include <EEPROM.h>
 #include <FS.h>
+#include <ESP8266httpClient.h>
 
 #define N_LIGHT_DEVICES 10
 #define N_SIGNALS 3
@@ -101,7 +102,7 @@
 // enumerations for light and power devices settings
 enum type {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH};
 enum ptype {CHACON_DIO = 1, OTHERS};
-enum pstate {OFF = 0, ON, BINDING, UNBINDING, ON_PERMANENT, OFF_PERMANENT, AUTO};
+enum pstate {OFF = 0, ON, BINDING, UNBINDING, ON_PERMANENT, OFF_PERMANENT, AUTO, LISTENING};
 
 
 class AcStorage: EEPROMClass
@@ -157,6 +158,9 @@ public:
     void defaults ( uint8_t sig );
     /* store current settings */
     void save();
+    void close();
+
+    void initOpaqC1Service();
 
     /* getters for device structure arrays and their sizes */
     deviceLightDescriptor* getLightDevices() { return lightDevice; };
@@ -232,6 +236,8 @@ public:
     bool getPDevicePoint( const uint8_t stepId, const uint8_t value );
 
 };
+
+extern AcStorage storage;
 
 
 #endif // ACSTORAGE_H

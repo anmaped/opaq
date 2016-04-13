@@ -53,14 +53,14 @@ void Rf433ook::sendOOK(bool b)
   {
     if (b) {
         digitalWrite(pin, HIGH);
-        delayMicroseconds(295);   //275 originally, but tweaked.
+        delayMicroseconds(310);   //275 originally, but tweaked was 295.
         digitalWrite(pin, LOW);
-        delayMicroseconds(1203);  //1225 originally, but tweaked.
+        delayMicroseconds(1340);  //1225 originally, but tweakedwas 1203.
       } else {
         digitalWrite(pin, HIGH);
-        delayMicroseconds(295);   //275 originally, but tweaked.
+        delayMicroseconds(310);   //275 originally, but tweaked was 295.
         digitalWrite(pin, LOW);
-        delayMicroseconds(295);   //275 originally, but tweaked.
+        delayMicroseconds(310);   //275 originally, but tweaked was 295.
       }
     }
     
@@ -99,10 +99,20 @@ void Rf433ook::sendMessage(bool bit_vector[]) {
   if (encoding == CHANON_DIO_DEVICE)
   {
     // preamble is High 275uS, Low 2675uS
+    /*digitalWrite(pin, HIGH);
+    delayMicroseconds(275);
+    digitalWrite(pin, LOW);
+    delayMicroseconds(2675);*/
+
     digitalWrite(pin, HIGH);
     delayMicroseconds(275);
     digitalWrite(pin, LOW);
+    delayMicroseconds(9900);   // first lock
+    digitalWrite(pin, HIGH);   // high again
+    delayMicroseconds(275);    // wait
+    digitalWrite(pin, LOW);    // second lock
     delayMicroseconds(2675);
+    digitalWrite(pin, HIGH);
     
     // transmitter ID
     for (int i = 0; i < 26; i++) {
