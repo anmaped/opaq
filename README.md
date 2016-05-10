@@ -1,5 +1,5 @@
 # Opaq - IoT aquarium and pond controllers for everyone
-#### Release 1.0.3
+#### Release 1.0.4
 
 ![Opaq Frame](/tools/images/opaq_framev103.png?raw=true "Opaq Frame")
 
@@ -10,8 +10,8 @@ Supported features:
 - Energy cost management that instruct you how to avoid wasting energy
 
 Opaq devices:
-- Opaq C1 - the main controller device ![Opaq C1 Frame](/hardware/opac_c1/v1.0/opaqc1_board_top.jpg?raw=true "Opaq C1 Frame")
-- Opaq n1 - the four channel dimmer device capable to connect with any led lamp (several settings available) ![Opaq n1 Frame](/hardware/opac_n1/v2/top.jpg?raw=true "Opaq n1 Frame")
+- Opaq C1 - the main controller device ![Opaq C1 Frame](/hardware/opac_c1/v1.1/top.png?raw=true "Opaq C1 Frame")
+- Opaq n1 - the four channel dimmer device capable to connect with any led lamp (several settings available) ![Opaq n1 Frame](/hardware/opac_n1/v2.1/top.png?raw=true "Opaq n1 Frame")
 - Opaq n2 - the power outlet controller node for 220v devices up to 2400w
 
 Expected features:
@@ -21,8 +21,5 @@ Expected features:
 
 Expected Hardware:
 - Opaq N3 (the node for probing PH, light intensity and humidity)
-
-
-
 
 
