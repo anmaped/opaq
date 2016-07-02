@@ -32,7 +32,12 @@
 #include "Rf433ook.h"
 #include "websites.h"
 
-#include "Op_websockets.h"
+#include "Opaq_websockets.h"
+
+#include "Opaq_iaqua.h"
+#include "cas.h"
+
+#include "C:\Users\DeMatos\Dropbox\openlight_docs\openaq_controller\opaq\avr\coprocessor\protocol.h"
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -43,6 +48,18 @@
 ArduinoOTA ota_server;
 #endif
 
+// change this....
+#define TFT_CS 16
+#define TFT_DC 15
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+Opaq_iaqua iaqua;
+
+#include <ADS7846.h>
+
+ADS7846 touch;
+LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
+// until here...
+
 // non-class functions begin
 
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
@@ -50,12 +67,18 @@ static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
   opaq_controller.run_task_ds3231();
   opaq_controller.setClockReady();
 
-  opaq_controller.run_task_rf433ook();
+  opaq_controller.run_atsha204();
+
+  
+
+  //opaq_controller.run_task_rf433ook();
 }
 
 static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
 {
   opaq_controller.run_task_nrf24();
+
+  opaq_controller.run_touch();
 }
 
 static void _devicesTask_timmingEvent()
@@ -77,13 +100,16 @@ static void _10hzLoop_timmingEvent()
 
 OpenAq_Controller::OpenAq_Controller() :
   server ( ESP8266WebServer ( 80 ) ),
+  avrprog (328, 2),
   timming_events ( Ticker() ),
-  rtc ( RtcDS3231() ),
-  radio ( RF24 ( 16, 15 ) ),
+  rtc ( RtcDS1307() ),
+  radio ( RF24 ( 0, 0 ) ),
   html ( AcHtml() ),
-  //storage ( AcStorage() ),
+  //storage ( Opaq_storage() ),
   str ( String() ),
-  clockIsReady( false )
+  clockIsReady( false ),
+  avr_prog_lock( false ),
+  spi_lock ( false )
 {
   str.reserve ( 2048 );
 }
@@ -91,7 +117,7 @@ OpenAq_Controller::OpenAq_Controller() :
 
 void OpenAq_Controller::setup_controller()
 {
-  delay ( 2000 );
+  delay ( 100 );
 
   // initialize seed for code generation
   randomSeed ( ESP.getCycleCount() );
@@ -99,6 +125,9 @@ void OpenAq_Controller::setup_controller()
   // setup serial for a baundrate of 115200
   Serial.begin ( 115200 );
   Serial.setDebugOutput ( true );
+
+  pinMode(5,OUTPUT); // AVR_CS OUT MODE
+  digitalWrite(5, HIGH); // AVR_CS
 
   if ( storage.getSignature() != SIG )
   {
@@ -113,6 +142,10 @@ void OpenAq_Controller::setup_controller()
     ESP.restart();
   }
 
+  // display welcome screen tft
+  tft.begin();
+  iaqua.screenWelcome();
+  
   // read openaq mode from eeprom
   bool mode = storage.getModeOperation() & 0b00000001;
 
@@ -130,6 +163,9 @@ void OpenAq_Controller::setup_controller()
 
     // setup the access point
     WiFi.softAP ( ssid , storage.getPwd(), 6 ); // with password and fixed ssid
+
+    Serial.print("IP address: ");
+    Serial.println(WiFi.softAPIP());
   }
   else
   {
@@ -203,8 +239,10 @@ void OpenAq_Controller::setup_controller()
       }
     
       Serial.println(mime);
-      
-      server.on ( filename.c_str(), [=]() { server.send_F ( 200, String(mime).c_str(), filename.c_str() ); } ); // verify filename string (can desapear...)
+      // THIS IS NOT THE SOLUTION FOR A MASSIVE AMOUNT OF FILES
+      // [TODO]
+      if(ext == ".json") // puts the json files available for debugging
+        server.on ( filename.c_str(), [=]() { server.send_F ( 200, String(mime).c_str(), filename.c_str() ); } ); // verify filename string (can desapear...)
     };
   
   // search available SPIFFS files starting with prefix '_p'
@@ -245,17 +283,50 @@ void OpenAq_Controller::setup_controller()
   // start server
   server.begin();
 
+  // start avrprog
+  avrprog.begin();
+
   // websockets
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
-
+/*
   // RF433 setup
   Rf433_transmitter.set_pin ( 2 );
   Rf433_transmitter.set_encoding ( Rf433_transmitter.CHANON_DIO_DEVICE );
-
+*/
   // RTC setup
-  rtc.Begin();
-  Wire.begin ( 4, 5 );
+  //rtc.Begin();
+  //Wire.begin ( 4, 5 );
+
+
+  // 
+  // TOUCH CONTROLLER INITIALIZATION
+  // 
+  touch.begin();
+
+  if ( !storage.isTouchMatrixAvailable() )
+  {
+    // do calibration
+    touch.doCalibration(&tft_interface);
+    if( touch.getCalibrationMatrix(storage.getTouchMatrixRef()) )
+    {
+      storage.commitTouchSettings();
+      Serial.println(F("Touch settings has been updated."));
+    }
+    else
+    {
+      Serial.println(F("Touch settings generation has been failed. Reseting ..."));
+      
+      ESP.reset();
+    }
+  }
+  else
+  {
+    Serial.println(F("Touch settings has been read."));
+    touch.setCalibration(storage.getTouchMatrix());
+  }
+  // END TOUCH CONTROLLER INITIALIZATION
+
 
   // NRF24 setup and radio configuration
   radio.begin();
@@ -292,7 +363,9 @@ void OpenAq_Controller::setup_controller()
   // Attach deviceTask event trigger function for periodic releases
   timming_events.attach_ms ( 2000, _devicesTask_timmingEvent );
 
-  t_evt.attach_ms ( 100, _10hzLoop_timmingEvent );
+  t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );
+
+  run_tft();
 }
 
 int count = 0;
@@ -302,6 +375,8 @@ void OpenAq_Controller::run_controller()
   //ota_server.handle();
 
   server.handleClient();
+
+  run_programmer();
 
   webSocket.loop();
 
@@ -319,6 +394,38 @@ void OpenAq_Controller::run_controller()
     opaq_defaults = false;
   }
 
+}
+
+void OpenAq_Controller::run_programmer()
+{
+  static AVRISPState_t last_state = AVRISP_STATE_IDLE;
+    AVRISPState_t new_state = avrprog.update();
+    if (last_state != new_state) {
+        switch (new_state) {
+            case AVRISP_STATE_IDLE: {
+                Serial.printf("[AVRISP] now idle\r\n");
+                // Use the SPI bus for other purposes
+                avr_prog_lock = false;
+                break;
+            }
+            case AVRISP_STATE_PENDING: {
+                Serial.printf("[AVRISP] connection pending\r\n");
+                // Clean up your other purposes and prepare for programming mode
+                break;
+            }
+            case AVRISP_STATE_ACTIVE: {
+                Serial.printf("[AVRISP] programming mode\r\n");
+                // Stand by for completion
+                avr_prog_lock = true;
+                break;
+            }
+        }
+        last_state = new_state;
+    }
+    // Serve the client
+    if (last_state != AVRISP_STATE_IDLE) {
+        avrprog.serve();
+    }
 }
 
 void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
@@ -482,10 +589,189 @@ void OpenAq_Controller::run_task_rf433ook()
 
 void OpenAq_Controller::run_task_ds3231()
 {
+  if (avr_prog_lock)
+    return;
+
+  //if(spi_lock)
+  //  return;
+  //bool ee = true;
+  //bool &e = ee;
+  //spi_lock.compare_exchange_strong(e, false);
+  
+  
   // update clock
-  clock = rtc.GetDateTime();
+  //clock = rtc.GetDateTime();
+
+  Serial.println("ASK AVR FOR DS3231");
+
+  //SPI.begin();
+  //SPI.setClockDivider(SPI_CLOCK_DIV4);
+  
+
+  if(!cas((uint8_t*)&spi_lock, false, true))
+    return;
+    
+  digitalWrite(5, LOW);
+  delayMicroseconds (20);
+
+  byte x[sizeof(RtcDateTime)];
+  SPI.transfer (HEADER_DS1307_ALL);
+  delayMicroseconds (30);
+  
+  for(byte i=0; i <= sizeof(RtcDateTime); i++)
+  {
+    x[i] = SPI.transfer (0);
+    delayMicroseconds (30);
+  }
+
+  digitalWrite(5, HIGH);
+
+  spi_lock = false;
+
+  for(byte i=0; i <= sizeof(RtcDateTime); i++)
+    Serial.println("r: " + String(x[i]));
+
+  //SPI.end();
+
+  Serial.println("AVR ASKED!");
 }
 
+void OpenAq_Controller::run_atsha204()
+{
+  if (avr_prog_lock)
+    return;
+
+  Serial.println("ASK AVR FOR ATSHA204");
+  
+  if(!cas((uint8_t*)&spi_lock, false, true))
+    return;
+    
+  digitalWrite(5, LOW);
+  delayMicroseconds (20);
+
+  SPI.transfer (ID_ATSHA402);
+  delayMicroseconds (30);
+  
+  byte x[3];
+  
+  for(byte i=0; i <= 9; i++)
+  {
+    x[i] = SPI.transfer (0);
+    delayMicroseconds (30);
+  }
+
+  digitalWrite(5, HIGH);
+
+  spi_lock = false;
+
+  for(byte i=0; i <= 9; i++)
+    Serial.println("r: " + String(x[i]));
+
+  Serial.println("ATSHA402 ASKED!");
+}
+
+void OpenAq_Controller::run_touch()
+{
+   if (avr_prog_lock)
+    return;
+
+  if(!cas((uint8_t*)&spi_lock, false, true))
+    return;
+    
+  touch.service();
+  
+  Serial.println("ASK TOUCH:");
+  Serial.println(touch.tp_x);
+  Serial.println(touch.tp_y);
+  Serial.println(touch.pressure);
+  Serial.println(touch.getX());
+  Serial.println(touch.getY());
+  Serial.println("TOUCH ASKED!");
+
+  iaqua.service(touch.getX(),touch.getY(),touch.pressure);
+
+  spi_lock = false;
+  
+}
+
+void OpenAq_Controller::run_tft()
+{
+  Serial.println("ASK ILI9341");
+
+  while(!cas((uint8_t*)&spi_lock, false, true))
+    delay(100);
+  
+  tft.fillScreen(ILI9341_BLACK);
+  iaqua.screenHome();
+
+  Serial.println("ILI9341 ASKED");
+  
+/*
+  // read diagnostics (optional but can help debug problems)
+  uint8_t x = tft.readcommand8(ILI9341_RDMODE);
+  Serial.print("Display Power Mode: 0x"); Serial.println(x, HEX);
+  x = tft.readcommand8(ILI9341_RDMADCTL);
+  Serial.print("MADCTL Mode: 0x"); Serial.println(x, HEX);
+  x = tft.readcommand8(ILI9341_RDPIXFMT);
+  Serial.print("Pixel Format: 0x"); Serial.println(x, HEX);
+  x = tft.readcommand8(ILI9341_RDIMGFMT);
+  Serial.print("Image Format: 0x"); Serial.println(x, HEX);
+  x = tft.readcommand8(ILI9341_RDSELFDIAG);
+  Serial.print("Self Diagnostic: 0x"); Serial.println(x, HEX);
+
+  Serial.println(F("Benchmark                Time (microseconds)"));
+
+  Serial.print(F("Screen fill              "));
+  Serial.println(testFillScreen());
+  delay(500);
+
+  Serial.print(F("Text                     "));
+  Serial.println(testText());
+  delay(3000);
+
+  Serial.print(F("Lines                    "));
+  Serial.println(testLines(ILI9341_CYAN));
+  delay(500);
+
+  Serial.print(F("Horiz/Vert Lines         "));
+  Serial.println(testFastLines(ILI9341_RED, ILI9341_BLUE));
+  delay(500);
+
+  Serial.print(F("Rectangles (outline)     "));
+  Serial.println(testRects(ILI9341_GREEN));
+  delay(500);
+
+  Serial.print(F("Rectangles (filled)      "));
+  Serial.println(testFilledRects(ILI9341_YELLOW, ILI9341_MAGENTA));
+  delay(500);
+
+  Serial.print(F("Circles (filled)         "));
+  Serial.println(testFilledCircles(10, ILI9341_MAGENTA));
+
+  Serial.print(F("Circles (outline)        "));
+  Serial.println(testCircles(10, ILI9341_WHITE));
+  delay(500);
+
+  Serial.print(F("Triangles (outline)      "));
+  Serial.println(testTriangles());
+  delay(500);
+
+  Serial.print(F("Triangles (filled)       "));
+  Serial.println(testFilledTriangles());
+  delay(500);
+
+  Serial.print(F("Rounded rects (outline)  "));
+  Serial.println(testRoundRects());
+  delay(500);
+
+  Serial.print(F("Rounded rects (filled)   "));
+  Serial.println(testFilledRoundRects());
+  delay(500);
+
+  Serial.println(F("Done!"));*/
+
+  spi_lock = false;
+}
 
 /*--------------------  nrf24 device controller task  ---------------------*/
 
@@ -509,7 +795,13 @@ void OpenAq_Controller::run_task_nrf24()
 
   uint8_t buf[32];
 
+  if (avr_prog_lock)
+    return;
+    
   if ( !isClockReady() )
+    return;
+
+  if(!cas((uint8_t*)&spi_lock, false, true))
     return;
 
   // definition for Zetlight lancia dimmers
@@ -626,7 +918,9 @@ void OpenAq_Controller::run_task_nrf24()
       // read...
 
       //radio.setChannel(100);
-
+      bool a = true;
+      String x = String("{\"nrf24M\" :[");
+      
       if ( radio.available() )
       {
         bool done = false;
@@ -634,17 +928,26 @@ void OpenAq_Controller::run_task_nrf24()
         {
           done = radio.read( buf, 32 );
 
-          char tmp[5];
+          char tmp[10];
+          
           for (int ib = 0; ib < 32; ib++)
           {
-            sprintf(tmp, "%02x ", buf[ib]);
-            Serial.print(tmp);
+            sprintf(tmp, "\"%02x\"%c ", buf[ib], ib < 31 ? ',' : ' ' );
+            x += tmp;
           }
-          Serial.println("recv.");
+          x += "]}";
         }
+        a=false;
       }
 
       radio.startListening();
+
+      if(a == false)
+      {
+        a=true;
+        Serial.println(x);
+        webSocket.sendTXT(0, x.c_str(), x.length());
+      }
     }
 
   }
@@ -654,6 +957,8 @@ void OpenAq_Controller::run_task_nrf24()
 
   if (deviceId > storage.getNumberOfLightDevices())
     deviceId = 1;
+
+  spi_lock = false;
 }
 
 /*======================  End of Opaq public methods  =======================*/
@@ -748,7 +1053,7 @@ void OpenAq_Controller::handleRoot()
   }
 }
 
-void zetlight_template1( uint8_t deviceId, AcStorage * const lstorage )
+void zetlight_template1( uint8_t deviceId, Opaq_storage * const lstorage )
 {
   auto apply_template = [&lstorage]( uint8_t deviceId, uint8_t signalId, uint8_t signal[SIGNAL_LENGTH][SIGNAL_STEP_SIZE], const uint8_t signal_len )
   {
@@ -873,10 +1178,10 @@ void OpenAq_Controller::handleLight()
     str += html.get_light_settings_mend();
     sendBlockGlobal(sv, &count, &step)(&str);
 
-    RtcTemperature temp = rtc.GetTemperature();
-    str += String(temp.AsWholeDegrees());
+    //RtcTemperature temp = rtc.GetTemperature();
+    str += String(/*temp.AsWholeDegrees()*/0);
     str += ".";
-    str += String(temp.GetFractional());
+    str += String(/*temp.GetFractional()*/0);
     str += F("º</div>");
     sendBlockGlobal(sv, &count, &step)(&str);
 

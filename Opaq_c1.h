@@ -30,14 +30,17 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#include <JsonParser.h>
-#include <RtcDS3231.h>
+#include <ESP8266AVRISP.h>
+//#include <RtcDS3231.h>
+#include <RtcDS1307.h>
 
 #include <nRF24L01.h>
 #include <RF24.h>
 
 #include <Wire.h>
 #include <Ticker.h>
+
+#include <atomic>
 
 // ESP8266 specific headers
 extern "C" {
@@ -46,7 +49,7 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x02
+#define SIG 0x04
 #define OPAQ_VERSION "1.0.4"
 
 // configuration parameters
@@ -69,12 +72,15 @@ private:
 
   ESP8266WebServer server;
 
+  ESP8266AVRISP avrprog;
+
   // Set up alarms to call periodic tasks
   Ticker timming_events;
   Ticker t_evt;
 
   // real-time clock initialization
-  RtcDS3231 rtc;
+  //RtcDS3231 rtc;
+  RtcDS1307 rtc;
   bool clockIsReady;
 
   // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
@@ -84,7 +90,7 @@ private:
   AcHtml html;
 
   // manages flash memory block for permanent settings
-  //AcStorage storage;
+  //Opaq_storage storage;
 
   // temporary string container
   String str;
@@ -95,6 +101,9 @@ private:
   // stores event that triggers deviceTask
   os_event_t deviceTaskQueue[deviceTaskQueueLen];
   os_event_t _10hzLoopQueue[deviceTaskQueueLen];
+
+  bool avr_prog_lock;
+  bool spi_lock;
 
   void handleRoot();
   void handleLight();
@@ -109,6 +118,8 @@ private:
 
   void ota();
 
+  void run_programmer();
+
 public:
 
   OpenAq_Controller();
@@ -122,6 +133,9 @@ public:
   void run_task_rf433ook();
   void run_task_ds3231();
   void run_task_nrf24();
+  void run_atsha204();
+  void run_touch();
+  void run_tft();
 
 };
 

@@ -26,7 +26,7 @@
 #ifndef ACHTML_H
 #define ACHTML_H
 
-#include "AcStorage.h"
+#include "Opaq_storage.h"
 
 #include <String.h>
 
@@ -47,26 +47,26 @@ public:
   const __FlashStringHelper* get_body_begin();
   const __FlashStringHelper* get_body_end();
   
-  void get_light_script(AcStorage * const lstorage, String * const str, std::function<void (String*)> sendBlock);
+  void get_light_script(Opaq_storage * const lstorage, String * const str, std::function<void (String*)> sendBlock);
   
   void get_light_settings_mclock(String*, const RtcDateTime);
   const __FlashStringHelper* get_light_settings_mbegin();
   const __FlashStringHelper* get_light_settings_mend();
   
   void get_advset_light1(String*);
-  void get_advset_light2(AcStorage * const lstorage, String * const str);
-  void get_advset_light4(AcStorage * const lstorage, String *);
+  void get_advset_light2(Opaq_storage * const lstorage, String * const str);
+  void get_advset_light4(Opaq_storage * const lstorage, String *);
   
-  void get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String * a);
-  void get_advset_light_devicesel(AcStorage * const lstorage, String * const a);
-  void get_advset_light_device_signals(AcStorage * const lstorage, String * a);
-  void gen_listbox_lightdevices(AcStorage * const lstorage, String * const str);
+  void get_advset_light_device(unsigned int n_ldevices, Opaq_storage::deviceLightDescriptor *device, String * a);
+  void get_advset_light_devicesel(Opaq_storage * const lstorage, String * const a);
+  void get_advset_light_device_signals(Opaq_storage * const lstorage, String * a);
+  void gen_listbox_lightdevices(Opaq_storage * const lstorage, String * const str);
 
   void get_advset_clock(String *, const RtcDateTime);
-  void get_advset_psockets(String *str, unsigned int n_powerDevices, AcStorage::deviceDescriptorPW* pdevice);
-  void get_advset_psockets_step( AcStorage * const lstorage, String * const str, ESP8266WebServer * server, std::function<void (String*)> sendBlock );
+  void get_advset_psockets(String *str, unsigned int n_powerDevices, Opaq_storage::deviceDescriptorPW* pdevice);
+  void get_advset_psockets_step( Opaq_storage * const lstorage, String * const str, ESP8266WebServer * server, std::function<void (String*)> sendBlock );
 
-  void send_status_div(String * const str, AcStorage * const lstorage, std::function<void (String*)> sendBlock );
+  void send_status_div(String * const str, Opaq_storage * const lstorage, std::function<void (String*)> sendBlock );
 };
 
 #endif // ACHTML_H

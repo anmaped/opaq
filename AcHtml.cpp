@@ -120,7 +120,7 @@ const __FlashStringHelper* AcHtml::get_body_end()
   return F("</body>");
 }
 
-void AcHtml::get_light_script(AcStorage * const lstorage, String * const str, std::function<void (String*)> sendBlock)
+void AcHtml::get_light_script(Opaq_storage * const lstorage, String * const str, std::function<void (String*)> sendBlock)
 {
   *str += F("<canvas class=\"lightsignals\" id=\"light\"></canvas><font size=\"4\">Current setting: </font><select onchange=\"selectLDevice(this);\" id=\"selDev\">");
   
@@ -308,7 +308,7 @@ Devices:<table style="width:100%;border: 1px solid black;border-collapse: collap
   return lset;*/
 }
 
-void AcHtml::get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceLightDescriptor *device, String* a)
+void AcHtml::get_advset_light_device(unsigned int n_ldevices, Opaq_storage::deviceLightDescriptor *device, String* a)
 { 
   if (n_ldevices == 0)
     return;
@@ -386,7 +386,7 @@ void AcHtml::get_advset_light_device(unsigned int n_ldevices, AcStorage::deviceL
 }
 
 
-void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
+void AcHtml::get_advset_light2(Opaq_storage * const lstorage, String * const str)
 {
   *str += F("</table><input id=\"adevice\" type=\"button\" value=\"Add Device\" onclick=\"addDevice();\" />");
 
@@ -493,7 +493,12 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
   *str += FPSTR(&scripts[0]);
 
   *str += F("var connection = new WebSocket('ws://");
-  *str += WiFi.localIP().toString();
+
+  if(lstorage->getModeOperation() & 0b00000001)
+    *str += WiFi.softAPIP().toString();
+  else
+    *str += WiFi.localIP().toString();
+  
   *str += F(":81/', ['arduino']);");
 
   static const char websocket_script[] PROGMEM = R"=====(
@@ -507,8 +512,10 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
     };
     connection.onmessage = function (e) {
       console.log('Server: ', e.data);
-
-      opaq_helper = JSON.parse(e.data);
+      tmp = JSON.parse(e.data);
+      if(tmp.nrf24M == null)
+        opaq_helper = tmp;
+        
   )=====";
 
   *str += FPSTR(&websocket_script[0]);
@@ -537,7 +544,7 @@ void AcHtml::get_advset_light2(AcStorage * const lstorage, String * const str)
   *str += FPSTR(&scripts2[0]);
 }
 
-void AcHtml::gen_listbox_lightdevices(AcStorage * const lstorage, String * const str)
+void AcHtml::gen_listbox_lightdevices(Opaq_storage * const lstorage, String * const str)
 {
   // list devices to select
   for(int i=0; i < lstorage->getNLDevice(); i++)
@@ -553,7 +560,7 @@ void AcHtml::gen_listbox_lightdevices(AcStorage * const lstorage, String * const
   }
 }
 
-void AcHtml::get_advset_light_devicesel(AcStorage * const lstorage, String * const str)
+void AcHtml::get_advset_light_devicesel(Opaq_storage * const lstorage, String * const str)
 {
   gen_listbox_lightdevices(lstorage, str);
 
@@ -561,7 +568,7 @@ void AcHtml::get_advset_light_devicesel(AcStorage * const lstorage, String * con
     *str +=  F("</select><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\">");
 }
 
-void AcHtml::get_advset_light_device_signals(AcStorage * const lstorage, String* s)
+void AcHtml::get_advset_light_device_signals(Opaq_storage * const lstorage, String* s)
 { 
   if(!lstorage->getNLDevice())
     return;
@@ -602,7 +609,7 @@ void iterate_option(String * str, unsigned int condition)
   }
 }
 
-void AcHtml::get_advset_light4(AcStorage * const lstorage, String *str)
+void AcHtml::get_advset_light4(Opaq_storage * const lstorage, String *str)
 {
   if ( !lstorage->getNLDevice() )
   {
@@ -695,7 +702,7 @@ Val:<input text id="clockval"></input text><button onclick="setClock();">Set</bu
   *str += FPSTR(&clockend[0]);
 }
 
-void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcStorage::deviceDescriptorPW* pdevice)
+void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, Opaq_storage::deviceDescriptorPW* pdevice)
 {
   char tmp[12];
   
@@ -798,7 +805,7 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, AcSto
   *str += FPSTR(&psockets2[0]);
 }
 
-void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * const str , ESP8266WebServer * server, std::function<void (String*)> sendBlock )
+void AcHtml::get_advset_psockets_step( Opaq_storage * const lstorage, String * const str , ESP8266WebServer * server, std::function<void (String*)> sendBlock )
 { 
   char tmp[10];
   *str += F("<h3>Activation Signals for RF Power Switches</h3><style>.tdp {border: 1px solid gray;border-collapse: collapse;} .inputp {width:100%; background: transparent; border: none; text-align:center;}</style><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\"><tr><th colspan=\"2\">a1</th><th colspan=\"2\">b1</th><th colspan=\"2\">c1</th><th colspan=\"2\">d1</th><th colspan=\"2\">a2</th><th colspan=\"2\">b2</th><th colspan=\"2\">c2</th><th colspan=\"2\">d2</th><th colspan=\"2\">a3</th><th colspan=\"2\">b3</th><th colspan=\"2\">c3</th><th colspan=\"2\">d3</th><th colspan=\"2\">a4</th><th colspan=\"2\">b4</th><th colspan=\"2\">c4</th><th colspan=\"2\">d4</th><th>Size</th></tr>");
@@ -874,7 +881,7 @@ void AcHtml::get_advset_psockets_step( AcStorage * const lstorage, String * cons
   
 }
 
-void AcHtml::send_status_div(String * const str, AcStorage * const lstorage, std::function<void (String*)> sendBlock )
+void AcHtml::send_status_div(String * const str, Opaq_storage * const lstorage, std::function<void (String*)> sendBlock )
 {
 
   static const char ss_tmp[] PROGMEM = R"=====(

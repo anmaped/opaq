@@ -27,11 +27,18 @@
 
 #include <ESP8266WiFi.h> 
 #include <ESP8266WebServer.h>
+#include <ESP8266AVRISP.h>
 #include <ESP8266httpUpdate.h>
 #include <ESP8266httpClient.h>
-#include <JsonParser.h>
+#include <ArduinoJson.h>
 #include <WebSocketsServer.h>
 #include <Hash.h>
+#include <Time.h>
+
+#include <Adafruit_ILI9341.h>
+#include <Adafruit_GFX.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include <ADS7846.h>
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -41,7 +48,8 @@
 //#include <ArduinoOTA.h>
 #endif
 
-#include <RtcDS3231.h>
+//#include <RtcDS3231.h>
+#include <RtcDS1307.h>
 
 #include <nRF24L01.h>
 #include <RF24.h>
