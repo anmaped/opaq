@@ -29,7 +29,6 @@
 #include <ESP8266httpUpdate.h>
 
 #include "Opaq_c1.h"
-#include "Rf433ook.h"
 #include "websites.h"
 
 #include "Opaq_websockets.h"
@@ -69,9 +68,7 @@ static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 
   opaq_controller.run_atsha204();
 
-  
-
-  //opaq_controller.run_task_rf433ook();
+  opaq_controller.run_task_rf433ook();
 }
 
 static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
@@ -289,11 +286,7 @@ void OpenAq_Controller::setup_controller()
   // websockets
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
-/*
-  // RF433 setup
-  Rf433_transmitter.set_pin ( 2 );
-  Rf433_transmitter.set_encoding ( Rf433_transmitter.CHANON_DIO_DEVICE );
-*/
+
   // RTC setup
   //rtc.Begin();
   //Wire.begin ( 4, 5 );
@@ -430,61 +423,56 @@ void OpenAq_Controller::run_programmer()
 
 void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
 {
-  bool vector[36] = { 0 };
-  // vector is organized as follows :
-  //              |---------------------------------------ID------------------------------------|--GROUPFLAG--|--ON/OFF--|---GROUPID---|-DIMMER-|
-  // GLOBAL OFF -- unbinds everything
-  // encoding   : 01 01 10 10 10 10 01 10 10 10 10 10 10 01 01 01 10 01 10 10 10 10 10 10 10 01 |       10         01    | 01 01 01 01 | UNDEF
-  // bit stream : 0  0  1  1  1  1  0  1  1  1  1  1  1  0  0  0  1  0  1  1  1  1  1  1  1  0  |       1          0     |  0  0  0  0 | UNDEF
-  // GLOBAL ON -- do not bind (binds are only allowed when groupflag is zero)
-  // bit stream : 0  0  1  1  1  1  0  1  1  1  1  1  1  0  0  0  1  0  1  1  1  1  1  1  1  0  |       1          1     |  0  0  0  0 | UNDEF
+  byte tmp[10];
+  byte idx = 0;
+  
+  if (avr_prog_lock)
+    return;
+  
+  // comunicate with coprocessor
+  Serial.println(F("ASK AVR TO RECEIVE RF433 STREAM"));
 
   // get device code id
   uint32_t code = storage.getPDeviceCode ( pdeviceId );
-
-  int j = 0;
-  while ( j < 26 && code )
-  {
-    vector[j++] = code & 1;
-    code >>= 1;
-  }
-
   // get state from settings
   uint8_t state = storage.getPDeviceState ( pdeviceId );
 
-  if ( state == OFF )
-  {
-    vector[26] = 0;
-    vector[27] = 0;
-  }
-  else if ( state == UNBINDING )
-  {
-    vector[26] = 1;
-    vector[27] = 0;
-  }
-  else if ( state == BINDING )
-  {
-    // set group flag to zero for allowing bind operations
-    vector[26] = 0;
-    vector[27] = 1;
-  }
-  else
-  {
-    vector[26] = 1;
-    vector[27] = 1;
-  }
+  if(!cas((uint8_t*)&spi_lock, false, true))
+    return;
 
-  for ( int i = 0; i < 36; i++ )
-  {
-    DEBUGV ( "%d,", vector[i] );
-  }
-  DEBUGV ( "\n" );
+  digitalWrite(5, LOW);
+  delayMicroseconds (20);
 
-  for ( int i = 0; i < 3; i++ )
-  {
-    Rf433_transmitter.sendMessage ( vector );
-    delayMicroseconds ( 10000 );
-  }
+  tmp[idx++] = SPI.transfer (ID_RF433_STREAM);
+  delayMicroseconds (30);
+
+  // payload length
+  tmp[idx++] = SPI.transfer ( 0x05 );
+  delayMicroseconds (30);
+  
+  tmp[idx++] = SPI.transfer ( (byte)code );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 8) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 16) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 24) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( state );
+  delayMicroseconds (30);
+
+  // dummy
+  tmp[idx++] = SPI.transfer ( 0x10 );
+  delayMicroseconds (30);
+  
+  digitalWrite(5, HIGH);
+
+  spi_lock = false;
+
+  for(byte i=0; i < idx; i++)
+    Serial.println("r: " + String(tmp[i]));
+
+  Serial.println(F("AVR ASKED!"));
 }
 
 uint16_t normalizeClock(RtcDateTime * clock, const uint16_t a, const uint16_t b )
@@ -615,7 +603,7 @@ void OpenAq_Controller::run_task_ds3231()
   delayMicroseconds (20);
 
   byte x[sizeof(RtcDateTime)];
-  SPI.transfer (HEADER_DS1307_ALL);
+  SPI.transfer (ID_DS1307_DATA);
   delayMicroseconds (30);
   
   for(byte i=0; i <= sizeof(RtcDateTime); i++)

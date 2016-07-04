@@ -26,7 +26,7 @@
 #ifndef OPENAQ_H
 #define OPENAQ_H
 
-#include "AcHtml.h"
+#include "Opaq_html.h"
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -67,8 +67,6 @@ extern "C" {
 class OpenAq_Controller
 {
 private:
-
-  //JsonParser<32> parser;
 
   ESP8266WebServer server;
 

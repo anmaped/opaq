@@ -2,6 +2,8 @@
 #include "protocol.h"
 #include "ds1307.h"
 #include "atsha204.h"
+#include "rf433.h"
+
 
 #include <RtcDS1307.h>
 #include <Wire.h>
@@ -64,15 +66,21 @@ void setup() {
   digitalWrite(7, HIGH);
   digitalWrite(PIN_TOUCH_CS, HIGH);
 
+  // real-time clock
   rtc.Begin();
-  
-  sha204dev.init();
-
-  wakeupExample();
-  serialNumberExample();
-
   rtc.SetDateTime(RtcDateTime(2016,5,25,5,34,0));
   rtc.SetIsRunning(true);
+  
+  sha204dev.init();
+  wakeupExample(); // dummy
+  serialNumberExample(); // dummy
+
+  
+  // RF433 setup
+  Rf433_transmitter.set_pin ( A0 );
+  Rf433_transmitter.set_encoding ( Rf433_transmitter.CHANON_DIO_DEVICE );
+
+
   
   Scheduler.start(setup_status, loop_status);
   Scheduler.start(setup_com, loop_com);
@@ -165,7 +173,7 @@ ISR (SPI_STC_vect)
     count = 0;
     break;
     
-  case HEADER_DS1307_ALL:
+  case ID_DS1307_DATA:
     
     if(count < sizeof(RtcDateTime))
       SPDR = ds1307(count);
@@ -230,15 +238,28 @@ ISR (SPI_STC_vect)
     command=0;
     break;
 
+  case ID_RF433_STREAM:
+
+    byte data = SPDR;
+    // enqueue stream
+    enqueue_stream(data, count);
+    SPDR = data;
+
+    count++;
+    break;
+
   } // end of switch
 
 }  // end of interrupt service routine (ISR) SPI_STC_vect
 
 
 void loop() {
-
+  
   delay(500);
   
   clock = rtc.GetDateTime();
-  
+
+  rf433();
+  //rf433mhz( 0x0044, RF433_OFF );
 }
+
