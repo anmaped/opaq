@@ -6042,11 +6042,11 @@ design rules under a new name.</description>
 <attribute name="NAME" x="44.5" y="43" size="0.8128" layer="26" ratio="14" rot="MR90"/>
 </element>
 <element name="R14" library="resistor" package="0805" value="4k7" x="36.3" y="67.7" smashed="yes" rot="R270">
-<attribute name="NAME" x="37.016" y="68.662" size="0.8128" layer="25" ratio="14" rot="R270"/>
+<attribute name="NAME" x="35.738" y="69.116" size="0.8128" layer="25" ratio="14"/>
 <attribute name="VALUE" x="34.014" y="68.462" size="1.27" layer="27" rot="R270"/>
 </element>
 <element name="R15" library="resistor" package="0805" value="4k7" x="34.5" y="67.7" smashed="yes" rot="R270">
-<attribute name="NAME" x="33.738" y="69.216" size="0.8128" layer="25" ratio="14"/>
+<attribute name="NAME" x="33.684" y="66.438" size="0.8128" layer="25" ratio="14" rot="R90"/>
 <attribute name="VALUE" x="32.214" y="68.462" size="1.27" layer="27" rot="R270"/>
 </element>
 <element name="3.3V" library="wirepad" package="SMD1,27-2,54" value="" x="3.8" y="13.4" smashed="yes">
@@ -6229,6 +6229,10 @@ design rules under a new name.</description>
 <element name="R6" library="resistor" package="0805" value="" x="38.7" y="41" smashed="yes" rot="R270">
 <attribute name="NAME" x="38.3255" y="44.062" size="0.8128" layer="25" ratio="14" rot="R270"/>
 <attribute name="VALUE" x="37.303" y="42.016" size="0.4064" layer="27" rot="R270"/>
+</element>
+<element name="R11" library="resistor" package="0805" value="" x="38.1" y="67.7" smashed="yes" rot="R90">
+<attribute name="NAME" x="37.638" y="65.4255" size="0.8128" layer="25" ratio="14"/>
+<attribute name="VALUE" x="39.497" y="66.684" size="0.4064" layer="27" rot="R90"/>
 </element>
 </elements>
 <signals>
@@ -6711,6 +6715,14 @@ design rules under a new name.</description>
 <wire x1="39.3" y1="41" x2="39.9" y2="41" width="0.254" layer="1"/>
 <wire x1="39.9" y1="41" x2="40.2" y2="40.7" width="0.254" layer="1"/>
 <wire x1="40.2" y1="40.7" x2="40.2" y2="40.1" width="0.254" layer="1"/>
+<contactref element="R11" pad="1"/>
+<wire x1="36.3" y1="68.6" x2="36.3" y2="67.9" width="0.254" layer="1"/>
+<wire x1="36.3" y1="67.9" x2="36.4" y2="67.8" width="0.254" layer="1"/>
+<wire x1="36.4" y1="67.8" x2="37.1" y2="67.8" width="0.254" layer="1"/>
+<wire x1="37.1" y1="67.8" x2="37.4" y2="67.5" width="0.254" layer="1"/>
+<wire x1="37.4" y1="67.5" x2="38" y2="67.5" width="0.254" layer="1"/>
+<wire x1="38" y1="67.5" x2="38.1" y2="67.4" width="0.254" layer="1"/>
+<wire x1="38.1" y1="67.4" x2="38.1" y2="66.8" width="0.254" layer="1"/>
 <wire x1="23.2" y1="21.4" x2="22.8" y2="21.4" width="0" layer="19" extent="16-16"/>
 </signal>
 <signal name="RST">
@@ -6807,13 +6819,10 @@ design rules under a new name.</description>
 <contactref element="Q1" pad="1"/>
 <contactref element="IC6" pad="23"/>
 <wire x1="39.7" y1="45.8" x2="39.7" y2="49" width="0.254" layer="1"/>
-<wire x1="39.7" y1="62" x2="39.7" y2="66" width="0.254" layer="1"/>
+<wire x1="39.7" y1="62" x2="39.7" y2="67" width="0.254" layer="1"/>
 <wire x1="39.7" y1="49" x2="37.1" y2="51.6" width="0.254" layer="1"/>
 <wire x1="37.1" y1="51.6" x2="37.1" y2="59.4" width="0.254" layer="1"/>
 <wire x1="37.1" y1="59.4" x2="39.7" y2="62" width="0.254" layer="1"/>
-<wire x1="39.7" y1="66" x2="38.5" y2="67.2" width="0.254" layer="1"/>
-<wire x1="38.5" y1="67.2" x2="38.5" y2="68.3" width="0.254" layer="1"/>
-<wire x1="38.5" y1="68.3" x2="37" y2="69.8" width="0.254" layer="1"/>
 <wire x1="37" y1="69.8" x2="36.1" y2="69.8" width="0.254" layer="1"/>
 <wire x1="36.1" y1="69.8" x2="35.8" y2="70.1" width="0.254" layer="1"/>
 <wire x1="35.8" y1="70.1" x2="35.8" y2="71.45" width="0.254" layer="1"/>
@@ -6824,6 +6833,10 @@ design rules under a new name.</description>
 <wire x1="35.6" y1="42.2" x2="38.3" y2="44.9" width="0.254" layer="1"/>
 <wire x1="38.3" y1="44.9" x2="38.8" y2="44.9" width="0.254" layer="1"/>
 <wire x1="38.8" y1="44.9" x2="39.7" y2="45.8" width="0.254" layer="1"/>
+<contactref element="R11" pad="2"/>
+<wire x1="39.7" y1="67" x2="38.1" y2="68.6" width="0.254" layer="1"/>
+<wire x1="38.1" y1="68.6" x2="38.1" y2="68.7" width="0.254" layer="1"/>
+<wire x1="38.1" y1="68.7" x2="37" y2="69.8" width="0.254" layer="1"/>
 </signal>
 <signal name="N$11">
 <contactref element="R12" pad="1"/>
@@ -6847,9 +6860,12 @@ design rules under a new name.</description>
 <contactref element="MODULE2" pad="9"/>
 <contactref element="R14" pad="2"/>
 <wire x1="38.47" y1="64.68" x2="38.47" y2="63.6" width="0.4064" layer="1"/>
-<wire x1="38.47" y1="64.68" x2="38.47" y2="65.93" width="0.254" layer="1"/>
-<wire x1="38.47" y1="65.93" x2="37.6" y2="66.8" width="0.254" layer="1"/>
-<wire x1="37.6" y1="66.8" x2="36.3" y2="66.8" width="0.254" layer="1"/>
+<wire x1="38.47" y1="64.68" x2="38.47" y2="64.8" width="0.254" layer="1"/>
+<wire x1="36.3" y1="66.8" x2="36.4" y2="66.8" width="0.254" layer="1"/>
+<wire x1="36.4" y1="66.8" x2="36.4" y2="65.9" width="0.254" layer="1"/>
+<wire x1="36.4" y1="65.9" x2="37" y2="65.3" width="0.254" layer="1"/>
+<wire x1="37" y1="65.3" x2="37.97" y2="65.3" width="0.254" layer="1"/>
+<wire x1="37.97" y1="65.3" x2="38.47" y2="64.8" width="0.254" layer="1"/>
 </signal>
 <signal name="N$28">
 <contactref element="MODULE2" pad="11"/>

@@ -13655,6 +13655,8 @@ Basic schematic elements and footprints for 0603, 1206, and PTH resistors.</desc
 <part name="U$2" library="apedro_lib" deviceset="DB2J31400L" device=""/>
 <part name="P+20" library="SparkFun" deviceset="3.3V" device=""/>
 <part name="R6" library="resistor" deviceset="R-EU_" device="R0805"/>
+<part name="R11" library="resistor" deviceset="R-EU_" device="R0805"/>
+<part name="P+21" library="SparkFun" deviceset="3.3V" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -13736,6 +13738,8 @@ Basic schematic elements and footprints for 0603, 1206, and PTH resistors.</desc
 <instance part="R5" gate="G$1" x="27.94" y="106.68" rot="R90"/>
 <instance part="P+19" gate="G$1" x="10.16" y="121.92"/>
 <instance part="U$2" gate="G$1" x="17.78" y="116.84"/>
+<instance part="R11" gate="G$1" x="144.78" y="68.58" rot="R270"/>
+<instance part="P+21" gate="G$1" x="144.78" y="78.74"/>
 </instances>
 <busses>
 </busses>
@@ -13876,6 +13880,11 @@ Basic schematic elements and footprints for 0603, 1206, and PTH resistors.</desc
 <wire x1="10.16" y1="121.92" x2="10.16" y2="116.84" width="0.1524" layer="91"/>
 <pinref part="U$2" gate="G$1" pin="A"/>
 <wire x1="10.16" y1="116.84" x2="15.24" y2="116.84" width="0.1524" layer="91"/>
+</segment>
+<segment>
+<pinref part="R11" gate="G$1" pin="1"/>
+<pinref part="P+21" gate="G$1" pin="3.3V"/>
+<wire x1="144.78" y1="73.66" x2="144.78" y2="78.74" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="GND" class="0">
@@ -14163,8 +14172,12 @@ Basic schematic elements and footprints for 0603, 1206, and PTH resistors.</desc
 <net name="SIGNAL433" class="0">
 <segment>
 <pinref part="Q1" gate="G$1" pin="B"/>
-<wire x1="149.86" y1="55.88" x2="134.62" y2="55.88" width="0.1524" layer="91"/>
+<wire x1="149.86" y1="55.88" x2="144.78" y2="55.88" width="0.1524" layer="91"/>
 <label x="137.16" y="55.88" size="1.778" layer="95"/>
+<pinref part="R11" gate="G$1" pin="2"/>
+<wire x1="144.78" y1="55.88" x2="134.62" y2="55.88" width="0.1524" layer="91"/>
+<wire x1="144.78" y1="63.5" x2="144.78" y2="55.88" width="0.1524" layer="91"/>
+<junction x="144.78" y="55.88"/>
 </segment>
 </net>
 <net name="N$11" class="0">
