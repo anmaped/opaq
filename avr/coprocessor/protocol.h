@@ -1,7 +1,0 @@
-
-// protocol file between esp8266 and avr
-
-// query
-enum ID {ID_DS1307_DATA=0x16, ID_NRF24_CSN, ID_NRF24_CE, ID_ATSHA402, ID_TSC2046_CSN, ID_RF433_STREAM};
-
-enum rf433state {RF433_OFF=0, RF433_ON, RF433_BINDING, RF433_UNBINDING};

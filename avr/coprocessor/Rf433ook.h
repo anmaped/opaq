@@ -23,44 +23,27 @@
  *
  */
  
-#include "Opaq_c1.h"
+#ifndef RF433OOK_H
+#define RF433OOK_H
 
-#include <ESP8266WiFi.h> 
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+class Rf433ook
+{
+  int encoding;
+  int pin;
+  
+public:
+  enum Device { CHANON_DIO_DEVICE };
+  
+  Rf433ook();
+  
+  void set_pin(int pin);
+  void set_encoding(int device);
+  void sendOOK(bool b);
+  void sendBit(bool data_bit);
+  void sendMessage(bool bit_vector[]);
+  
+};
 
-#include <ESP8266AVRISP.h>
-#include <ESP8266httpUpdate.h>
-#include <ArduinoJson.h>
-#include <WebSocketsServer.h>
-#include <Hash.h>
+extern Rf433ook Rf433_transmitter;
 
-#include <Adafruit_ILI9341.h>
-#include <Adafruit_GFX.h>
-#include <Fonts/FreeSans9pt7b.h>
-#include <RtcDateTime.h>
-
-#include <protocol.h>
-
-#if OPAQ_MDNS_RESPONDER
-#include <ESP8266mDNS.h>
-#endif
-
-#if OPAQ_OTA_ARDUINO
-//#include <ArduinoOTA.h>
-#endif
-
-#include <EEPROM.h>
-#include <SPI.h>
-#include <Wire.h>
-#include <Ticker.h>
-
-#define DEBUG
-
-void setup() {
-  opaq_controller.setup_controller();
-}
-
-void loop() {
-  opaq_controller.run_controller();
-}
+#endif // RF433OOK_H

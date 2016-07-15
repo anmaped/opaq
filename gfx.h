@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 #include <Adafruit_ILI9341.h>
-#include <ADS7846.h>
+#include "src/ADS7846/ADS7846.h"
 
 #define min(a,b) {a < b ? a : b}
 

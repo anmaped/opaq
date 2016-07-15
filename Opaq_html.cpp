@@ -726,7 +726,9 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, Opaq_
   *str += FPSTR(&psockets[0]);
 
   // openfile to get settings for power outlets
-  File psocketsFile = SPIFFS.open("/psocket_settings.txt", "r");
+  File psocketsFile = SPIFFS.open("/settings/psockets.json", "r");
+  // issues if file does not exists
+  
   uint8_t buf[FILE_DESC_SIZE + 1];
   
   // print power devices
@@ -805,7 +807,7 @@ void AcHtml::get_advset_psockets(String *str, unsigned int n_powerDevices, Opaq_
   *str += FPSTR(&psockets2[0]);
 }
 
-void AcHtml::get_advset_psockets_step( Opaq_storage * const lstorage, String * const str , ESP8266WebServer * server, std::function<void (String*)> sendBlock )
+void AcHtml::get_advset_psockets_step( Opaq_storage * const lstorage, String * const str , AsyncWebServer * server, std::function<void (String*)> sendBlock )
 { 
   char tmp[10];
   *str += F("<h3>Activation Signals for RF Power Switches</h3><style>.tdp {border: 1px solid gray;border-collapse: collapse;} .inputp {width:100%; background: transparent; border: none; text-align:center;}</style><table style=\"width:100%;border: 1px solid black;border-collapse: collapse;\"><tr><th colspan=\"2\">a1</th><th colspan=\"2\">b1</th><th colspan=\"2\">c1</th><th colspan=\"2\">d1</th><th colspan=\"2\">a2</th><th colspan=\"2\">b2</th><th colspan=\"2\">c2</th><th colspan=\"2\">d2</th><th colspan=\"2\">a3</th><th colspan=\"2\">b3</th><th colspan=\"2\">c3</th><th colspan=\"2\">d3</th><th colspan=\"2\">a4</th><th colspan=\"2\">b4</th><th colspan=\"2\">c4</th><th colspan=\"2\">d4</th><th>Size</th></tr>");

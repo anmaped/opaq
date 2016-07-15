@@ -72,8 +72,8 @@ void Opaq_iaqua::service(unsigned x, unsigned y, unsigned z)
     }
   }
 
-  Serial.println(touch_state);
-  Serial.println(n_touch);
+  //Serial.println(touch_state);
+  //Serial.println(n_touch);
   
   
   switch (dispScreen) 

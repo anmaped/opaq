@@ -25,7 +25,6 @@
 
 #include <pgmspace.h>
 #include <FS.h>
-#include <ESP8266WiFi.h>
 #include <ESP8266httpUpdate.h>
 
 #include "Opaq_c1.h"
@@ -34,9 +33,6 @@
 #include "Opaq_websockets.h"
 
 #include "Opaq_iaqua.h"
-#include "cas.h"
-
-#include "C:\Users\DeMatos\Dropbox\openlight_docs\openaq_controller\opaq\avr\coprocessor\protocol.h"
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -52,8 +48,6 @@ ArduinoOTA ota_server;
 #define TFT_DC 15
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 Opaq_iaqua iaqua;
-
-#include <ADS7846.h>
 
 ADS7846 touch;
 LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
@@ -96,17 +90,15 @@ static void _10hzLoop_timmingEvent()
 =============================================================================*/
 
 OpenAq_Controller::OpenAq_Controller() :
-  server ( ESP8266WebServer ( 80 ) ),
+  server ( AsyncWebServer ( 80 ) ),
   avrprog (328, 2),
   timming_events ( Ticker() ),
-  rtc ( RtcDS1307() ),
   radio ( RF24 ( 0, 0 ) ),
   html ( AcHtml() ),
   //storage ( Opaq_storage() ),
   str ( String() ),
   clockIsReady( false ),
-  avr_prog_lock( false ),
-  spi_lock ( false )
+  communicate( Opaq_com() )
 {
   str.reserve ( 2048 );
 }
@@ -238,8 +230,8 @@ void OpenAq_Controller::setup_controller()
       Serial.println(mime);
       // THIS IS NOT THE SOLUTION FOR A MASSIVE AMOUNT OF FILES
       // [TODO]
-      if(ext == ".json") // puts the json files available for debugging
-        server.on ( filename.c_str(), [=]() { server.send_F ( 200, String(mime).c_str(), filename.c_str() ); } ); // verify filename string (can desapear...)
+      //if(ext == ".json") // puts the json files available for debugging
+      //  server.on ( filename.c_str(), [=]() { server.send_F ( 200, String(mime).c_str(), filename.c_str() ); } ); // verify filename string (can desapear...)
     };
   
   // search available SPIFFS files starting with prefix '_p'
@@ -254,15 +246,46 @@ void OpenAq_Controller::setup_controller()
   //  ENDS the LOADING OF FILES FROM SPIFFS
 
   // setup webserver
-  server.on ( "/"      , std::bind ( &OpenAq_Controller::handleRoot, this ) );
+  /*server.on ( "/"      , std::bind ( &OpenAq_Controller::handleRoot, this ) );
   server.on ( "/light" , std::bind ( &OpenAq_Controller::handleLight, this ) );
   server.on ( "/clock" , std::bind ( &OpenAq_Controller::handleClock, this ) );
   server.on ( "/power" , std::bind ( &OpenAq_Controller::handlePower, this ) );
   server.on ( "/advset", std::bind ( &OpenAq_Controller::handleAdvset, this ) );
-  server.on ( "/global", std::bind ( &OpenAq_Controller::handleGlobal, this ) );
+  server.on ( "/global", std::bind ( &OpenAq_Controller::handleGlobal, this ) );*/
+
+  server.on ( "/fileexplorer",  [](AsyncWebServerRequest *request){
+    //  BEGINS the LOADING OF FILES FROM SPIFFS
+    String filename = request->arg("name");
+  
+    // test if exists
+    if( SPIFFS.exists(filename) )
+    {
+      // get extension
+      String ext = filename.substring(filename.indexOf('.', 0), filename.indexOf('\n', 0));
+      const __FlashStringHelper* mime;
+      
+      if (ext == F(".txt"))
+      {
+        mime = F("text/plain");
+      }
+  
+      if (ext == F(".html"))
+      {
+        mime = F("text/html");
+      }
+      
+      request->send(SPIFFS,  filename.c_str(), String(mime).c_str());
+      
+    }
+    else
+    {
+      request->send(200, "text/html", String(F("<h3>NOT FOUND!</h3>")));
+    }
+  
+  });
 
   // setup webfiles for webserver
-  for ( int fl = 0; fl < N_FILES; fl++ )
+/*  for ( int fl = 0; fl < N_FILES; fl++ )
   {
     server.on ( files[fl].filename, [ = ]()
     {
@@ -271,10 +294,11 @@ void OpenAq_Controller::setup_controller()
                       files[fl].len );
     } );
   }
+*/
 
-  server.onNotFound ( [ = ]()
+  server.onNotFound ( [ = ](AsyncWebServerRequest *request)
   {
-    server.send ( 404, "  text/plain", String ( "    " ) );
+    request->send ( 404, "  text/plain", String ( "    " ) );
   } );
 
   // start server
@@ -367,7 +391,7 @@ void OpenAq_Controller::run_controller()
 {
   //ota_server.handle();
 
-  server.handleClient();
+  //server.handleClient();
 
   run_programmer();
 
@@ -397,8 +421,7 @@ void OpenAq_Controller::run_programmer()
         switch (new_state) {
             case AVRISP_STATE_IDLE: {
                 Serial.printf("[AVRISP] now idle\r\n");
-                // Use the SPI bus for other purposes
-                avr_prog_lock = false;
+                communicate.unlock();
                 break;
             }
             case AVRISP_STATE_PENDING: {
@@ -409,7 +432,7 @@ void OpenAq_Controller::run_programmer()
             case AVRISP_STATE_ACTIVE: {
                 Serial.printf("[AVRISP] programming mode\r\n");
                 // Stand by for completion
-                avr_prog_lock = true;
+                communicate.spinlock();
                 break;
             }
         }
@@ -417,62 +440,18 @@ void OpenAq_Controller::run_programmer()
     }
     // Serve the client
     if (last_state != AVRISP_STATE_IDLE) {
-        avrprog.serve();
+      avrprog.serve();
     }
 }
 
 void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
 {
-  byte tmp[10];
-  byte idx = 0;
-  
-  if (avr_prog_lock)
-    return;
-  
-  // comunicate with coprocessor
-  Serial.println(F("ASK AVR TO RECEIVE RF433 STREAM"));
-
   // get device code id
   uint32_t code = storage.getPDeviceCode ( pdeviceId );
   // get state from settings
   uint8_t state = storage.getPDeviceState ( pdeviceId );
-
-  if(!cas((uint8_t*)&spi_lock, false, true))
-    return;
-
-  digitalWrite(5, LOW);
-  delayMicroseconds (20);
-
-  tmp[idx++] = SPI.transfer (ID_RF433_STREAM);
-  delayMicroseconds (30);
-
-  // payload length
-  tmp[idx++] = SPI.transfer ( 0x05 );
-  delayMicroseconds (30);
   
-  tmp[idx++] = SPI.transfer ( (byte)code );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 8) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 16) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 24) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( state );
-  delayMicroseconds (30);
-
-  // dummy
-  tmp[idx++] = SPI.transfer ( 0x10 );
-  delayMicroseconds (30);
-  
-  digitalWrite(5, HIGH);
-
-  spi_lock = false;
-
-  for(byte i=0; i < idx; i++)
-    Serial.println("r: " + String(tmp[i]));
-
-  Serial.println(F("AVR ASKED!"));
+  communicate.rf433(code, state);
 }
 
 uint16_t normalizeClock(RtcDateTime * clock, const uint16_t a, const uint16_t b )
@@ -577,108 +556,32 @@ void OpenAq_Controller::run_task_rf433ook()
 
 void OpenAq_Controller::run_task_ds3231()
 {
-  if (avr_prog_lock)
-    return;
-
-  //if(spi_lock)
-  //  return;
-  //bool ee = true;
-  //bool &e = ee;
-  //spi_lock.compare_exchange_strong(e, false);
-  
-  
-  // update clock
-  //clock = rtc.GetDateTime();
-
-  Serial.println("ASK AVR FOR DS3231");
-
-  //SPI.begin();
-  //SPI.setClockDivider(SPI_CLOCK_DIV4);
-  
-
-  if(!cas((uint8_t*)&spi_lock, false, true))
-    return;
-    
-  digitalWrite(5, LOW);
-  delayMicroseconds (20);
-
-  byte x[sizeof(RtcDateTime)];
-  SPI.transfer (ID_DS1307_DATA);
-  delayMicroseconds (30);
-  
-  for(byte i=0; i <= sizeof(RtcDateTime); i++)
-  {
-    x[i] = SPI.transfer (0);
-    delayMicroseconds (30);
-  }
-
-  digitalWrite(5, HIGH);
-
-  spi_lock = false;
-
-  for(byte i=0; i <= sizeof(RtcDateTime); i++)
-    Serial.println("r: " + String(x[i]));
-
-  //SPI.end();
-
-  Serial.println("AVR ASKED!");
+  communicate.getClock(clock);
 }
 
 void OpenAq_Controller::run_atsha204()
 {
-  if (avr_prog_lock)
-    return;
-
-  Serial.println("ASK AVR FOR ATSHA204");
-  
-  if(!cas((uint8_t*)&spi_lock, false, true))
-    return;
-    
-  digitalWrite(5, LOW);
-  delayMicroseconds (20);
-
-  SPI.transfer (ID_ATSHA402);
-  delayMicroseconds (30);
-  
-  byte x[3];
-  
-  for(byte i=0; i <= 9; i++)
-  {
-    x[i] = SPI.transfer (0);
-    delayMicroseconds (30);
-  }
-
-  digitalWrite(5, HIGH);
-
-  spi_lock = false;
-
-  for(byte i=0; i <= 9; i++)
-    Serial.println("r: " + String(x[i]));
-
-  Serial.println("ATSHA402 ASKED!");
+  communicate.getCiferKey();
 }
 
 void OpenAq_Controller::run_touch()
 {
-   if (avr_prog_lock)
-    return;
-
-  if(!cas((uint8_t*)&spi_lock, false, true))
+  if( communicate.lock() )
     return;
     
   touch.service();
   
-  Serial.println("ASK TOUCH:");
+  /*Serial.println("ASK TOUCH:");
   Serial.println(touch.tp_x);
   Serial.println(touch.tp_y);
   Serial.println(touch.pressure);
   Serial.println(touch.getX());
   Serial.println(touch.getY());
   Serial.println("TOUCH ASKED!");
-
+*/
   iaqua.service(touch.getX(),touch.getY(),touch.pressure);
 
-  spi_lock = false;
+  communicate.unlock();
   
 }
 
@@ -686,79 +589,15 @@ void OpenAq_Controller::run_tft()
 {
   Serial.println("ASK ILI9341");
 
-  while(!cas((uint8_t*)&spi_lock, false, true))
-    delay(100);
+  communicate.spinlock();
   
   tft.fillScreen(ILI9341_BLACK);
   iaqua.screenHome();
 
+  communicate.unlock();
+  
   Serial.println("ILI9341 ASKED");
   
-/*
-  // read diagnostics (optional but can help debug problems)
-  uint8_t x = tft.readcommand8(ILI9341_RDMODE);
-  Serial.print("Display Power Mode: 0x"); Serial.println(x, HEX);
-  x = tft.readcommand8(ILI9341_RDMADCTL);
-  Serial.print("MADCTL Mode: 0x"); Serial.println(x, HEX);
-  x = tft.readcommand8(ILI9341_RDPIXFMT);
-  Serial.print("Pixel Format: 0x"); Serial.println(x, HEX);
-  x = tft.readcommand8(ILI9341_RDIMGFMT);
-  Serial.print("Image Format: 0x"); Serial.println(x, HEX);
-  x = tft.readcommand8(ILI9341_RDSELFDIAG);
-  Serial.print("Self Diagnostic: 0x"); Serial.println(x, HEX);
-
-  Serial.println(F("Benchmark                Time (microseconds)"));
-
-  Serial.print(F("Screen fill              "));
-  Serial.println(testFillScreen());
-  delay(500);
-
-  Serial.print(F("Text                     "));
-  Serial.println(testText());
-  delay(3000);
-
-  Serial.print(F("Lines                    "));
-  Serial.println(testLines(ILI9341_CYAN));
-  delay(500);
-
-  Serial.print(F("Horiz/Vert Lines         "));
-  Serial.println(testFastLines(ILI9341_RED, ILI9341_BLUE));
-  delay(500);
-
-  Serial.print(F("Rectangles (outline)     "));
-  Serial.println(testRects(ILI9341_GREEN));
-  delay(500);
-
-  Serial.print(F("Rectangles (filled)      "));
-  Serial.println(testFilledRects(ILI9341_YELLOW, ILI9341_MAGENTA));
-  delay(500);
-
-  Serial.print(F("Circles (filled)         "));
-  Serial.println(testFilledCircles(10, ILI9341_MAGENTA));
-
-  Serial.print(F("Circles (outline)        "));
-  Serial.println(testCircles(10, ILI9341_WHITE));
-  delay(500);
-
-  Serial.print(F("Triangles (outline)      "));
-  Serial.println(testTriangles());
-  delay(500);
-
-  Serial.print(F("Triangles (filled)       "));
-  Serial.println(testFilledTriangles());
-  delay(500);
-
-  Serial.print(F("Rounded rects (outline)  "));
-  Serial.println(testRoundRects());
-  delay(500);
-
-  Serial.print(F("Rounded rects (filled)   "));
-  Serial.println(testFilledRoundRects());
-  delay(500);
-
-  Serial.println(F("Done!"));*/
-
-  spi_lock = false;
 }
 
 /*--------------------  nrf24 device controller task  ---------------------*/
@@ -780,16 +619,12 @@ void OpenAq_Controller::run_task_nrf24()
 {
   static uint8_t deviceId = 1;
   float clktmp;
-
   uint8_t buf[32];
-
-  if (avr_prog_lock)
-    return;
     
   if ( !isClockReady() )
     return;
 
-  if(!cas((uint8_t*)&spi_lock, false, true))
+  if ( communicate.lock() )
     return;
 
   // definition for Zetlight lancia dimmers
@@ -946,7 +781,7 @@ void OpenAq_Controller::run_task_nrf24()
   if (deviceId > storage.getNumberOfLightDevices())
     deviceId = 1;
 
-  spi_lock = false;
+  communicate.unlock();
 }
 
 /*======================  End of Opaq public methods  =======================*/
@@ -957,8 +792,8 @@ void OpenAq_Controller::run_task_nrf24()
 /*=============================================================================
 =                      Opaq controller private handlers                       =
 =============================================================================*/
-
-void sendBlockS(String* str, ESP8266WebServer *sv)
+/*
+void sendBlockS(String* str, AsyncWebServer *sv)
 {
   int index;
   for (index = 0; index < floor((*str).length() / HTTP_DOWNLOAD_UNIT_SIZE); index++)
@@ -974,7 +809,7 @@ void sendBlockS(String* str, ESP8266WebServer *sv)
   DEBUGV( "ac:: B %d", index );
 }
 
-void sendBlockCS(String* str, ESP8266WebServer *sv, uint16_t* count)
+void sendBlockCS(String* str, AsyncWebServer *sv, uint16_t* count)
 {
   int index;
   for (index = 0; index < floor((*str).length() / HTTP_DOWNLOAD_UNIT_SIZE); index++)
@@ -990,7 +825,7 @@ void sendBlockCS(String* str, ESP8266WebServer *sv, uint16_t* count)
   DEBUGV( "ac:: CS %d", *count );
 }
 
-std::function<void(String*)> OpenAq_Controller::sendBlockGlobal( ESP8266WebServer* sv, uint16_t* count, uint8_t* step )
+std::function<void(String*)> OpenAq_Controller::sendBlockGlobal( AsyncWebServer* sv, uint16_t* count, uint8_t* step )
 {
   if ( *step )
   {
@@ -1004,7 +839,7 @@ std::function<void(String*)> OpenAq_Controller::sendBlockGlobal( ESP8266WebServe
 
 void OpenAq_Controller::handleRoot()
 {
-  ESP8266WebServer *sv = &server;
+  AsyncWebServer *sv = &server;
   uint16_t count = 0;
   uint8_t step;
 
@@ -1109,7 +944,7 @@ void OpenAq_Controller::handleLight()
     return;
   }
 
-  /* update selected device */
+  // update selected device
   if ( server.hasArg("sdevice") && server.hasArg("setcurrent") )
   {
     uint8_t id = atoi(server.arg("sdevice").c_str());
@@ -1133,7 +968,7 @@ void OpenAq_Controller::handleLight()
   // default light webpage
   DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
 
-  ESP8266WebServer *sv = &server;
+  AsyncWebServer *sv = &server;
   uint16_t count = 0;
   uint8_t step;
 
@@ -1167,9 +1002,12 @@ void OpenAq_Controller::handleLight()
     sendBlockGlobal(sv, &count, &step)(&str);
 
     //RtcTemperature temp = rtc.GetTemperature();
-    str += String(/*temp.AsWholeDegrees()*/0);
+    str += String(
+    //temp.AsWholeDegrees()
+    0);
     str += ".";
-    str += String(/*temp.GetFractional()*/0);
+    str += String(//temp.GetFractional()
+    0);
     str += F("º</div>");
     sendBlockGlobal(sv, &count, &step)(&str);
 
@@ -1192,7 +1030,7 @@ void OpenAq_Controller::handleAdvset()
 {
   DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
 
-  ESP8266WebServer *sv = &server;
+  AsyncWebServer *sv = &server;
   uint16_t count = 0;
   uint8_t step;
 
@@ -1289,7 +1127,7 @@ void OpenAq_Controller::handleClock()
   else
     return;
 
-  rtc.SetDateTime(dt);
+  communicate.setClock(dt);
 
 }
 
@@ -1430,7 +1268,7 @@ void OpenAq_Controller::ota()
 
   }
 }
-
+*/
 /*=====  End of Opaq controller private methods  ======*/
 
 OpenAq_Controller opaq_controller;

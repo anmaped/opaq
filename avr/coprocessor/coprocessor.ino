@@ -173,13 +173,21 @@ ISR (SPI_STC_vect)
     count = 0;
     break;
     
-  case ID_DS1307_DATA:
+  case ID_DS1307_GETDATA:
     
     if(count < sizeof(RtcDateTime))
       SPDR = ds1307(count);
 
     count++;
     comunicating = true;
+    break;
+
+  case ID_DS1307_SETDATA:
+  
+    if(count < sizeof(RtcDateTime))
+      setDs1307(data, count);
+    
+    count++;
     break;
 
   case ID_NRF24_CSN:
@@ -256,10 +264,18 @@ ISR (SPI_STC_vect)
 void loop() {
   
   delay(500);
-  
-  clock = rtc.GetDateTime();
+
+  if(setClockActive)
+  {
+    setClockActive = false;
+    rtc.SetDateTime(clock);
+  }
+  else
+  {
+    clock = rtc.GetDateTime();
+  }
 
   rf433();
-  //rf433mhz( 0x0044, RF433_OFF );
+  
 }
 

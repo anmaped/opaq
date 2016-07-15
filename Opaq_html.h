@@ -31,9 +31,10 @@
 #include <String.h>
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <RtcDateTime.h>
 
-#include <RtcDS3231.h>
 
 class AcHtml {
 public:
@@ -64,7 +65,7 @@ public:
 
   void get_advset_clock(String *, const RtcDateTime);
   void get_advset_psockets(String *str, unsigned int n_powerDevices, Opaq_storage::deviceDescriptorPW* pdevice);
-  void get_advset_psockets_step( Opaq_storage * const lstorage, String * const str, ESP8266WebServer * server, std::function<void (String*)> sendBlock );
+  void get_advset_psockets_step( Opaq_storage * const lstorage, String * const str, AsyncWebServer * server, std::function<void (String*)> sendBlock );
 
   void send_status_div(String * const str, Opaq_storage * const lstorage, std::function<void (String*)> sendBlock );
 };

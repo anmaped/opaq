@@ -90,9 +90,6 @@ void Opaq_storage::defaults ( uint8_t sig )
 
   SPIFFS.format();
   SPIFFS.begin();
-  
-  File psocketsFile = SPIFFS.open("/psocket_settings.txt", "w");
-  psocketsFile.close();
 
   save();
 
@@ -116,6 +113,7 @@ void Opaq_storage::close()
 
 void Opaq_storage::initOpaqC1Service()
 {
+  /*
   ESP8266httpClient client;
 
   auto storer = [](WiFiClient tcp, size_t l, const char * name)
@@ -159,7 +157,7 @@ void Opaq_storage::initOpaqC1Service()
   
   
   // get default opaq c1 settings
-  
+  */
 }
 
 const uint8_t Opaq_storage::getSignature()
@@ -282,7 +280,15 @@ void Opaq_storage::addPowerDevice()
 
   char buf[FILE_DESC_SIZE + 1];
   sprintf( buf, "Description.%d", *numberOfPowerDevices );
-  File psocketsFile = SPIFFS.open("/psocket_settings.txt", "r+");
+  
+  File psocketsFile = SPIFFS.open("/settings/psockets.json", "r+");
+
+  if ( psocketsFile == NULL )
+  {
+    // create file
+    psocketsFile = SPIFFS.open("/settings/psockets.json", "w");
+  }
+  
   psocketsFile.seek( FILE_DESC_SIZE * *numberOfPowerDevices, SeekSet ) ;
   psocketsFile.write( (uint8_t*)buf, FILE_DESC_SIZE );
   psocketsFile.close();
@@ -317,7 +323,14 @@ bool Opaq_storage::getPDevicePoint( const uint8_t stepId, const uint8_t value )
 
 void Opaq_storage::setPDesription( const uint8_t pidx, const char * desc )
 {
-  File psocketsFile = SPIFFS.open("/psocket_settings.txt", "r+");
+  File psocketsFile = SPIFFS.open("/settings/psockets.json", "r+");
+
+  if ( psocketsFile == NULL )
+  {
+    // create file
+    psocketsFile = SPIFFS.open("/settings/psockets.json", "w");
+  }
+  
   // set position
   psocketsFile.seek( FILE_DESC_SIZE * pidx, SeekSet ) ;
   psocketsFile.write( (uint8_t*)desc, FILE_DESC_SIZE );

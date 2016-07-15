@@ -27,15 +27,17 @@
 #define OPENAQ_H
 
 #include "Opaq_html.h"
+#include "Opaq_com.h"
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266AVRISP.h>
-//#include <RtcDS3231.h>
-#include <RtcDS1307.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
-#include <nRF24L01.h>
-#include <RF24.h>
+#include <ESP8266AVRISP.h>
+#include <RtcDateTime.h>
+
+#include "src/RF24/nRF24L01.h"
+#include "src/RF24/RF24.h"
 
 #include <Wire.h>
 #include <Ticker.h>
@@ -68,7 +70,7 @@ class OpenAq_Controller
 {
 private:
 
-  ESP8266WebServer server;
+  AsyncWebServer server;
 
   ESP8266AVRISP avrprog;
 
@@ -76,9 +78,8 @@ private:
   Ticker timming_events;
   Ticker t_evt;
 
+  Opaq_com communicate;
   // real-time clock initialization
-  //RtcDS3231 rtc;
-  RtcDS1307 rtc;
   bool clockIsReady;
 
   // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
@@ -100,19 +101,16 @@ private:
   os_event_t deviceTaskQueue[deviceTaskQueueLen];
   os_event_t _10hzLoopQueue[deviceTaskQueueLen];
 
-  bool avr_prog_lock;
-  bool spi_lock;
-
-  void handleRoot();
+  /*void handleRoot();
   void handleLight();
   void handleAdvset();
   void handleClock();
   void handlePower();
-  void handleGlobal();
+  void handleGlobal();*/
 
   void updatePowerOutlets ( uint8_t pdeviceId );
 
-  std::function<void(String*)> sendBlockGlobal( ESP8266WebServer* sv, uint16_t* count, uint8_t* step );
+  //std::function<void(String*)> sendBlockGlobal( AsyncWebServer* sv, uint16_t* count, uint8_t* step );
 
   void ota();
 

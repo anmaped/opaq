@@ -29,8 +29,8 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <FS.h>
-#include <ESP8266httpClient.h>
-#include <ADS7846.h>
+//#include <ESP8266httpClient.h>
+#include "src/ADS7846/ADS7846.h"
 
 #define N_LIGHT_DEVICES 10
 #define N_SIGNALS 3

@@ -11,7 +11,7 @@
 #include "RF24.h"
 
 #ifdef ESP8266
-#include "C:\Users\DeMatos\Dropbox\openlight_docs\openaq_controller\opaq\avr\coprocessor\protocol.h"
+#include <protocol.h>
 #endif
 
 /****************************************************************************/
