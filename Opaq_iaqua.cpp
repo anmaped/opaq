@@ -31,6 +31,7 @@
 
 
 #include "Opaq_iaqua.h"
+#include "Opaq_c1.h"
 
 #include <Time.h>
 
@@ -2655,11 +2656,11 @@ void Opaq_iaqua::printDate(int x, int y)
 
   strcat(chDate, "     ");
   chDate[0] = '\0';
-  strcat(chDate, dayShortStr(weekday()));
+  strcat(chDate, dayShortStr(prevRTC.Wday));
   strcat(chDate, ", ");
-  strcat(chDate, monthShortStr(month()));
+  strcat(chDate, monthShortStr(prevRTC.Month));
   strcat(chDate, " ");
-  itoa(day(), tmpChar, 10);
+  itoa(prevRTC.Day, tmpChar, 10);
   strcat(chDate, tmpChar);
   // this line is for omitting year
   strcat(chDate, "  ");
@@ -2673,15 +2674,21 @@ void Opaq_iaqua::updateTimeDate(boolean updateTime)
   myGLCD.setColor(240, 240, 255);
   myGLCD.setFont(NULL);
 
-  if ((hour()!=prevRTC.Hour) || (minute()!=prevRTC.Minute) || updateTime)
+  byte hour = opaq_controller.getClock().Hour();
+  byte minute = opaq_controller.getClock().Minute();
+  byte day = opaq_controller.getClock().Day();
+  byte month = opaq_controller.getClock().Month();
+  byte wday = opaq_controller.getClock().DayOfWeek();
+
+  if ((hour != prevRTC.Hour) || (minute != prevRTC.Minute) || updateTime)
   {
-    prevRTC.Hour = hour();
-    prevRTC.Minute = minute();
+    prevRTC.Hour = hour;
+    prevRTC.Minute = minute;
     if(displayIn12Hr == true)
-       printTime(hourFormat12() , minute(), isPM(), 180, 2);
+       printTime(hourFormat12() , minute, isPM(), 180, 2);
     
     if(displayIn12Hr == false)
-       printTime24Hr(hour(),minute(),180,2);
+       printTime24Hr(hour, minute,180,2);
     
     if(updateTime == false)
     {
@@ -2689,10 +2696,11 @@ void Opaq_iaqua::updateTimeDate(boolean updateTime)
     }
   }
 
-  if ((day()!=prevRTC.Day) || (month()!=prevRTC.Month) || updateTime)
+  if ((day != prevRTC.Day) || (month != prevRTC.Month) || updateTime)
   {
-    prevRTC.Day = day();
-    prevRTC.Month = month();
+    prevRTC.Day = day;
+    prevRTC.Wday = wday;
+    prevRTC.Month = month;
     printDate(40, 2);             
   }
 }

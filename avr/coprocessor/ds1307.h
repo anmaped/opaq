@@ -10,7 +10,7 @@ extern volatile bool setClockActive;
 
 byte ds1307(byte code)
 {
-  setClockActive = false;
+  //setClockActive = false;
   
   byte * clock_pointer = (byte *)&clock;
   
@@ -19,7 +19,7 @@ byte ds1307(byte code)
 
 void setDs1307(byte code, byte idx)
 {
-  setClockActive = true;
+  //setClockActive = true;
   
   byte * clock_pointer = (byte *)&clock;
 

@@ -32,7 +32,6 @@
 #include <ESP8266AVRISP.h>
 #include <ESP8266httpUpdate.h>
 #include <ArduinoJson.h>
-#include <WebSocketsServer.h>
 #include <Hash.h>
 
 #include <Adafruit_ILI9341.h>

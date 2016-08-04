@@ -65,7 +65,13 @@ void Opaq_com::setClock(RtcDateTime c)
   SPI.transfer (ID_DS1307_SETDATA);
   delayMicroseconds (30);
 
-  // [TODO]
+  byte *x = (byte*)&c; // this is not safe ... alignment dependent
+  
+  for(byte i=0; i < sizeof(RtcDateTime); i++)
+  {
+    SPI.transfer (x[i]);
+    delayMicroseconds (30);
+  }
 
   disconnect();
 }

@@ -91,6 +91,7 @@ static void _10hzLoop_timmingEvent()
 
 OpenAq_Controller::OpenAq_Controller() :
   server ( AsyncWebServer ( 80 ) ),
+  ws ( AsyncWebSocket("/ws") ),
   avrprog (328, 2),
   timming_events ( Ticker() ),
   radio ( RF24 ( 0, 0 ) ),
@@ -159,7 +160,7 @@ void OpenAq_Controller::setup_controller()
   else
   {
     // or setup the station
-    /*const char* ssid = storage.getClientSSID();
+    const char* ssid = storage.getClientSSID();
     const char* pwd = storage.getClientPwd();
 
     WiFi.mode(WIFI_STA);
@@ -168,7 +169,7 @@ void OpenAq_Controller::setup_controller()
     Serial.print ( F("Connecting to ") );
     Serial.println ( ssid );
 
-    WiFi.begin ( ssid, pwd );*/
+    WiFi.begin ( ssid, pwd );
 
     WiFi.printDiag(Serial);
     
@@ -246,70 +247,23 @@ void OpenAq_Controller::setup_controller()
   //  ENDS the LOADING OF FILES FROM SPIFFS
 
   // setup webserver
-  /*server.on ( "/"      , std::bind ( &OpenAq_Controller::handleRoot, this ) );
-  server.on ( "/light" , std::bind ( &OpenAq_Controller::handleLight, this ) );
-  server.on ( "/clock" , std::bind ( &OpenAq_Controller::handleClock, this ) );
-  server.on ( "/power" , std::bind ( &OpenAq_Controller::handlePower, this ) );
-  server.on ( "/advset", std::bind ( &OpenAq_Controller::handleAdvset, this ) );
-  server.on ( "/global", std::bind ( &OpenAq_Controller::handleGlobal, this ) );*/
-
-  server.on ( "/fileexplorer",  [](AsyncWebServerRequest *request){
-    //  BEGINS the LOADING OF FILES FROM SPIFFS
-    String filename = request->arg("name");
-  
-    // test if exists
-    if( SPIFFS.exists(filename) )
-    {
-      // get extension
-      String ext = filename.substring(filename.indexOf('.', 0), filename.indexOf('\n', 0));
-      const __FlashStringHelper* mime;
-      
-      if (ext == F(".txt"))
-      {
-        mime = F("text/plain");
-      }
-  
-      if (ext == F(".html"))
-      {
-        mime = F("text/html");
-      }
-      
-      request->send(SPIFFS,  filename.c_str(), String(mime).c_str());
-      
-    }
-    else
-    {
-      request->send(200, "text/html", String(F("<h3>NOT FOUND!</h3>")));
-    }
-  
-  });
-
-  // setup webfiles for webserver
-/*  for ( int fl = 0; fl < N_FILES; fl++ )
-  {
-    server.on ( files[fl].filename, [ = ]()
-    {
-      server.sendHeader ( "Content-Length", String ( files[fl].len ) );
-      server.send_P ( 200, files[fl].mime, ( PGM_P )files[fl].content,
-                      files[fl].len );
-    } );
-  }
-*/
+  server.serveStatic("/", SPIFFS, "/www/").setDefaultFile("opaqc1.html");
 
   server.onNotFound ( [ = ](AsyncWebServerRequest *request)
   {
     request->send ( 404, "  text/plain", String ( "    " ) );
   } );
 
+  // attach AsyncWebSocket
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+  
+
   // start server
   server.begin();
 
   // start avrprog
   avrprog.begin();
-
-  // websockets
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
 
   // RTC setup
   //rtc.Begin();
@@ -394,8 +348,6 @@ void OpenAq_Controller::run_controller()
   //server.handleClient();
 
   run_programmer();
-
-  webSocket.loop();
 
   /*if (count == 100000)
   {
@@ -769,7 +721,7 @@ void OpenAq_Controller::run_task_nrf24()
       {
         a=true;
         Serial.println(x);
-        webSocket.sendTXT(0, x.c_str(), x.length());
+        //[TODO] put that to output ... webSocket.sendTXT(0, x.c_str(), x.length());
       }
     }
 
@@ -784,6 +736,112 @@ void OpenAq_Controller::run_task_nrf24()
   communicate.unlock();
 }
 
+void OpenAq_Controller::syncClock()
+{
+  unsigned int localPort = 2390;      // local port to listen for UDP packets
+
+/* Don't hardwire the IP address or we won't get the benefits of the pool.
+ *  Lookup the IP address for the host name instead */
+//IPAddress timeServer(129, 6, 15, 28); // time.nist.gov NTP server
+IPAddress timeServerIP; // time.nist.gov NTP server address
+const char* ntpServerName = "time.nist.gov";
+
+const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
+
+byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
+
+// A UDP instance to let us send and receive packets over UDP
+WiFiUDP udp;
+
+ Serial.println("Starting UDP");
+  udp.begin(localPort);
+  Serial.print("Local port: ");
+Serial.println(udp.localPort());
+
+  //get a random server from the pool
+  WiFi.hostByName(ntpServerName, timeServerIP); 
+
+  //sendNTPpacket(timeServerIP); // send an NTP packet to a time server
+  Serial.println("sending NTP packet...");
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  udp.beginPacket(timeServerIP, 123); //NTP requests are to port 123
+  udp.write(packetBuffer, NTP_PACKET_SIZE);
+  udp.endPacket();
+  // wait to see if a reply is available
+  delay(1000);
+  
+  int cb = udp.parsePacket();
+  if (!cb) {
+    Serial.println("no packet yet");
+  }
+  else {
+    Serial.print("packet received, length=");
+    Serial.println(cb);
+    // We've received a packet, read the data from it
+    udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
+
+    //the timestamp starts at byte 40 of the received packet and is four bytes,
+    // or two words, long. First, esxtract the two words:
+
+    unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+    unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+    // combine the four bytes (two words) into a long integer
+    // this is NTP time (seconds since Jan 1 1900):
+    unsigned long secsSince1900 = highWord << 16 | lowWord;
+    Serial.print("Seconds since Jan 1 1900 = " );
+    Serial.println(secsSince1900);
+
+    // now convert NTP time into everyday time:
+    Serial.print("Unix time = ");
+    // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
+    const unsigned long seventyYears = 2208988800UL;
+    // subtract seventy years:
+    unsigned long epoch = secsSince1900 - seventyYears;
+    // print Unix time:
+    Serial.println(epoch);
+
+
+    // print the hour, minute and second:
+    Serial.print("The UTC time is ");       // UTC is the time at Greenwich Meridian (GMT)
+    Serial.print((epoch  % 86400L) / 3600); // print the hour (86400 equals secs per day)
+    Serial.print(':');
+    if ( ((epoch % 3600) / 60) < 10 ) {
+      // In the first 10 minutes of each hour, we'll want a leading '0'
+      Serial.print('0');
+    }
+    Serial.print((epoch  % 3600) / 60); // print the minute (3600 equals secs per minute)
+    Serial.print(':');
+    if ( (epoch % 60) < 10 ) {
+      // In the first 10 seconds of each minute, we'll want a leading '0'
+      Serial.print('0');
+    }
+    Serial.println(epoch % 60); // print the second
+
+
+  // [TODO]
+  RtcDateTime tmp = RtcDateTime( 0, 0, 0, (epoch  % 86400L) / 3600, (epoch  % 3600) / 60, epoch % 60);
+  getCom().setClock(tmp);
+
+}
+
+}
+
+
 /*======================  End of Opaq public methods  =======================*/
 
 
@@ -792,6 +850,7 @@ void OpenAq_Controller::run_task_nrf24()
 /*=============================================================================
 =                      Opaq controller private handlers                       =
 =============================================================================*/
+
 /*
 void sendBlockS(String* str, AsyncWebServer *sv)
 {

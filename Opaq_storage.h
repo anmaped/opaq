@@ -105,6 +105,16 @@ enum ptype {CHACON_DIO = 1, OTHERS};
 enum pstate {OFF = 0, ON, BINDING, UNBINDING, ON_PERMANENT, OFF_PERMANENT, AUTO, LISTENING};
 
 
+class Opaq_st_plugin_faqdim
+{
+public:
+  void add();
+  void save(const char * filename, const uint8_t * content, size_t len);
+  void getFilename(String& filename, const char * code);
+  void remove(const char* code);
+};
+
+
 class Opaq_storage: EEPROMClass
 {
 private:
@@ -211,7 +221,7 @@ public:
     void enableClient() { *op &= ~0x1; };
 
     /* light device management functions */
-    void addLightDevice();
+    
     void addSignal ( uint8_t deviceId, uint8_t signalId, uint8_t pointId,
                      uint8_t xy, uint8_t value );
     bool setPointXLD (  uint8_t deviceIdx, uint8_t signalIdx, uint8_t pointId, uint8_t value )
@@ -240,6 +250,12 @@ public:
     bool getPDevicePoint( const uint8_t stepId, const uint8_t value );
 
 
+
+
+
+    // Full Aquarium Dimmer settings
+    Opaq_st_plugin_faqdim faqdim;
+    
     // touch screen settings
     CAL_MATRIX& getTouchMatrixRef();
     CAL_MATRIX getTouchMatrix();
@@ -255,9 +271,10 @@ class PrintFile : public Print
   File stream;
   
 public:
-  PrintFile(const char* filename) { stream = SPIFFS.open(filename, "w+"); };
+  PrintFile(const char* filename) { stream = SPIFFS.open(filename, "r+"); };
   ~PrintFile() { stream.close(); };
   size_t write(uint8_t b) { stream.write(b); };
+  File& getStream() { return stream; };
 };
 
 

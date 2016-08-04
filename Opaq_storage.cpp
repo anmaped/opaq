@@ -37,6 +37,8 @@ static_assert( !(MAXIMUM_SETTINGS_STORAGE >= SPI_FLASH_SEC_SIZE) , "SETTINGS EXC
 extern "C" uint32_t _SPIFFS_end;
 Opaq_storage::Opaq_storage() : EEPROMClass((((uint32_t)&_SPIFFS_end - 0x40200000) / SPI_FLASH_SEC_SIZE))
 {
+  faqdim = Opaq_st_plugin_faqdim ();
+   
   // initialize eeprom
   begin ( SPI_FLASH_SEC_SIZE );
 
@@ -75,8 +77,9 @@ void Opaq_storage::defaults ( uint8_t sig )
   memcpy ( ssid, tmp, strlen(tmp) );
 
   // default PWD
-  static const char* lpwd PROGMEM = "opaqopaq";
-  memcpy_P ( pwd, lpwd, strlen_P(lpwd) );
+  //static const char* lpwd PROGMEM = "opaqopaq";
+  //memcpy_P ( pwd, lpwd, strlen_P(lpwd) );
+  pwd = "opaqopaq";
 
   // operation modes for controller
   // access point mode enabled - bit 0b---- ---X
@@ -165,9 +168,9 @@ const uint8_t Opaq_storage::getSignature()
   return ( const uint8_t ) * signature;
 }
 
-void Opaq_storage::addLightDevice()
+void Opaq_st_plugin_faqdim::add()
 {
-  // defensive case
+  /*// defensive case
   if ( *numberOfLightDevices >= N_LIGHT_DEVICES )
     return;
 
@@ -185,6 +188,113 @@ void Opaq_storage::addLightDevice()
 
   Serial.println ( *numberOfLightDevices );
   Serial.println ( LD_LEN_EACH );
+*/
+
+  DynamicJsonBuffer jsonBuffer;
+  char code[5*2+1];
+  String filename;
+
+  // try to find a valid id
+  do
+  {
+     // let's generate the id
+    for(byte i=0; i< 5; i+=2)
+    {
+      sprintf(&code[i], "%02X", random ( 0x0, 0xff ));
+    }
+    code[5*2] = '\0';
+
+    getFilename(filename, code);
+  }
+  while(SPIFFS.exists(filename.c_str()));
+  
+  // lets create the empty file
+  File tmp = SPIFFS.open(filename.c_str(), "w");
+  tmp.close();
+
+  // printer for json
+  PrintFile file = PrintFile(filename.c_str());
+  
+  // light device properties
+  // (codeID, type, description, state)
+  JsonObject& root = jsonBuffer.createObject();
+  root["adimid"] = code;
+  root["type"] = (unsigned int)OPENAQV1;
+  root["description"] = "Device";
+  root["state"] = (unsigned int)ON;
+
+  // [['00:00',1],['01:00',1] ...]
+  JsonArray& data = root.createNestedArray("data");
+
+  // number of channels
+  for(byte j=0; j<4; j++)
+  {
+     JsonArray& subdata = data.createNestedArray();
+
+    for(byte i=0; i < 24; i++)
+    {
+      JsonArray& subsubdata = subdata.createNestedArray();
+  
+      char tmp[10];
+      if (i>9)
+        sprintf(tmp, "%d:00", i);
+      else
+        sprintf(tmp, "0%d:00", i);
+      
+      subsubdata.add(jsonBuffer.strdup(tmp));
+      subsubdata.add(j*10+i);
+    }
+  
+  }
+
+  root["pointer"] = file.getStream().size()-1;
+  root["size"] = 3000;
+  
+  root.printTo(file);
+}
+
+void Opaq_st_plugin_faqdim::save(const char * code, const uint8_t * content, size_t len)
+{ 
+  String filename;
+  
+  getFilename(filename, code);
+
+  Serial.println("FILE SAVE:");
+  Serial.println(filename);
+  
+  // file to save
+  File tmp = SPIFFS.open(filename, "r+");
+
+  tmp.write(content, len);
+  
+  tmp.close();
+}
+
+void Opaq_st_plugin_faqdim::getFilename(String& filename, const char * code)
+{
+  filename = "";
+  filename += F("/sett/adim/");
+  filename += code;
+  filename += F(".json");
+}
+
+void Opaq_st_plugin_faqdim::remove(const char* code)
+{
+  String filename = "";
+  
+  getFilename(filename, code);
+  
+  // for each file in /sett/adim directory do
+  Dir directory = SPIFFS.openDir("/sett/adim");
+  
+  while ( directory.next() )
+  {
+    if( directory.fileName() == filename )
+    {
+      Serial.println("FILE REMOVED");
+      SPIFFS.remove(directory.fileName());
+    }
+  }
 }
 
 void Opaq_storage::addSignal ( uint8_t deviceId, uint8_t signalId, uint8_t pointId,
@@ -340,7 +450,7 @@ void Opaq_storage::setPDesription( const uint8_t pidx, const char * desc )
 
 bool Opaq_storage::isTouchMatrixAvailable()
 {
-  return SPIFFS.exists("/settings/touch.json");
+  return SPIFFS.exists("/sett/touch.json");
 }
 
 CAL_MATRIX& Opaq_storage::getTouchMatrixRef()
@@ -356,7 +466,7 @@ CAL_MATRIX Opaq_storage::getTouchMatrix()
   int len, global_len;
   
   // refresh settings from the file system
-  File touch_settings_file = SPIFFS.open("/settings/touch.json", "r+");
+  File touch_settings_file = SPIFFS.open("/sett/touch.json", "r+");
   //touch_settings_file.read();
   touch_settings_file.seek (0, SeekEnd );
   global_len = touch_settings_file.position();
@@ -395,7 +505,7 @@ CAL_MATRIX Opaq_storage::getTouchMatrix()
 void Opaq_storage::commitTouchSettings()
 {
   StaticJsonBuffer<200> jsonBuffer;
-  PrintFile file = PrintFile("/settings/touch.json");
+  PrintFile file = PrintFile("/sett/touch.json");
 
   JsonObject& root = jsonBuffer.createObject();
   root["a"] = touch_cal_matrix.a;

@@ -1,10 +1,330 @@
 
 #include "Opaq_websockets.h"
 #include "Opaq_storage.h"
+#include "Opaq_c1.h"
 
-WebSocketsServer webSocket = WebSocketsServer(81);
+#include "AsyncJson.h"
+#include "ArduinoJson.h"
 
+void sendFile( fs::FS fs, const char * name, String& content)
+{
+  uint8_t stmp[32 + 1];
+  
+  // open file
+  File tmp = fs.open(name, "r");
+  
+  if(tmp != NULL)
+  {
+    // get content to memory
+    for(int i=0; i < tmp.size(); i+=32)
+    {
+      size_t sz = tmp.read(stmp, 32);
+      stmp[sz] = '\0';
+      content += (char *)stmp;
+    }
+    
+    tmp.close();
+  }
 
+}
+
+void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
+{
+  DynamicJsonBuffer jsonBuffer;
+  
+  // parse possible json files
+  if( data[0] =='{' && data[len - 1] == '}' )
+  {
+     // let's parse the json file
+     Serial.println("JSON STR RECEIVED!");
+
+     char tmp[len + 1];
+     memcpy(tmp, (char *)data, len);
+     tmp[len] = '\0';
+     JsonObject& root = jsonBuffer.parseObject(tmp);
+
+     // ########################
+     // Wifi configuration file
+     // ########################
+     if ( root.containsKey("mode") )
+     {
+  
+       if ( strcmp((const char*)root["mode"], "ap") == 0 )
+       {
+         Serial.println("AP");
+         //storage.setSSID((const char*)root["ssid"]);
+         //storage.setPwd((const char*)root["pwd"]);
+       }
+       else if ( strcmp((const char*)root["mode"], "sta") == 0 )
+       {
+         Serial.println("STA");
+         storage.setClientSSID((const char*)root["ssid"]);
+         storage.setClientPwd((const char*)root["pwd"]);
+  
+         // set mode to STA
+         storage.enableClient();
+  
+         storage.save();
+       }
+       
+     }
+
+     // #########################
+     // Set Clock
+     // #########################
+     if (root.containsKey("setclock") )
+     {
+       JsonObject& rootsetclock = root.get("setclock");
+      
+       if ( rootsetclock.containsKey("type") && ( strcmp((const char*)rootsetclock["type"], "ntp") == 0 ) )
+       {
+         // get ntp time
+         opaq_controller.syncClock();
+       }
+       else
+       {
+         // get values from json
+         RtcDateTime tmp = RtcDateTime( rootsetclock["year"], rootsetclock["month"], rootsetclock["day"], rootsetclock["hour"], rootsetclock["minute"], rootsetclock["second"]);
+         opaq_controller.getCom().setClock(tmp);
+       }
+     }
+
+     // #########################
+     // Get Clock
+     // #########################
+     if (root.containsKey("getclock") )
+     {
+       // let's send the clock values
+       JsonObject& tmp_root = jsonBuffer.createObject();
+
+       JsonObject& conf = tmp_root.createNestedObject("realtimeclock");
+
+       RtcDateTime date;
+       opaq_controller.getCom().getClock(date); // [TODO] this can fail
+       
+       conf["second"] = date.Second();
+       conf["minute"] = date.Minute();
+       conf["hour"]   = date.Hour();
+       conf["day"]    = date.Day();
+       conf["month"]  = date.Month();
+       conf["year"]   = date.Year();
+
+       String tmp = "";
+       tmp_root.printTo(tmp);
+
+       client->text(tmp);
+     }
+
+     // ################################
+     // Light device full dimmer setter
+     // ###############################
+     if (root.containsKey("adimid") )
+     {
+       // let's write the file configuration
+      
+       storage.faqdim.save(root["adimid"], data, len);
+      
+       client->text("{\"success\":\"\"}");
+     }
+
+     
+     // ################
+     // Filename getter
+     // ################
+     if (root.containsKey("filename") )
+     {
+       String content = "";
+       
+       sendFile(SPIFFS, root["filename"], content);
+       
+       client->text(content);
+     }
+
+     // ################################
+     // Light device full dimmer getter
+     // ################################
+     if (root.containsKey("adim") )
+     {
+       String content = "", filename = "";
+       /*
+       storage.faqdim.getName(name);
+       sendFile(SPIFFS, name.c_str(), content);*/
+       
+       // list devices and send it
+       // {"adim":["filea.json","fileb.json"]}
+       
+       content += F("{\"adim\":[\"\"");
+       
+       // for each file in /sett/adim directory do
+       Dir directory = SPIFFS.openDir("/sett/adim");
+       
+       while ( directory.next() )
+       {
+         content += F(", \"");
+         content += directory.fileName();
+         content += F("\" ");
+       }
+
+       content += F(" ]}");
+   
+       client->text(content);
+    }
+
+    // ##################################
+    // Light device full dimmer remover
+    // #################################
+    if (root.containsKey("adimremove") )
+    {
+      storage.faqdim.remove(root["adimremove"]);
+     
+      client->text("{\"success\":\"\"}");
+    }
+
+    // ################################
+    // Light device full dimmer setter
+    // ###############################
+    if (root.containsKey("adimadd") )
+    {
+      storage.faqdim.add();
+
+      client->text("{\"success\":\"\"}");
+          
+    }
+     
+  }
+  else if( strcmp((char*)data, "GET_OPAQ_WIFISETTINGS") == 0 )
+  {
+    // let's send the wifisettings
+    JsonObject& root = jsonBuffer.createObject();
+
+    JsonObject& conf = root.createNestedObject("wifisettings");
+    conf["wssid"] = storage.getSSID();
+    conf["wpwd"] = storage.getPwd();
+    conf["wchan"] = 6; // [TODO]
+    
+    conf["wssidsta"] = storage.getClientSSID();
+    conf["wpwdsta"] = storage.getClientPwd();
+
+    String tmp = "";
+    root.printTo(tmp);
+
+    client->text(tmp);
+  }
+  else if( strcmp((char*)data, "GET_OPAQ_SUMMARY") == 0 )
+  {  
+    JsonObject& root = jsonBuffer.createObject();
+    root["version"] = OPAQ_VERSION;
+    root["id"]      = ESP.getFlashChipId();
+    root["status"]  = "Running without errors"; // [TODO]
+    root["wstatus"] = "Radio is On"; // [TODO]
+    root["wmode"]   = (storage.getModeOperation())? "softAP" : "client";
+    root["wssid"]   = storage.getSSID();
+    root["wchan"]   = WiFi.channel();
+    root["wdhcp"]   = "Enabled"; // [TODO]
+    root["wmac"]    = WiFi.softAPmacAddress();
+    root["wip"]     = (storage.getModeOperation())? WiFi.softAPIP().toString() : WiFi.localIP().toString();
+
+    String tmp = "";
+    root.printTo(tmp);
+
+    client->text(tmp);
+  }
+  else if( strcmp((char*)data, "ADD_OPAQ_FADIMMER") == 0 )
+  {
+    storage.faqdim.add();
+
+    /*String content = "", name = "";
+    
+    storage.faqdim.getName(name);
+    sendFile(SPIFFS, name.c_str(), content);*/
+    
+    client->text(" ... ");
+  }
+  else
+  {
+    client->text("I got your text message");
+  }
+  
+}
+
+void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+
+  static String tmps = "";
+
+  if(type == WS_EVT_CONNECT){
+    //client connected
+    os_printf("ws[%s][%u] connect\n", server->url(), client->id());
+    //client->printf("Hello Client %u :)", client->id());
+    client->ping();
+  } else if(type == WS_EVT_DISCONNECT){
+    //client disconnected
+    os_printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+  } else if(type == WS_EVT_ERROR){
+    //error was received from the other end
+    os_printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+  } else if(type == WS_EVT_PONG){
+    //pong message was received (in response to a ping request maybe)
+    os_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
+  } else if(type == WS_EVT_DATA){
+    //data packet
+    AwsFrameInfo * info = (AwsFrameInfo*)arg;
+    if(info->final && info->index == 0 && info->len == len){
+      //the whole message is in a single frame and we got all of it's data
+      os_printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+      if(info->opcode == WS_TEXT){
+        data[len] = 0;
+        os_printf("%s\n", (char*)data);
+
+        parseTextMessage(client, data, len);
+        
+      } else {
+        for(size_t i=0; i < info->len; i++){
+          os_printf("%02x ", data[i]);
+        }
+        os_printf("\n");
+      }
+
+      
+    } else {
+      //message is comprised of multiple frames or the frame is split into multiple packets
+      if(info->index == 0){
+        if(info->num == 0)
+          os_printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+        os_printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+      }
+
+      os_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+      if(info->message_opcode == WS_TEXT){
+        data[len] = 0;
+        os_printf("%s\n", (char*)data);
+
+        tmps += (char*)data;
+        
+      } else {
+        for(size_t i=0; i < len; i++){
+          os_printf("%02x ", data[i]);
+        }
+        os_printf("\n");
+      }
+
+      if((info->index + len) == info->len){
+        os_printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+        
+        if(info->final){
+          os_printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+
+          parseTextMessage(client, (uint8_t*)const_cast<char*>(tmps.c_str()), tmps.length());
+
+          tmps.~String();
+          
+        }
+        
+      }
+    }
+  }
+}
+
+/*
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
 
   String str;
@@ -58,4 +378,4 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
           break;
   }
 
-}
+}*/

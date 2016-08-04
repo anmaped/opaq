@@ -68,8 +68,8 @@ void setup() {
 
   // real-time clock
   rtc.Begin();
-  rtc.SetDateTime(RtcDateTime(2016,5,25,5,34,0));
-  rtc.SetIsRunning(true);
+  //rtc.SetDateTime(RtcDateTime(2016,5,25,5,34,0));
+  //rtc.SetIsRunning(true);
   
   sha204dev.init();
   wakeupExample(); // dummy
@@ -185,7 +185,15 @@ ISR (SPI_STC_vect)
   case ID_DS1307_SETDATA:
   
     if(count < sizeof(RtcDateTime))
+    {
       setDs1307(data, count);
+      
+      if(count == sizeof(RtcDateTime)-1)
+      {
+        // update clock
+         setClockActive = true;
+      }
+    }
     
     count++;
     break;
@@ -263,7 +271,7 @@ ISR (SPI_STC_vect)
 
 void loop() {
   
-  delay(500);
+  delay(100);
 
   if(setClockActive)
   {

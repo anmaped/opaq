@@ -1,8 +1,5 @@
 
+#include "ESPAsyncTCP.h"
+#include "ESPAsyncWebServer.h"
 
-#include <WebSocketsServer.h>
-#include <Hash.h>
-
-extern WebSocketsServer webSocket;
-
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght);
+void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);

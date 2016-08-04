@@ -51,8 +51,8 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x04
-#define OPAQ_VERSION "1.0.4"
+#define SIG 0x05
+#define OPAQ_VERSION "1.0.5"
 
 // configuration parameters
 #define OPAQ_URL_FIRMWARE_UPLOAD "ec2-52-29-83-128.eu-central-1.compute.amazonaws.com"
@@ -71,6 +71,7 @@ class OpenAq_Controller
 private:
 
   AsyncWebServer server;
+  AsyncWebSocket ws;
 
   ESP8266AVRISP avrprog;
 
@@ -124,6 +125,7 @@ public:
 
   void setClockReady() { clockIsReady = true; };
   bool isClockReady() { return clockIsReady; };
+  RtcDateTime getClock() { return clock; };
 
   void run_controller();
   void run_task_rf433ook();
@@ -133,8 +135,12 @@ public:
   void run_touch();
   void run_tft();
 
+  Opaq_com& getCom() { return communicate; };
+
+  void syncClock();
+
 };
 
-extern OpenAq_Controller opaq_controller;;
+extern OpenAq_Controller opaq_controller;
 
 #endif // OPENAQ_H
