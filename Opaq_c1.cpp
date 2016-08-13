@@ -31,7 +31,7 @@
 #include "websites.h"
 
 #include "Opaq_websockets.h"
-
+#include "Opaq_storage.h"
 #include "Opaq_iaqua.h"
 
 #if OPAQ_MDNS_RESPONDER
@@ -55,6 +55,8 @@ LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 
 // non-class functions begin
 
+bool run1hz = false;
+
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
   opaq_controller.run_task_ds3231();
@@ -62,7 +64,7 @@ static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 
   opaq_controller.run_atsha204();
 
-  opaq_controller.run_task_rf433ook();
+  run1hz = true;
 }
 
 static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
@@ -95,11 +97,9 @@ OpenAq_Controller::OpenAq_Controller() :
   avrprog (328, 2),
   timming_events ( Ticker() ),
   radio ( RF24 ( 0, 0 ) ),
-  html ( AcHtml() ),
   //storage ( Opaq_storage() ),
   str ( String() ),
-  clockIsReady( false ),
-  communicate( Opaq_com() )
+  clockIsReady( false )
 {
   str.reserve ( 2048 );
 }
@@ -119,29 +119,32 @@ void OpenAq_Controller::setup_controller()
   pinMode(5,OUTPUT); // AVR_CS OUT MODE
   digitalWrite(5, HIGH); // AVR_CS
 
-  if ( storage.getSignature() != SIG )
-  {
-    storage.defaults ( SIG ); // uncomment to set the factory defaults
-    Serial.println ( F("default settings applied.") );
-  }
-
   // Initialize file system.
   if (!SPIFFS.begin())
   {
     Serial.println(F("Failed to mount file system"));
     ESP.restart();
   }
+  
+  if ( storage.getSignature() != SIG )
+  {
+    storage.defaults ( SIG ); // uncomment to set the factory defaults
+    Serial.println ( F("default settings applied.") );
+  }
 
+  Serial.println("SIG Accepted");
+  
   // display welcome screen tft
   tft.begin();
   iaqua.screenWelcome();
-  
-  // read openaq mode from eeprom
-  bool mode = storage.getModeOperation() & 0b00000001;
 
-  if ( mode )
+  if ( storage.wifisett.getModeOperation() )
   {
-    const char* ssid = storage.getSSID();
+    Serial.println("softAP");
+    
+    String ssid, pwd;
+    storage.wifisett.getSSID(ssid);
+    storage.wifisett.getPwd(pwd);
 
     Serial.print ( F("SSID: ") );
     Serial.println ( ssid );
@@ -152,16 +155,20 @@ void OpenAq_Controller::setup_controller()
     WiFi.printDiag(Serial);
 
     // setup the access point
-    WiFi.softAP ( ssid , storage.getPwd(), 6 ); // with password and fixed ssid
+    WiFi.softAP ( ssid.c_str() , pwd.c_str(), 6 ); // with password and fixed ssid
 
     Serial.print("IP address: ");
     Serial.println(WiFi.softAPIP());
   }
   else
   {
+    Serial.println("client");
+    
     // or setup the station
-    const char* ssid = storage.getClientSSID();
-    const char* pwd = storage.getClientPwd();
+    String ssid, pwd;
+    
+    storage.wifisett.getClientSSID(ssid);
+    storage.wifisett.getClientPwd(pwd);
 
     WiFi.mode(WIFI_STA);
     delay(5000);
@@ -169,7 +176,7 @@ void OpenAq_Controller::setup_controller()
     Serial.print ( F("Connecting to ") );
     Serial.println ( ssid );
 
-    WiFi.begin ( ssid, pwd );
+    WiFi.begin ( ssid.c_str(), pwd.c_str() );
 
     WiFi.printDiag(Serial);
     
@@ -184,8 +191,7 @@ void OpenAq_Controller::setup_controller()
       if (count_tries > 100)
       {
         Serial.println ( F("returning to AP mode. Reboot.") );
-        storage.enableSoftAP();
-        storage.save();
+        storage.wifisett.enableSoftAP();
         ESP.reset();
       }
     }
@@ -275,13 +281,13 @@ void OpenAq_Controller::setup_controller()
   // 
   touch.begin();
 
-  if ( !storage.isTouchMatrixAvailable() )
+  if ( !storage.touchsett.isTouchMatrixAvailable() )
   {
     // do calibration
     touch.doCalibration(&tft_interface);
-    if( touch.getCalibrationMatrix(storage.getTouchMatrixRef()) )
+    if( touch.getCalibrationMatrix(storage.touchsett.getTouchMatrixRef()) )
     {
-      storage.commitTouchSettings();
+      storage.touchsett.commitTouchSettings();
       Serial.println(F("Touch settings has been updated."));
     }
     else
@@ -294,7 +300,7 @@ void OpenAq_Controller::setup_controller()
   else
   {
     Serial.println(F("Touch settings has been read."));
-    touch.setCalibration(storage.getTouchMatrix());
+    touch.setCalibration(storage.touchsett.getTouchMatrix());
   }
   // END TOUCH CONTROLLER INITIALIZATION
 
@@ -343,9 +349,6 @@ int count = 0;
 bool opaq_defaults = false;
 void OpenAq_Controller::run_controller()
 {
-  //ota_server.handle();
-
-  //server.handleClient();
 
   run_programmer();
 
@@ -356,11 +359,19 @@ void OpenAq_Controller::run_controller()
   }
   count++;*/
 
-  if (opaq_defaults)
+  if (storage.getUpdate())
   {
     // initialize opaq services
     storage.initOpaqC1Service();
-    opaq_defaults = false;
+    storage.setUpdate(false);
+  }
+
+
+  // run that at 1hz
+  if(run1hz)
+  {
+    storage.pwdevice.run();
+    run1hz = false;
   }
 
 }
@@ -396,16 +407,6 @@ void OpenAq_Controller::run_programmer()
     }
 }
 
-void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
-{
-  // get device code id
-  uint32_t code = storage.getPDeviceCode ( pdeviceId );
-  // get state from settings
-  uint8_t state = storage.getPDeviceState ( pdeviceId );
-  
-  communicate.rf433(code, state);
-}
-
 uint16_t normalizeClock(RtcDateTime * clock, const uint16_t a, const uint16_t b )
 {
   float clktmp = ( ( float )clock->Hour() ) + ( ( ( float )clock->Minute() ) / 60 )
@@ -414,96 +415,6 @@ uint16_t normalizeClock(RtcDateTime * clock, const uint16_t a, const uint16_t b 
   clktmp = (clktmp * 255.) / 24.;
 
   return (uint16_t)clktmp;
-}
-
-void OpenAq_Controller::run_task_rf433ook()
-{
-  if (storage.getNumberOfPowerDevices() == 0)
-    return;
-
-  // check if some device is binding...
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
-        pdeviceId++ )
-  {
-    if ( storage.getPDeviceState ( pdeviceId ) == BINDING )
-    {
-      // do binding
-
-      updatePowerOutlets ( pdeviceId );
-
-      return;
-    }
-  }
-
-  // check if some device is unbinding
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
-        pdeviceId++ )
-  {
-    if ( storage.getPDeviceState ( pdeviceId ) == UNBINDING )
-    {
-      // do unbinding
-
-      updatePowerOutlets ( pdeviceId );
-
-      return;
-    }
-  }
-
-  static bool wait_next_change[N_POWER_DEVICES] = { false };
-  static int pdeviceId = 1;
-
-  // normal execution
-  // ----------------------------------
-  DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
-
-  pstate auto_state = (pstate)storage.getPDevicePoint( pdeviceId, normalizeClock(&clock, 0, 255) );
-
-  // update Power outlet state according to the step functions
-  DEBUGV("::ac nclock %d\n", normalizeClock(&clock, 0, 255));
-  DEBUGV("::ac val %d\n", auto_state );
-
-  // get state, if state is "permanent on"
-  if ( storage.getPDeviceState( pdeviceId ) == ON_PERMANENT )
-  {
-    // set on until next state change
-    wait_next_change[ id2idx( pdeviceId ) ] = true;
-    storage.setPowerDeviceState( pdeviceId, ON );
-  }
-
-  // get state, if state is "permanent off"
-  if ( storage.getPDeviceState( pdeviceId ) == OFF_PERMANENT )
-  {
-    // set off until next change
-    wait_next_change[ id2idx( pdeviceId ) ] = true;
-    storage.setPowerDeviceState( pdeviceId, OFF );
-  }
-
-  // detect change
-  if ( storage.getPDeviceState( pdeviceId ) == AUTO )
-  {
-    wait_next_change[ id2idx( pdeviceId ) ] = false;
-  }
-
-  if ( !wait_next_change[ id2idx( pdeviceId ) ] )
-  {
-    if ( auto_state )
-    {
-      storage.setPowerDeviceState( pdeviceId, ON );
-    }
-    else
-    {
-      storage.setPowerDeviceState( pdeviceId, OFF );
-    }
-  }
-
-  updatePowerOutlets ( pdeviceId );
-
-  // re-send messages cyclically
-  pdeviceId++;
-
-  if (pdeviceId > storage.getNumberOfPowerDevices())
-    pdeviceId = 1;
-
 }
 
 void OpenAq_Controller::run_task_ds3231()
@@ -569,7 +480,7 @@ uint8_t calculate_lrc(uint8_t *buf)
 
 void OpenAq_Controller::run_task_nrf24()
 {
-  static uint8_t deviceId = 1;
+  /*static uint8_t deviceId = 1;
   float clktmp;
   uint8_t buf[32];
     
@@ -734,6 +645,7 @@ void OpenAq_Controller::run_task_nrf24()
     deviceId = 1;
 
   communicate.unlock();
+  */
 }
 
 void OpenAq_Controller::syncClock()

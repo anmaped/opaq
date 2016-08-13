@@ -1,0 +1,568 @@
+<div data-role="page" id="pagesettings" data-dom-cache="true">
+  <div data-role="header">
+    <h1>Setup</h1><a href="#pagesummary" data-transition="slidefade" class="ui-btn ui-corner-all ui-btn-inline ui-icon-back ui-btn-icon-left">Home</a>
+
+  </div>
+  <div role="main" class="ui-content">
+
+    <div data-role="collapsible" data-collapsed="true" id="fullaquariumdimmer">
+      <h4>Full Aquarium Dimmer</h4>
+      <p>A fader to control aquarium lamps including the lunnar cycle simulation.</p>
+
+      <div class="ui-grid-a">
+        <ul id="fadimmerlist" data-role="listview" data-inset="true">
+
+        </ul>
+      </div>
+
+      <button class="ui-btn ui-btn-inline ui-icon-plus ui-btn-icon-left ui-corner-all" id="fullaquariumdimmeradd">Add</button>
+
+      <div data-role="popup" id="deletelightdialog" data-overlay-theme="a" data-theme="a" data-dismissible="false" style="max-width:400px;">
+        <div data-role="header" data-theme="a">
+          <h1>Delete Light Device?</h1>
+        </div>
+        <div role="main" class="ui-content">
+          <h3 class="ui-title">Are you sure you want to delete this device?</h3>
+          <p>This action cannot be undone.</p>
+          <a href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">Cancel</a>
+          <a id="deletelightdevice" href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back" data-transition="flow">Delete</a>
+        </div>
+      </div>
+
+      <script type="text/javascript" defer>
+        $('#deletelightdevice').on("click", function()
+        {
+          var adimid = localStorage["adimid"];
+          console.log("light device " + adimid + " has been deleted.");
+          ws.send('{"adimremove": ' + adimid + '}');
+
+          $('#fullaquariumdimmer').trigger("collapsibleexpand");
+        });
+
+        $(document).on('click', '#fullaquariumdimmeradd', function()
+        {
+          //ws.send("ADD_OPAQ_FADIMMER");
+          ws.send('{"adimadd":1}');
+
+          $('#fullaquariumdimmer').trigger("collapsibleexpand");
+
+        });
+
+        $('#fullaquariumdimmer').on("collapsibleexpand", function()
+        {
+          $.mobile.loading().show();
+
+          ws.send('{"adim":0}');
+
+          waitFor("global", "fullaquariumdimmerready", function()
+          {
+
+            delete window.global.fullaquariumdimmerready;
+
+            $("#fadimmerlist").html("");
+
+            $('#fadimmerlist').append(' \
+              <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a"> \
+                Devices \
+              </li> \
+              <li> \
+                <div class="ui-grid-b"> \
+                  <div class="ui-block-a">ID</div> \
+                  <div class="ui-block-b">Description</div> \
+                  <div class="ui-block-c"></div> \
+                </div> \
+              </li> \
+            ');
+
+            $.each(global.fullaquariumdimmer.data, function(index, value)
+            {
+
+              if ("adimid" in value)
+              {
+                //alert( index + ": " + value );
+
+                $('#fadimmerlist').append(' \
+                  <li> \
+                    <div class="ui-grid-b"> \
+                    <div class="ui-block-a">' + value.adimid + '</div> \
+                      <div class="ui-block-b">' + value.description + '</div> \
+                      <div class="ui-block-c"> \
+                        <fieldset class="ui-grid-a"> \
+                          <div class="ui-block-a"><a href="#pagesettingsfadimmer?idx=' + index + '&desc=' + value.description + '" class="ui-btn ui-shadow ui-corner-all ui-icon-gear ui-btn-icon-notext"></a> \
+                          </div> \
+                          <div class="ui-block-b"> \
+                            <a id="dellight' + index + '" href="#deletelightdialog" data-adimid="' + value.adimid + '" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-icon-delete ui-btn-icon-notext"></a> \
+                          </div> \
+                        </fieldset> \
+                      </div> \
+                    </div> \
+                  </li> \
+                ');
+
+
+                $('#dellight' + index).on("click", function()
+                {
+                  localStorage["adimid"] = $(this).data("adimid");
+                });
+              }
+            });
+
+            $("#fadimmerlist").listview("refresh");
+
+            $.mobile.loading().hide();
+
+          });
+
+        });
+
+      </script>
+    </div>
+
+    <div data-role="collapsible" data-collapsed="true" id="poweroutletcontroller">
+      <h4>Power Outlet Controller</h4>
+      <p>A wireless power outlet controller interface to control 120/220v devices.</p>
+
+      <div class="ui-grid-a">
+        <ul data-role="listview" data-inset="true" id="pwdevicelist">
+
+        </ul>
+      </div>
+
+      <button class="ui-btn ui-btn-inline ui-icon-plus ui-btn-icon-left ui-corner-all" id="poweroutletcontrolleradd">Add Device</button>
+
+      <div data-role="popup" id="deletepdevdialog" data-overlay-theme="a" data-theme="a" data-dismissible="false" style="max-width:400px;">
+        <div data-role="header" data-theme="a">
+          <h1>Delete Power Device?</h1>
+        </div>
+        <div role="main" class="ui-content">
+          <h3 class="ui-title">Are you sure you want to delete this device?</h3>
+          <p>This action cannot be undone.</p>
+          <a href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">Cancel</a>
+          <a id="deletepowerdevice" href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back" data-transition="flow">Delete</a>
+        </div>
+      </div>
+
+
+      <script type="text/javascript" defer>
+
+        $('#deletepowerdevice').on("click", function()
+        {
+          var pdevid = localStorage["pdevid"];
+          console.log("power device " + pdevid + " has been deleted.");
+          ws.send('{"pdevremove": ' + pdevid + '}');
+
+          $('#poweroutletcontroller').trigger("collapsibleexpand");
+        });
+
+        $(document).on('click', '#poweroutletcontrolleradd', function()
+        {
+          ws.send('{"pdevadd":1}');
+
+          $('#poweroutletcontroller').trigger("collapsibleexpand");
+
+        });
+
+        $('#poweroutletcontroller').on("collapsibleexpand", function()
+        {
+          $.mobile.loading().show();
+
+          ws.send('{"pdev":0}');
+
+          waitFor("global", "poweroutletcontrollerready", function()
+          {
+
+            delete window.global.poweroutletcontrollerready;
+
+            $("#pwdevicelist").html("");
+
+            $('#pwdevicelist').append(' \
+              <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a"> \
+                Devices \
+              </li> \
+              <li> \
+                <div class="ui-grid-c"> \
+                  <div class="ui-block-a">ID</div> \
+                  <div class="ui-block-b">Description</div> \
+                  <div class="ui-block-c"></div> \
+                  <div class="ui-block-d"></div> \
+                </div> \
+              </li> \
+            ').trigger('create');
+
+            $.each(global.poweroutletcontroller.data, function(index, value)
+            {
+
+              if ("pdevid" in value)
+              {
+                //alert( index + ": " + value );
+
+                $('#pwdevicelist').append(' \
+                  <li> \
+                    <div class="ui-grid-c"> \
+                      <div class="ui-block-a">' + value.pdevid + '</div> \
+                      <div class="ui-block-b">' + value.description + '</div> \
+                      <div class="ui-block-c"> \
+                          <fieldset id="pdevstate' + index + '" data-role="controlgroup" data-type="horizontal" data-mini="true"> \
+                          <input name="pdevss' + index + '" id="pdevon' + index + '" value="on" type="radio"> \
+                          <label for="pdevon' + index + '">On</label> \
+                          <input name="pdevss' + index + '" id="pdevoff' + index + '" value="off" type="radio"> \
+                          <label for="pdevoff' + index + '">Off</label> \
+                          <input name="pdevss' + index + '" id="pdevauto' + index + '" value="auto" type="radio"> \
+                          <label for="pdevauto' + index + '">Auto</label> \
+                        </fieldset> \
+                      </div> \
+                      <div class="ui-block-d"> \
+                        <fieldset class="ui-grid-a"> \
+                          <div class="ui-block-a"><a id="settpower' + index + '" href="#pagesettingspdev" data-pdevid="' + value.pdevid + '" class="ui-btn ui-shadow ui-corner-all ui-icon-gear ui-btn-icon-notext"></a> \
+                          </div> \
+                          <div class="ui-block-b"><a id="delpower' + index + '" href="#deletepdevdialog" data-pdevid="' + value.pdevid + '" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-btn ui-shadow ui-corner-all ui-icon-delete ui-btn-icon-notext"></a> \
+                          </div> \
+                        </fieldset> \
+                      </div> \
+                    </div> \
+                  </li> \
+                ').trigger('create');
+
+
+                $('#pdevstate' + index).enhanceWithin().controlgroup("refresh");
+
+
+                $('#pdevstate' + index + ' :input').each(function(idx, element)
+                {
+                  //element is the specific field:
+                  var state = false;
+                  if ($(element).val() == global.poweroutletcontroller.data[index].state)
+                  {
+                    state = true;
+                  }
+
+
+                  $(element).prop("checked", state).checkboxradio("refresh");
+                });
+
+
+                $(document).on("change", '#pdevstate' + index, function()
+                {
+                  var state = $("#pdevstate" + index + " :radio:checked").val();
+                  
+                  global.poweroutletcontroller.data[index].state = state;
+
+                  ws.send(JSON.stringify(global.poweroutletcontroller.data[index]));
+
+                  //alert(JSON.stringify(global.poweroutletcontroller.data[index]));
+                });
+
+
+                $('#settpower' + index).on("click", function()
+                {
+                  localStorage["pdevid"] = $(this).data("pdevid");
+                });
+
+                $('#delpower' + index).on("click", function()
+                {
+                  localStorage["pdevid"] = $(this).data("pdevid");
+                });
+              }
+
+            });
+
+            //$("#pwdevicelist").trigger('create');
+            $("#pwdevicelist").listview("refresh");
+
+            $.mobile.loading().hide();
+
+          });
+
+        });
+
+      </script>
+
+    </div>
+
+    <div data-role="collapsible" data-collapsed="true" id="wifisettings">
+      <h4>Wifi Settings</h4>
+      <p>Configuration for the onboard wifi adapter to work as AP or station mode.</p>
+
+      <div class="ui-grid-a">
+        <ul data-role="listview" data-inset="true">
+          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+            Basic
+          </li>
+          <li>
+
+            <label for="dd">WIFI mode:</label>
+
+            <div>
+              <fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" id="wificonf">
+                <input name="wifi" id="wifi1" value="softAP" checked="checked" type="radio"></input>
+                <label for="wifi1">AP</label>
+                <input name="wifi" id="wifi2" value="client" type="radio"></input>
+                <label for="wifi2">Client</label>
+                <input name="wifi" id="wifi3" value="off" type="radio"></input>
+                <label for="wifi3">OFF</label>
+              </fieldset>
+            </div>
+
+            <div id="wsettings">
+
+              <div id="wchannel">
+                <label for="wchan" class="select">Channel</label>
+                <select name="select-choice-mini" id="wchansettings" data-mini="true" data-inline="true">
+                  <option value="1">1</option>
+                  <option value="4">4</option>
+                  <option value="6">6</option>
+                  <option value="8">8</option>
+                </select>
+              </div>
+
+              <label for="wssid">SSID:</label>
+              <input name="word" pattern="[a-zA-Z0-9-]+" id="wssidsettings" value="" type="text">
+
+              <label for="wpwd">Password:</label>
+              <input name="password" id="wpwdsettings" value="" autocomplete="off" type="password">
+
+              <input value="Apply" data-icon="check" data-theme="a" type="button" id="applywifisettings">
+            </div>
+          </li>
+        </ul>
+
+        <script type="text/javascript" defer>
+          var state = function()
+          {
+            var val = $("#wificonf :radio:checked").val();
+            if (val == "softAP")
+            {
+              $("#wchannel").show();
+              $("#wsettings").show();
+              // set previous wifi ap setting
+              // set previous wifi ap pwd setting
+              if ("wifisettings" in global)
+              {
+                $('#wssidsettings').val(global.wifisettings.wssid);
+                $('#wpwdsettings').val(global.wifisettings.wpwd);
+                $("#wchansettings option:selected").val(global.wifisettings.wchan);
+              }
+            }
+            if (val == "client")
+            {
+              $("#wchannel").hide();
+              $("#wsettings").show();
+              // set previous wifi sta setting
+              // set previous wifi sta pwd setting
+              $('#wssidsettings').val(global.wifisettings.wssidsta);
+              $('#wpwdsettings').val(global.wifisettings.wpwdsta);
+            }
+            if (val == "off")
+            {
+              // hide configuration
+              $("#wchannel").hide();
+              $("#wsettings").hide();
+            }
+          };
+
+          $(document).on("change", "#wificonf", function()
+          {
+            state();
+          });
+
+          $(document).on('click', '#applywifisettings', function()
+          {
+            var val = $("#wificonf :radio:checked").val();
+
+            // send data to server
+            if (val == "softAP")
+            {
+              // get json
+              var wsett = {};
+              wsett.ssid = $('#wssidsettings').val();
+              wsett.pwd = $('#wpwdsettings').val();
+              wsett.chan = $("#wchansettings option:selected").val();
+              wsett.mode = "ap";
+              alert(JSON.stringify(wsett));
+              ws.send(JSON.stringify(wsett));
+            }
+
+            if (val == "client")
+            {
+              var wsett = {};
+              wsett.ssid = $('#wssidsettings').val();
+              wsett.pwd = $('#wpwdsettings').val();
+              wsett.mode = "sta";
+              ws.send(JSON.stringify(wsett));
+            }
+
+          });
+
+          $('#wifisettings').on("collapsibleexpand", function()
+          {
+            ws.send("GET_OPAQ_WIFISETTINGS");
+
+            waitFor("global", "wifisettings", function()
+            {
+
+              $('#wificonf :input').each(function(index, element)
+              {
+                //element is the specific field:
+                var state = false;
+                if ($(element).val() == global.wifisettings.wmode)
+                {
+                  state = true;
+                }
+
+                $(element).prop("checked", state).checkboxradio("refresh");
+              });
+
+              state();
+            });
+          });
+
+        </script>
+      </div>
+
+    </div>
+
+
+    <div data-role="collapsible" data-collapsed="true" id="clocksettings">
+      <h4>Real-time Clock</h4>
+      <p>Configuration for the real-time clock and the NTP server.</p>
+
+      <div class="ui-grid-a">
+        <ul data-role="listview" data-inset="true">
+          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+            Basic
+          </li>
+          <li>
+            <div class="ui-field-contain">
+
+              <label for="in1">Date</label>
+              <div class="ui-input-text ui-body-inherit ui-corner-all ui-shadow-inset ui-input-has-clear">
+                <input class="" readonly="readonly" id="in1" name="in1" data-role="datebox" data-options="{&quot;mode&quot;:&quot;datebox&quot;}" type="text">
+                <a title="Open Date Picker" href="#" class="ui-input-clear ui-btn ui-icon-calendar ui-btn-icon-notext ui-corner-all">Open Date Picker</a>
+              </div>
+
+              <label for="mode9">Time</label>
+              <div class="ui-input-text ui-body-inherit ui-corner-all ui-shadow-inset ui-input-has-clear">
+                <input readonly="readonly" name="mode9" id="mode9" data-role="datebox" data-options="{&quot;mode&quot;:&quot;timebox&quot;}" type="text">
+                <a title="Open Date Picker" href="#" class="ui-input-clear ui-btn ui-icon-clock ui-btn-icon-notext ui-corner-all">Open Date Picker</a>
+              </div>
+
+          </li>
+        </ul>
+        </div>
+        <link href="jtsage-datebox.jqm.min.css" rel="stylesheet">
+        <script src="jtsage-datebox.jqm.min.js"></script>
+
+        <script type="text/javascript" defer>
+          function minTwoDigits(n)
+          {
+            return (n < 10 ? '0' : '') + n;
+          }
+
+          function waitForElement()
+          {
+            $("#mode9").val(minTwoDigits(global.realtimeclock.hour) + ":" + minTwoDigits(global.realtimeclock.minute));
+            $("#in1").val(global.realtimeclock.year + "-" + minTwoDigits(global.realtimeclock.month) + "-" + minTwoDigits(global.realtimeclock.day));
+
+          }
+
+          $("#in1").bind('datebox', function(e, passed)
+          {
+
+            if (passed.method === 'set')
+            {
+              var msg = {};
+              msg.setclock = {};
+              msg.setclock.type = "normal";
+              msg.setclock.day = passed.date.getDate();
+              msg.setclock.month = passed.date.getMonth() + 1;
+              msg.setclock.year = passed.date.getFullYear();
+              msg.setclock.hour = $('#mode9').datebox('getTheDate').getHours();
+              msg.setclock.minute = $('#mode9').datebox('getTheDate').getMinutes();
+              msg.setclock.second = 0;
+
+              alert(JSON.stringify(msg));
+              ws.send(JSON.stringify(msg));
+
+            }
+
+          });
+
+
+          $("#mode9").bind('datebox', function(e, passed)
+          {
+
+            if (passed.method === 'set')
+            {
+              var msg = {};
+              msg.setclock = {};
+              msg.setclock.type = "normal";
+              msg.setclock.day = $('#in1').datebox('getTheDate').getDate();
+              msg.setclock.month = $('#in1').datebox('getTheDate').getMonth() + 1;
+              msg.setclock.year = $('#in1').datebox('getTheDate').getFullYear();
+              msg.setclock.hour = passed.date.getHours();
+              msg.setclock.minute = passed.date.getMinutes();
+              msg.setclock.second = 0;
+
+              alert(JSON.stringify(msg));
+              //ws.send(JSON.stringify(msg));
+
+            }
+
+          });
+
+
+
+          $('#clocksettings').on("collapsibleexpand", function()
+          {
+            ws.send("{getclock:\"\"}");
+
+            if (typeof someVariable !== "undefined")
+            {
+
+              waitForElement();
+
+            }
+            else
+            {
+              setTimeout(function()
+              {
+                waitForElement();
+              }, 250);
+            }
+
+          });
+
+        </script>
+
+      </div>
+
+    </div>
+
+    <div data-role="footer">
+      <h4>
+        <div>
+          <span>&copy; The </span>
+          <img style="vertical-align:middle" src="images/opaq.png" width="60px">
+          <span style=""> Project</span>
+        </div>
+      </h4>
+    </div>
+    <!-- /footer -->
+
+    <script type="text/javascript" defer>
+      $(document).on("pageshow", "#pagesettings", function()
+      {
+        //$.mobile.loading().show();
+        // test if dom contains pagesettingsfadimmer
+        if ($('#pagesettingsfadimmer').length == 0)
+        {
+          $.mobile.loading().show();
+
+          $.mobile.pageContainer.pagecontainer("load", "oaq_sett_fadimmer.html");
+          $.mobile.pageContainer.pagecontainer("load", "oaq_sett_pdev.html");
+        }
+
+      });
+
+    </script>
+  </div>

@@ -1,0 +1,285 @@
+<div data-role="page" id="pagesettingsfadimmer" data-dom-cache="true">
+  <div data-role="header">
+    <h1>Setup.Aquarium Dimmer</h1><a href="#pagesettings" data-transition="slidefade" class="ui-btn ui-corner-all ui-btn-inline ui-icon-back ui-btn-icon-left">Setup</a>
+
+  </div>
+
+  <div role="main" class="ui-content">
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li id="graphid" class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+          Graph for device
+        </li>
+        <li>
+          <div id="chart1" style="height:50%; width:100%;"></div>
+        </li>
+      </ul>
+    </div>
+
+    <link rel="stylesheet" type="text/css" href="jquery.jqplot.min.css" />
+
+    <script type="text/javascript">
+
+    function LoadScriptsSequentially(scriptUrls, callback)
+    {
+        if (typeof scriptUrls == 'undefined') throw "Argument Error: URL array is unusable";
+        if (scriptUrls.length == 0 && typeof callback == 'function')
+        {
+          callback();
+          return;
+        }
+
+        
+        $.mobile.loading().show();
+
+        $.getScript(scriptUrls.shift(), function() { LoadScriptsSequentially(scriptUrls, callback); });
+    };
+
+
+    LoadScriptsSequentially([
+        "jquery.jqplot.min.js",
+        "jqplot.dateAxisRenderer.js",
+        "jqplot.cursor.js",
+        "jqplot.highlighter.js",
+        "jqplot.dragable.js",
+        "jqplot.mobile.js"],
+        function()
+        {
+          $.mobile.loading().hide();
+        }
+    );
+
+
+      //updateChart();
+      $(window)
+        .resize(function()
+        {
+          if ( "plot1" in window["global"] )
+          {
+            //global.plot1.replot(
+            //{
+            //  resetAxes: true
+            //});
+          }
+        });
+
+    </script>
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+          Settings
+        </li>
+        <li>
+
+          <div data-role="fieldcontain">
+            <label for="select-native-fc" class="select">Device type:</label>
+            <select name="select-native-fc" id="select-native-fc">
+              <option value="standard">Opaq n1</option>
+              <option value="rush">Zet Lancia</option>
+            </select>
+          </div>
+
+          <div data-role="fieldcontain">
+            <label for="channelslider">Number of channels:</label>
+            <input name="channelslider" id="channelslider" value="0" min="0" max="0" type="range">
+          </div>
+
+          <div data-role="fieldcontain">
+            <label for="ldeviceactions" class="select">Actions:</label>
+            <div data-role="controlgroup" data-type="horizontal" id="ldeviceactions">
+              <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-plus">Bind</a>
+              <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-delete">Unbind</a>
+              <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-find">Search</a>
+            </div>
+          </div>
+
+        </li>
+
+      </ul>
+    </div>
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+          Firmware
+        </li>
+        <li>
+
+          <div data-role="fieldcontain">
+            <label for="file">Update:</label>
+            <input name="file" id="file" value="" type="file">
+          </div>
+
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div data-role="footer">
+    <h3>
+      <div>
+        <span>&copy; The </span>
+        <img style="vertical-align:middle" src="images/opaq.png" width="60px">
+        <span> Project</span>
+      </div>
+    </h3>
+  </div>
+  <!-- /footer -->
+
+  <script type="text/javascript" defer>
+
+    $(document).on("pagebeforeshow", "#pagesettingsfadimmer",function(event){
+      if ( "plot1" in window["global"] )
+      {
+        global.plot1.replot({data:[[]]});
+      }
+
+    });
+
+    $(document)
+      .on("pageshow", "#pagesettingsfadimmer", function()
+      {
+        //ws.send('{"adimremove":"00ffffffff"}');
+        //ws.send('{"adimremove":"ffffffffff"}');
+        //ws.send('{"adimremove":"ffffffffffff"}');
+
+
+        $('#graphid')
+          .html("Graph for device " + global.state.lightdevicedescription + '(' + global.state.lightdeviceidx + ')');
+
+        // get the light settings
+        s1 = global.fullaquariumdimmer.data[global.state.lightdeviceidx].data;
+        
+        //var v = new Date().getTime();
+        //s1 = [[[new Date(0).getTime(),0],[new Date(3600*1).getTime(),10],[new Date(3600*2).getTime(),2],[new Date(3600*3).getTime(),3]]];
+        //alert(s1);
+
+        //var x = new Date(1470610800000);
+        //alert(x.getHours()*60*60 + x.getMinutes()*60 + x.getSeconds());
+
+        if ( !("plot1" in window["global"]) )
+        {
+
+        $.jqplot.config.enablePlugins = true;
+
+        global.plot1 = $.jqplot('chart1', s1,
+        {
+          axes:
+          {
+            xaxis:
+            {
+              renderer: $.jqplot.DateAxisRenderer,
+              tickOptions:
+              {
+                formatString: '%H:%M'
+              },
+              numberTicks: 10,
+              min: new Date(0).getTime(),
+              max: new Date(86400000-1).getTime()
+            },
+            yaxis:
+            {
+              tickOptions:
+              {
+                formatString: '%d%%'
+              },
+              min: 0,
+              max: 100
+            }
+          },
+          highlighter:
+          {
+            sizeAdjust: 10,
+            tooltipLocation: 'n',
+            tooltipAxes: 'y',
+            tooltipFormatString: ' %.2f ',
+            useAxesFormatters: false
+          },
+          cursor:
+          {
+            show: true
+          },
+          seriesColors: ["#4bb2c5", "#c5b47f", "#EAA228", "#579575", "#839557", "#958c12", "#953579", "#4b5de4", "#d8b83f", "#ff5800", "#0085cc"],
+          series: [
+            {
+              dragable:
+              {
+                color: '#ffb2c5',
+                constrainTo: 'y',
+              }
+        },
+            {
+              dragable:
+              {
+                color: '#ffb47f',
+                constrainTo: 'y',
+              }
+        },
+            {
+              dragable:
+              {
+                color: '#ffb47f',
+                constrainTo: 'y',
+              }
+        },
+            {
+              dragable:
+              {
+                color: '#ffb47f',
+                constrainTo: 'y',
+              }
+        }],
+          grid:
+          {
+            background: '#ffffff'
+          }
+        });
+
+        $('#chart1')
+          .bind('jqplotDragStop',
+            function(seriesIndex, pointIndex, pixelposition, data)
+            {
+              var dt = [];
+              // for each plot1.series
+              $.each(global.plot1.series, function(index, value)
+              {
+                dt[index] = value.data;
+              });
+              console.log(dt);
+              global.fullaquariumdimmer.data[global.state.lightdeviceidx].data = dt;
+              // let's do the save
+              //alert(JSON.stringify(global.fullaquariumdimmer.data[global.state.lightdeviceidx]));
+              ws.send(JSON.stringify(global.fullaquariumdimmer.data[global.state.lightdeviceidx]));
+            });
+
+          $( "#channelslider" ).bind( "change", function(event, ui) {
+
+            // [TODO]
+            //var tmp = global.fullaquariumdimmer.data[global.state.lightdeviceidx].data.slice(0, $('#channelslider').val());
+            //global.fullaquariumdimmer.data[global.state.lightdeviceidx].cursor = $('#channelslider').val();
+            //alert( JSON.stringify(tmp)) ;
+            //global.plot1.replot({data:tmp});
+          });
+        }
+        else
+        {
+          // update graph
+          global.plot1.replot({data:s1});
+
+        }
+
+        var cursor = global.fullaquariumdimmer.data[global.state.lightdeviceidx].cursor;
+        $('#channelslider').val(cursor);
+        $("#channelslider").attr("max", s1.length);
+        //$('#channelslider').val(s1.length);
+        $('#channelslider').slider('refresh');
+
+      });
+
+
+
+  </script>
+</div>

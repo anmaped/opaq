@@ -1,0 +1,191 @@
+
+
+<div data-role="page" id="pagesummary" data-dom-cache="true">
+
+    <div data-role="header">
+      <div align="center"><img src="images/opaq.png" width="108px" />
+      </div>
+
+      <a href="#alerts" data-rel="popup" data-transition="none" class="ui-btn-right ui-btn ui-btn-inline ui-mini ui-corner-all ui-btn-icon-right ui-icon-alert">10</a>
+
+      <div data-role="popup" id="alerts" data-theme="a">
+        <ul data-role="listview" data-inset="true" style="min-width:210px;">
+          <li data-role="list-divider">Choose an action</li>
+          <li><a href="#">View details</a>
+          </li>
+          <li><a href="#">Delete all</a>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+    <!-- /header -->
+
+    <div data-role="navbar">
+      <ul>
+        <li><a href="#" data-icon="cloud">Opaq Cloud</a>
+        </li>
+        <li><a href="#pagesummary" data-icon="grid" class="ui-btn-active" id="summaryactive">Summary</a>
+        </li>
+        <li><a href="#pagesettings" data-transition="slidefade" data-icon="gear">Setup</a>
+        </li>
+      </ul>
+    </div>
+    <!-- /navbar -->
+
+    <div role="main" class="ui-content" id="maincontent" data-role="content">
+
+      <div class="ui-grid-a">
+        <ul data-role="listview" data-inset="true">
+          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+            Opaq Cloud
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Status</div>
+              <div class="ui-block-b">Disconnected</div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Registered ID</div>
+              <div class="ui-block-b">Unregistered</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="ui-grid-a">
+        <ul data-role="listview" data-inset="true">
+          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+            WIFI
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Status</div>
+              <div class="ui-block-b" id="wstatus"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Mode</div>
+              <div class="ui-block-b" id="wmode"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">SSID</div>
+              <div class="ui-block-b" id="wssid"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Channel</div>
+              <div class="ui-block-b" id="wchan"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">DHCP Server</div>
+              <div class="ui-block-b" id="wdhcp"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Wireless MAC</div>
+              <div class="ui-block-b" id="wmac"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">IP Address</div>
+              <div class="ui-block-b" id="wip"></div>
+            </div>
+          </li>
+          <li><a href="#pagesettingswifi">Easy Setup</a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="ui-grid-a">
+        <ul data-role="listview" data-inset="true">
+          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+            Opaq.c1
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Status</div>
+              <div class="ui-block-b" id="status"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">Model</div>
+              <div class="ui-block-b" id="version"></div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <a href="" id="updateopaq">Update</a>
+    </div>
+    <!-- /content -->
+
+    <div data-role="footer">
+      <h4><div>
+                <span>&copy; The </span>
+                <img style="vertical-align:middle" src="images/opaq.png" width="60px">
+                <span style=""> Project</span>
+              </div>
+              </h4>
+    </div>
+    <!-- /footer -->
+
+
+<script type="text/javascript" defer>
+
+$(document).on('click', '#updateopaq', function () {
+  alert("UPDATE");
+  ws.send('{"updatefilesystem":1}');
+
+});
+
+
+// Make the function wait until the connection is made...
+function waitForSocketConnection(socket, callback){
+    setTimeout(
+        function () {
+            if (socket.readyState === 1) {
+                console.log("Connection is made")
+                if(callback != null){
+                    callback();
+                }
+                return;
+
+            } else {
+                console.log("wait for connection...")
+                waitForSocketConnection(socket, callback);
+            }
+
+        }, 5); // wait 5 milisecond for the connection...
+}
+
+$(document).on("pageshow", "#pagesummary", function()
+{
+
+$.mobile.loading().show();
+
+// Wait until the state of the socket is not ready and send the message when it is...
+    waitForSocketConnection(ws, function(){
+    ws.send("GET_OPAQ_SUMMARY");
+
+    });
+
+
+});
+
+</script>
+
+  </div>
+
+

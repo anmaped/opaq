@@ -4,7 +4,70 @@
 #include "cas.h"
 
 #include <Arduino.h>
+#include <HashMap.h>
 
+Opaq_com communicate;
+
+
+
+void Opaq_com_rf433::send(unsigned int code, short unsigned int state)
+{
+  static CreateHashMap(statemap, unsigned int, byte, 50);
+
+  byte tmp[10];
+  byte idx = 0;
+  
+
+  if ( statemap.contains(code) && state == statemap[code] )
+  {
+    return;
+  }
+
+  statemap[code] = state;
+  
+  
+  // comunicate with coprocessor
+  Serial.println(F("ASK AVR TO RECEIVE RF433 STREAM"));
+
+  if( communicate.connect() )
+    return;
+
+  tmp[idx++] = SPI.transfer (ID_RF433_STREAM);
+  delayMicroseconds (30);
+
+  // payload length
+  tmp[idx++] = SPI.transfer ( 0x05 );
+  delayMicroseconds (30);
+  
+  tmp[idx++] = SPI.transfer ( (byte)code );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 8) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 16) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 24) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( state );
+  delayMicroseconds (30);
+
+  // dummy
+  tmp[idx++] = SPI.transfer ( 0x10 );
+  delayMicroseconds (30);
+  
+  communicate.disconnect();
+
+  for(byte i=0; i < idx; i++)
+    Serial.println("r: " + String(tmp[i]));
+
+  Serial.println(F("AVR ASKED!"));
+}
+
+bool Opaq_com_rf433::ready()
+{
+  // [TODO]
+  return true;
+}
+  
 
 Opaq_com::Opaq_com()
 {
@@ -139,44 +202,4 @@ void Opaq_com::getCiferKey()
   Serial.println(F("ATSHA402 ASKED!"));
 }
 
-void Opaq_com::rf433(uint32_t code, uint8_t state)
-{
-  byte tmp[10];
-  byte idx = 0;
-  
-  // comunicate with coprocessor
-  Serial.println(F("ASK AVR TO RECEIVE RF433 STREAM"));
-
-  if( connect() )
-    return;
-
-  tmp[idx++] = SPI.transfer (ID_RF433_STREAM);
-  delayMicroseconds (30);
-
-  // payload length
-  tmp[idx++] = SPI.transfer ( 0x05 );
-  delayMicroseconds (30);
-  
-  tmp[idx++] = SPI.transfer ( (byte)code );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 8) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 16) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 24) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( state );
-  delayMicroseconds (30);
-
-  // dummy
-  tmp[idx++] = SPI.transfer ( 0x10 );
-  delayMicroseconds (30);
-  
-  disconnect();
-
-  for(byte i=0; i < idx; i++)
-    Serial.println("r: " + String(tmp[i]));
-
-  Serial.println(F("AVR ASKED!"));
-}
 

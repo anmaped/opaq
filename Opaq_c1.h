@@ -26,7 +26,6 @@
 #ifndef OPENAQ_H
 #define OPENAQ_H
 
-#include "Opaq_html.h"
 #include "Opaq_com.h"
 
 #include <ESP8266WiFi.h>
@@ -51,8 +50,8 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x05
-#define OPAQ_VERSION "1.0.5"
+#define SIG 0x06
+#define OPAQ_VERSION "1.0.6"
 
 // configuration parameters
 #define OPAQ_URL_FIRMWARE_UPLOAD "ec2-52-29-83-128.eu-central-1.compute.amazonaws.com"
@@ -79,15 +78,12 @@ private:
   Ticker timming_events;
   Ticker t_evt;
 
-  Opaq_com communicate;
+  
   // real-time clock initialization
   bool clockIsReady;
 
   // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
   RF24 radio;
-
-  // manages html producer
-  AcHtml html;
 
   // manages flash memory block for permanent settings
   //Opaq_storage storage;
@@ -101,17 +97,6 @@ private:
   // stores event that triggers deviceTask
   os_event_t deviceTaskQueue[deviceTaskQueueLen];
   os_event_t _10hzLoopQueue[deviceTaskQueueLen];
-
-  /*void handleRoot();
-  void handleLight();
-  void handleAdvset();
-  void handleClock();
-  void handlePower();
-  void handleGlobal();*/
-
-  void updatePowerOutlets ( uint8_t pdeviceId );
-
-  //std::function<void(String*)> sendBlockGlobal( AsyncWebServer* sv, uint16_t* count, uint8_t* step );
 
   void ota();
 

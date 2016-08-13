@@ -7,6 +7,14 @@ static byte buffer_idx = 0;
 static byte consumed_idx = 0;
 static byte buffer[BUFFER_SIZE] = {0};
 
+struct Rf433Pack {
+  byte code[4];
+  byte state;
+  Rf433Pack * next;
+};
+
+static Rf433Pack * main_pointer = NULL;
+
 
 void rf433mhz(uint32_t code, uint8_t state)
 {
@@ -65,11 +73,13 @@ void rf433mhz(uint32_t code, uint8_t state)
 
 void rf433()
 {
+  Rf433Pack * tmp_pointer;
+  
   uint32_t code = 0;
   uint8_t state = 0;
 
   // let test if there is messges to send ( message can be incomplete)
-  while( buffer[consumed_idx] != 0 && (buffer[buffer[consumed_idx] + ((consumed_idx != 0)? 1:0 ) + 1] != 0) )
+  /*while( buffer[consumed_idx] != 0 && (buffer[buffer[consumed_idx] + ((consumed_idx != 0)? 1:0 ) + 1] != 0) )
   {
     code |= buffer[consumed_idx + 1];
     code |= buffer[consumed_idx + 2] << 8;
@@ -81,13 +91,39 @@ void rf433()
     rf433mhz( code, state );
     
     consumed_idx += buffer[consumed_idx] +  ((consumed_idx != 0)? 1:0 )  + 1;
-  }
+  }*/
+
+  if (main_pointer == NULL)
+    return;
+
+  // get pointer atomically
+  cli();
+  tmp_pointer = main_pointer;
+  main_pointer = main_pointer->next;
+  sei();
+
+  code = 0;
+  code |= tmp_pointer->code[0];
+  code |= tmp_pointer->code[1] << 8;
+  code |= tmp_pointer->code[2] << 16;
+  code |= tmp_pointer->code[3] << 24;
+  state = tmp_pointer->state;
+
+  delete tmp_pointer;
+
+
+  // one message to consume
+  rf433mhz( code, state );
+
   
 }
 
 // reponse for the interrupt routine
 inline void enqueue_stream(byte data, byte count)
 {
+
+  Rf433Pack *tmp_pointer;
+  
   if (count == 0)
   {
     memset(buffer, 0, BUFFER_SIZE);
@@ -98,6 +134,24 @@ inline void enqueue_stream(byte data, byte count)
   if ( buffer_idx < BUFFER_SIZE )
   {
     buffer[buffer_idx++] = data;
+  }
+
+  if ( buffer_idx == 6 )
+  {
+    tmp_pointer = new Rf433Pack();
+
+    tmp_pointer->code[0] = buffer[1];
+    tmp_pointer->code[1] = buffer[2];
+    tmp_pointer->code[2] = buffer[3];
+    tmp_pointer->code[3] = buffer[4];
+    tmp_pointer->state = buffer[5];
+
+    // atomic swap
+    cli();
+    tmp_pointer->next = main_pointer;
+    main_pointer = tmp_pointer;
+    sei();
+      
   }
   
 }
