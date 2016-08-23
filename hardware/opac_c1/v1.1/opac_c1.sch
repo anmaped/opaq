@@ -14254,7 +14254,7 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <attribute name="PARTNO" value="RS 682-1421"/>
 </part>
 <part name="R13" library="resistor" deviceset="R-EU_" device="R0603"/>
-<part name="C4" library="resistor" deviceset="C-EU" device="C0603K"/>
+<part name="C4" library="resistor" deviceset="C-EU" device="C0603K" value="47nH"/>
 <part name="P+3" library="SparkFun" deviceset="3.3V" device=""/>
 <part name="GPIO16" library="wirepad" deviceset="SMD2" device=""/>
 <part name="SCL" library="wirepad" deviceset="SMD2" device=""/>
@@ -14279,22 +14279,22 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <part name="IC4" library="apedro_lib" deviceset="MP1584" device=""/>
 <part name="P+2" library="SparkFun" deviceset="VCC" device=""/>
 <part name="GND11" library="SparkFun" deviceset="GND" device=""/>
-<part name="D1" library="SparkFun" deviceset="DIODE" device="SMA"/>
-<part name="L1" library="RNH_IHLP-2525CZ-01" deviceset="IHLP-2525CZ-01" device=""/>
+<part name="D1" library="SparkFun" deviceset="DIODE" device="SMA" value="SS34"/>
+<part name="L1" library="RNH_IHLP-2525CZ-01" deviceset="IHLP-2525CZ-01" device="" value="4.7uh"/>
 <part name="GND13" library="SparkFun" deviceset="GND" device=""/>
-<part name="C7" library="resistor" deviceset="C-EU" device="C0603"/>
-<part name="C8" library="resistor" deviceset="C-EU" device="C3216"/>
+<part name="C7" library="resistor" deviceset="C-EU" device="C0603" value="0.1uf"/>
+<part name="C8" library="resistor" deviceset="C-EU" device="C3216" value="10uf"/>
 <part name="GND14" library="SparkFun" deviceset="GND" device=""/>
-<part name="R20" library="resistor" deviceset="R-EU_" device="R0603"/>
-<part name="R21" library="resistor" deviceset="R-EU_" device="R0603"/>
+<part name="R20" library="resistor" deviceset="R-EU_" device="R0603" value="8.2k"/>
+<part name="R21" library="resistor" deviceset="R-EU_" device="R0603" value="24k"/>
 <part name="GND15" library="SparkFun" deviceset="GND" device=""/>
-<part name="C9" library="resistor" deviceset="C-EU" device="C3216"/>
-<part name="C10" library="resistor" deviceset="C-EU" device="C0603"/>
+<part name="C9" library="resistor" deviceset="C-EU" device="C3216" value="10uf"/>
+<part name="C10" library="resistor" deviceset="C-EU" device="C0603" value="0.1uf"/>
 <part name="C11" library="resistor" deviceset="C-EU" device="C0603"/>
-<part name="R22" library="resistor" deviceset="R-EU_" device="R0603"/>
-<part name="R23" library="resistor" deviceset="R-EU_" device="R0603"/>
+<part name="R22" library="resistor" deviceset="R-EU_" device="R0603" value="100k"/>
+<part name="R23" library="resistor" deviceset="R-EU_" device="R0603" value="100k"/>
 <part name="GND16" library="SparkFun" deviceset="GND" device=""/>
-<part name="R25" library="resistor" deviceset="R-EU_" device="R0603"/>
+<part name="R25" library="resistor" deviceset="R-EU_" device="R0603" value="100k"/>
 <part name="GND18" library="SparkFun" deviceset="GND" device=""/>
 <part name="GND19" library="SparkFun" deviceset="GND" device=""/>
 <part name="P+9" library="SparkFun" deviceset="3.3V" device=""/>
@@ -14338,7 +14338,7 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <part name="GND20" library="SparkFun" deviceset="GND" device=""/>
 <part name="GPIO5" library="wirepad" deviceset="SMD2" device=""/>
 <part name="P+15" library="SparkFun" deviceset="3.3V" device=""/>
-<part name="C13" library="resistor" deviceset="C-EU" device="C0603"/>
+<part name="C13" library="resistor" deviceset="C-EU" device="C0603" value="0.1uf"/>
 <part name="P+17" library="SparkFun" deviceset="VCC" device=""/>
 <part name="P+18" library="SparkFun" deviceset="3.3V" device=""/>
 <part name="R4" library="resistor" deviceset="R-EU_" device="R0805"/>
