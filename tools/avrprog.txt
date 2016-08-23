@@ -1,0 +1,7 @@
+avrdude -c arduino  -p atmega328p -P COM10 -U lfuse:w:0xff:m
+avrdude -c arduino  -p atmega328p -P COM10 -U hfuse:w:0xda:m
+avrdude -c arduino  -p atmega328p -P COM10 -U efuse:w:0x5:m
+
+avrdude -c arduino  -p atmega328p -P COM10 -e -v
+
+avrdude -c arduino  -p atmega328p -P COM10 -U efuse:w:0x5:m -U lfuse:w:0xff:m -U hfuse:w:0xda:m

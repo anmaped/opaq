@@ -127,7 +127,6 @@
         </ul>
       </div>
 
-      <a href="" id="updateopaq">Update</a>
     </div>
     <!-- /content -->
 
@@ -143,13 +142,6 @@
 
 
 <script type="text/javascript" defer>
-
-$(document).on('click', '#updateopaq', function () {
-  alert("UPDATE");
-  ws.send('{"updatefilesystem":1}');
-
-});
-
 
 // Make the function wait until the connection is made...
 function waitForSocketConnection(socket, callback){

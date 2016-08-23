@@ -34,6 +34,7 @@
 #include <ArduinoJson.h>
 //#include <Hash.h>
 #include <HashMap.h>
+#include <LinkedList.h>
 
 #include <Adafruit_ILI9341.h>
 #include <Adafruit_GFX.h>
@@ -41,6 +42,9 @@
 #include <RtcDateTime.h>
 
 #include <protocol.h>
+
+#include <memory>
+#include <libtar.h>
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>

@@ -7,3 +7,6 @@
 [submodule "libs/ArduinoJson"]
 	path = libs/ArduinoJson
 	url = https://github.com/bblanchon/ArduinoJson.git
+[submodule "libs/LinkedList"]
+	path = libs/LinkedList
+	url = https://github.com/ivanseidel/LinkedList.git

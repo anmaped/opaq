@@ -88,7 +88,7 @@
                       <div class="ui-block-b">' + value.description + '</div> \
                       <div class="ui-block-c"> \
                         <fieldset class="ui-grid-a"> \
-                          <div class="ui-block-a"><a href="#pagesettingsfadimmer?idx=' + index + '&desc=' + value.description + '" class="ui-btn ui-shadow ui-corner-all ui-icon-gear ui-btn-icon-notext"></a> \
+                          <div class="ui-block-a"><a id="settlight' + index + '" href="#pagesettingsfadimmer" data-adimid="' + value.adimid + '" class="ui-btn ui-shadow ui-corner-all ui-icon-gear ui-btn-icon-notext"></a> \
                           </div> \
                           <div class="ui-block-b"> \
                             <a id="dellight' + index + '" href="#deletelightdialog" data-adimid="' + value.adimid + '" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-icon-delete ui-btn-icon-notext"></a> \
@@ -99,6 +99,10 @@
                   </li> \
                 ');
 
+                $('#settlight' + index).on("click", function()
+                {
+                  localStorage["adimid"] = $(this).data("adimid");
+                });
 
                 $('#dellight' + index).on("click", function()
                 {
@@ -445,7 +449,7 @@
                 <input readonly="readonly" name="mode9" id="mode9" data-role="datebox" data-options="{&quot;mode&quot;:&quot;timebox&quot;}" type="text">
                 <a title="Open Date Picker" href="#" class="ui-input-clear ui-btn ui-icon-clock ui-btn-icon-notext ui-corner-all">Open Date Picker</a>
               </div>
-
+            </div>
           </li>
         </ul>
         </div>
@@ -480,7 +484,7 @@
               msg.setclock.minute = $('#mode9').datebox('getTheDate').getMinutes();
               msg.setclock.second = 0;
 
-              alert(JSON.stringify(msg));
+              //alert(JSON.stringify(msg));
               ws.send(JSON.stringify(msg));
 
             }
@@ -503,8 +507,8 @@
               msg.setclock.minute = passed.date.getMinutes();
               msg.setclock.second = 0;
 
-              alert(JSON.stringify(msg));
-              //ws.send(JSON.stringify(msg));
+              //alert(JSON.stringify(msg));
+              ws.send(JSON.stringify(msg));
 
             }
 
@@ -536,6 +540,24 @@
 
       </div>
 
+
+
+      <div data-role="collapsible" data-collapsed="true" id="clocksettings">
+        <h4>Firmware Manager</h4>
+        <p>Manager for firmware update including the sytem files.</p>
+
+        <div class="ui-grid-a">
+          <ul data-role="listview" data-inset="true">
+            <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+              Basic
+            </li>
+            <li>
+              <a href="" id="updateopaq">Update</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
     </div>
 
     <div data-role="footer">
@@ -550,6 +572,12 @@
     <!-- /footer -->
 
     <script type="text/javascript" defer>
+
+      $(document).on('click', '#updateopaq', function () {
+        alert("UPDATE");
+        ws.send('{"updatefilesystem":1}');
+      });
+
       $(document).on("pageshow", "#pagesettings", function()
       {
         //$.mobile.loading().show();

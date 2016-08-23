@@ -69,7 +69,7 @@ void setup() {
   // real-time clock
   rtc.Begin();
   //rtc.SetDateTime(RtcDateTime(2016,5,25,5,34,0));
-  //rtc.SetIsRunning(true);
+  rtc.SetIsRunning(true);
   
   sha204dev.init();
   wakeupExample(); // dummy

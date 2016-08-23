@@ -35,9 +35,6 @@
 #include <ESP8266AVRISP.h>
 #include <RtcDateTime.h>
 
-#include "src/RF24/nRF24L01.h"
-#include "src/RF24/RF24.h"
-
 #include <Wire.h>
 #include <Ticker.h>
 
@@ -82,9 +79,6 @@ private:
   // real-time clock initialization
   bool clockIsReady;
 
-  // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
-  RF24 radio;
-
   // manages flash memory block for permanent settings
   //Opaq_storage storage;
 
@@ -113,9 +107,7 @@ public:
   RtcDateTime getClock() { return clock; };
 
   void run_controller();
-  void run_task_rf433ook();
   void run_task_ds3231();
-  void run_task_nrf24();
   void run_atsha204();
   void run_touch();
   void run_tft();

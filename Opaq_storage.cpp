@@ -25,9 +25,13 @@
  
 #include "Opaq_storage.h"
 #include "Opaq_com.h"
+#include "interpolate.h"
 
-#include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
+#include <ArduinoJson.h>
+#include <HashMap.h>
+
+#include <libtar.h>
 
 #define DEBUGV_ST(...) ets_printf(__VA_ARGS__)
 
@@ -138,10 +142,11 @@ void Opaq_storage::initOpaqC1Service()
   // get default opaq c1 settings
   */
 
-
+auto download_file = [](const char * filename)
+{
   HTTPClient http;
 
-  File f = SPIFFS.open("/tmp/jquery.mobile-1.4.5.min.js","w");
+  File f = SPIFFS.open((String("/www/") + filename).c_str(),"w");
 
   if (f == NULL)
   {
@@ -149,9 +154,10 @@ void Opaq_storage::initOpaqC1Service()
   }
   
   Serial.print("[HTTP] begin...\n");
+  Serial.println(filename);
 
   // configure server and url
-  http.begin("http://ec2-52-29-83-128.eu-central-1.compute.amazonaws.com/opaq/c1/page/jquery.mobile-1.4.5.min.js");
+  http.begin((String("http://ec2-52-29-83-128.eu-central-1.compute.amazonaws.com/opaq/c1/www/") + filename).c_str() );
 
   Serial.print("[HTTP] GET...\n");
   // start connection and send HTTP header
@@ -206,6 +212,20 @@ void Opaq_storage::initOpaqC1Service()
   }
 
   http.end();
+};
+
+
+
+  /*download_file("oaq_sett_fadimmer.html");
+  download_file("oaq_sett_pdev.html");
+  download_file("opaqc1.html");
+  download_file("opaqc1_index.html");
+  download_file("opaqc1_settings.html");*/
+
+  download_file("www.tar");
+
+  libtar_list("/www/www.tar");
+
 
 }
 
@@ -296,6 +316,7 @@ bool Opaq_st_plugin::load(const char * filename, String& toParse)
 
   return false;
 }
+
 
 
 
@@ -526,6 +547,324 @@ void Opaq_st_plugin_faqdim::remove(const char* code)
   }
 }
 
+void Opaq_st_plugin_faqdim::run()
+{
+  DynamicJsonBuffer jsonBuffer;
+  String tmp;
+
+  // get clock
+  RtcDateTime date;
+  communicate.getClock(date);
+  unsigned long clock_value = (date.Second() + date.Minute()*60 + date.Hour()*60*60)*1000;
+
+  auto getState = [](JsonObject& obj, unsigned long clk, LinkedList<byte>& signal)
+  {
+    // get array
+    JsonArray& arr = obj["data"];
+    
+    // create linked list for each elements
+    for(int i=0; arr[i].is<JsonArray&>(); i++)
+    {
+      LinkedList<std::pair<unsigned long, byte>> signallist;
+
+      JsonArray& subarr = arr[i];
+
+      for (int j=0; subarr[j].is<JsonArray&>(); j++)
+      {
+        JsonArray& subsubarr = subarr[j];
+
+        unsigned long time_ms = subsubarr[0];
+        byte value = subsubarr[1];
+      
+        DEBUGV_ST ( "ac:: adim %d, %d %d\r\n", i, time_ms, value);
+      
+        signallist.add( std::make_pair(time_ms, value) );
+
+      }
+
+      byte new_value = hermiteInterpolate<unsigned long, byte>(signallist, clk, 0, 0);
+      
+      DEBUGV_ST ( "ac:: adim %d\r\n", new_value);
+
+      signal.add(new_value);
+
+    }
+
+  };
+
+
+  // for each aquarium dimmer device
+  Serial.println("ST!");
+  // probably is not safe at all (files can be removed... concurrent accesses)
+  Directory dr = Directory("/sett/adim");
+  for ( File fl : dr )
+  {
+    if(fl == NULL)
+      continue;
+    
+    Serial.println(fl.size());
+
+    // get fl to memory to parse it
+    tmp = ""; // [TODO] put file to buffer
+    
+    load(fl, tmp);
+    
+    JsonObject& adimfile = jsonBuffer.parseObject(tmp);
+
+    if( !adimfile.success() )
+      break;
+
+    // convert code to integer
+    unsigned long code = strtol((const char *)adimfile["adimid"], NULL, 16);
+    String state       = String((const char *)adimfile["state"]);
+    String type        = String((const char *)adimfile["type"]); // [TODO] restrict that by type
+
+    DEBUGV_ST ( "ac:: adim %d %s %lu\r\n", code, state.c_str(), clock_value);
+
+    // store computed signal values according to the clock value
+    LinkedList<byte> signalstate_list;
+
+    // for zetlancia case
+    if( type == "zetlancia")
+    {
+      tmp_type = ZETLIGHT_LANCIA_2CH;
+    }
+    
+
+    // check if some device is binding...
+    if ( state == "bind" )
+    {
+      send(code, NRF24_BINDING);
+    }
+
+    if ( state == "unbind" )
+    {
+      send(code, NRF24_UNBINDING);
+    }
+
+    if ( state == "listen" )
+    {
+      send(code, NRF24_LISTENING);
+    }
+
+    if ( state == "auto" )
+    { 
+      getState(adimfile, clock_value, signalstate_list);
+      send(code, signalstate_list);
+    }
+    else if ( state == "on" )
+    {
+      send(code, NRF24_ON);
+    }
+    else if ( state == "off" )
+    {
+      send(code, NRF24_OFF);
+    }
+
+    optimistic_yield(10000);
+  }
+
+}
+
+void Opaq_st_plugin_faqdim::send(unsigned int code, nrf24state state)
+{
+  RF24& radio = communicate.nrf24.getRF24();
+
+  auto calculate_lrc = [](uint8_t *buf)
+  {
+    // calculate LRC - longitudinal redundancy check
+    uint8_t LRC = 0;
+
+    for ( int j = 1; j < 14; j++ )
+    {
+      LRC ^= buf[j];
+    }
+
+    return LRC;
+  };
+
+  if (tmp_type == ZETLIGHT_LANCIA_2CH)
+  {
+    uint8_t * codepointer = (uint8_t *) &code;
+
+    communicate.spinlock();
+
+    if ( state == NRF24_BINDING )
+    {
+      // binding message
+      uint8_t binding_data[32] = {
+        //<3byte static signature>
+        0xEE, 0x0D, 0x0A,
+        // BINDING mode
+        //                                            <N_MODE>             < binding mode >  <groupId>    <LRC>
+        0x0,         0x0,      0x0,      0x0,        0x0,      0x0, 0x0, 0x23, 0xdc, 0x0,    0x01,      0x00,
+        //<unknown> = 0xEC
+        0xEC,
+        //<fixed values>
+        0x0, 0x0, 0x0,
+        //<5bytes controllerID>
+        0xF2, 0x83, 0x1D, 0x4A, 0x20,
+        //<fixed values>
+        0x0, 0x0,
+        //<unknown bytes>
+        0x68, 0x71,
+        //<2bytes group binding>
+        0x00, 0x00,   // 0x08, 0x06 -  0x7b, 0x15,
+        //<unknown values>
+        0x0, 0x0
+      };
+
+      binding_data[14] = calculate_lrc(binding_data);
+
+
+      radio.stopListening();
+      //DEBUGV("ac:: BIND msg sent\n");
+
+      radio.setChannel(100);
+      delayMicroseconds(10000);
+
+      memcpy(&binding_data[19], &codepointer[0], 4);
+
+      binding_data[28] = 0x7B;
+      binding_data[29] = 0x15;
+
+      radio.startWrite ( binding_data, 32 );
+
+      delayMicroseconds(10000);
+      radio.setChannel(1);
+
+    }
+
+    if ( state == NRF24_LISTENING )
+    {
+      // read...
+
+      //radio.setChannel(100);
+      uint8_t buf[32];
+      bool a = true;
+      String x = String("{\"nrf24M\" :[");
+      
+      if ( radio.available() )
+      {
+        bool done = false;
+        //while (!done)
+        {
+          done = radio.read( buf, 32 );
+
+          char tmp[10];
+          
+          for (int ib = 0; ib < 32; ib++)
+          {
+            sprintf(tmp, "\"%02x\"%c ", buf[ib], ib < 31 ? ',' : ' ' );
+            x += tmp;
+          }
+          x += "]}";
+        }
+        a=false;
+      }
+
+      radio.startListening();
+
+      if(a == false)
+      {
+        a=true;
+        Serial.println(x);
+        //[TODO] put that to output ... webSocket.sendTXT(0, x.c_str(), x.length());
+      }
+    }
+
+    communicate.unlock();
+  }
+
+
+}
+
+void Opaq_st_plugin_faqdim::send(unsigned int code, LinkedList<byte>& state)
+{
+  RF24& radio = communicate.nrf24.getRF24();
+
+  auto calculate_lrc = [](uint8_t *buf)
+  {
+    // calculate LRC - longitudinal redundancy check
+    uint8_t LRC = 0;
+
+    for ( int j = 1; j < 14; j++ )
+    {
+      LRC ^= buf[j];
+    }
+
+    return LRC;
+  };
+
+
+  if (tmp_type == ZETLIGHT_LANCIA_2CH)
+  {
+    communicate.spinlock();
+
+
+    uint8_t * codepointer = (uint8_t *) &code;
+
+    if(state.size() < 2)
+    {
+      return;
+    }
+
+    float tmp = ((float)state.get(0))*(255/100);
+    uint8_t signal1 = tmp;
+    tmp = ((float)state.get(1))*(255/100);
+    uint8_t signal2 = tmp;
+
+
+
+    Serial.println("SIGNAL");
+    Serial.println(signal1);
+    Serial.println(signal2);
+
+/*{"nrf24M" :["ee", "0d", "0a", "00", "91", "00", "9d", "10", "00", "00", "00", "00", "00", "00", "1b", "ec", "00", "00", "00",
+  "e2", "0b", "f5", "37", "c0",
+  "00", "00", "68", "71", "00", "00", "00", "00"  ]}*/
+
+
+    // normal message
+    uint8_t buf[32] = {
+      //<3byte static signature>
+      0xEE, 0xD, 0xA,
+      // <------------------------------ LIGHT -------------------------------------------------->
+      //  <Mode>= DAM(0x03); SUNRISE(0xb6); DAYTIME(0xb6); SUNSET(0xD4); NIGHTTIME(0x06)
+      //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
+      // Normal mode (N_MODE)
+      //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE>             < binding mode >  <groupId>    <LRC>
+      0x00,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
+      //<unknown> = 0xEC
+      0xEC,
+      //<fixed values>
+      0x0, 0x0, 0x0,
+      //<5bytes controllerID>
+      0xF2, 0x83, 0x1D, 0x4A, 0x20,
+      //<fixed values>
+      0x0, 0x0,
+      //<unknown bytes>
+      0x68, 0x71,
+      //<2bytes group binding>
+      0x00, 0x0,   // means nothing
+      //<unknown values>
+      0x0, 0x0
+    };
+
+    buf[14] = calculate_lrc(buf);
+
+
+    radio.stopListening();
+    //DEBUGV("ac:: ON msg sent\n");
+
+    memcpy(&buf[19], &codepointer[0], 4);
+
+    radio.startWrite ( buf, 32 );
+
+    communicate.unlock();
+  }
+
+}
 
 
 
@@ -650,35 +989,50 @@ void Opaq_st_plugin_pwdevice::remove(const char* code)
 void Opaq_st_plugin_pwdevice::run()
 {
   DynamicJsonBuffer jsonBuffer;
-  static char currentId[32] = "";
   String tmp;
 
-  auto getState = [](JsonObject& obj)
+  auto getState = [](JsonObject& obj, unsigned long clk)
   {
     // get array
     JsonArray& arr = obj["data"];
-
-    int time_ms, value;
     
-    for(int i=0; arr[i].is < JsonArray&>(); i++)
+    // create linked list for each elements
+    for(int i=0; arr[i].is<JsonArray&>(); i++)
     {
+      LinkedList<std::pair<unsigned long, byte>> signallist;
+
       JsonArray& subarr = arr[i];
 
-      time_ms = subarr[0];
-      value = subarr[1];
+      for (int j=0; subarr[j].is<JsonArray&>(); j++)
+      {
+        JsonArray& subsubarr = subarr[j];
 
+        unsigned long time_ms = subsubarr[0];
+        byte value = subsubarr[1];
       
-      DEBUGV_ST ( "ac:: pdev %d, %d %d\r\n", i, time_ms, value);
+        DEBUGV_ST ( "ac:: pdev %d, %d %d\r\n", i, time_ms, value);
+      
+        signallist.add( std::make_pair(time_ms, value) );
 
-      // [TODO]
+      }
+
+      byte new_value = hermiteInterpolate<unsigned long, byte>(signallist, clk, 0, 0);
+      
+      DEBUGV_ST ( "ac:: pdev %d\r\n", new_value);
+
     }
+
+    
 
     return RF433_ON;
   };
 
-  // test if rf433 device is ready
-  if ( !communicate.rf433.ready() )
-    return;
+
+  // get clock
+  RtcDateTime date;
+  communicate.getClock(date);
+  unsigned long clock_value = (date.Second() + date.Minute()*60 + date.Hour()*60*60)*1000;
+
   
   Serial.println("ST!");
   // probably is not safe at all (files can be removed... concurrent accesses)
@@ -703,246 +1057,96 @@ void Opaq_st_plugin_pwdevice::run()
     // convert code to integer
     long code = strtol((const char *)pwdevfile["pdevid"], NULL, 16);
     String state =  String((const char *)pwdevfile["state"]);
+    String type = String((const char *)pwdevfile["type"]); // [TODO] restrict that by type
 
-    DEBUGV_ST ( "ac:: pdev %d %s\r\n", code, state.c_str());
+    DEBUGV_ST ( "ac:: pdev %d %s %lu\r\n", code, state.c_str(), clock_value);
+
+    // for chacon dio case
+    if( type != "chacondio")
+      break;
       
     // check if some device is binding...
     if ( state == "bind" )
     {
-      communicate.rf433.send(code, RF433_BINDING);
+      send(code, RF433_BINDING);
     }
 
     if ( state == "unbind" )
     {
-      communicate.rf433.send(code, RF433_UNBINDING);
+      send(code, RF433_UNBINDING);
     }
 
     if ( state == "auto" )
     { 
-      communicate.rf433.send(code, getState(pwdevfile));
+      send(code, getState(pwdevfile, clock_value));
     }
     else if ( state == "on" )
     {
-      communicate.rf433.send(code, RF433_ON);
+      send(code, RF433_ON);
     }
     else if ( state == "off" )
     {
-      communicate.rf433.send(code, RF433_OFF);  
+      send(code, RF433_OFF);  
     }
 
     optimistic_yield(10000);
   }
-
-
-/*
-  //static bool wait_next_change[N_POWER_DEVICES] = { false };
-  static int pdeviceId = 1;
-
-  // normal execution
-  // ----------------------------------
-  DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
-
-  pstate auto_state = (pstate)storage.getPDevicePoint( pdeviceId, normalizeClock(&clock, 0, 255) );
-
-  // update Power outlet state according to the step functions
-  DEBUGV("::ac nclock %d\n", normalizeClock(&clock, 0, 255));
-  DEBUGV("::ac val %d\n", auto_state );t
-
-  // get state, if state is "permanent on"
-  if ( storage.getPDeviceState( pdeviceId ) == ON_PERMANENT )
-  {
-    // set on until next state change
-    wait_next_change[ id2idx( pdeviceId ) ] = true;
-    storage.setPowerDeviceState( pdeviceId, ON );
-  }
-
-  // get state, if state is "permanent off"
-  if ( storage.getPDeviceState( pdeviceId ) == OFF_PERMANENT )
-  {
-    // set off until next change
-    wait_next_change[ id2idx( pdeviceId ) ] = true;
-    storage.setPowerDeviceState( pdeviceId, OFF );
-  }
-
-  // detect change
-  if ( storage.getPDeviceState( pdeviceId ) == AUTO )
-  {
-    wait_next_change[ id2idx( pdeviceId ) ] = false;
-  }
-
-  if ( !wait_next_change[ id2idx( pdeviceId ) ] )
-  {
-    if ( auto_state )
-    {
-      storage.setPowerDeviceState( pdeviceId, ON );
-    }
-    else
-    {
-      storage.setPowerDeviceState( pdeviceId, OFF );
-    }
-  }
-
-  updatePowerOutlets ( pdeviceId );
-  */
-
-
   
 }
 
-
-
-
-/*
-void Opaq_storage::addSignal ( uint8_t deviceId, uint8_t signalId, uint8_t pointId,
-                            uint8_t xy, uint8_t value )
+void Opaq_st_plugin_pwdevice::send(unsigned int code, short unsigned int state)
 {
-  // make checks [TODO]
-  if ( deviceId > 0 && signalId > 0 && pointId > 0 && value <= 255 )
+  static CreateHashMap(statemap, unsigned int, byte, 50);
+
+  byte tmp[10];
+  byte idx = 0;
+  
+
+  if ( statemap.contains(code) && state == statemap[code] && state != RF433_BINDING && state != RF433_UNBINDING)
   {
-    if ( xy == 0 )
-    {
-      lightDevice[deviceId - 1].signal[signalId - 1][pointId * 2 - 2] = value;
-    }
-    else
-    {
-      lightDevice[deviceId - 1].signal[signalId - 1][pointId * 2 - 1] = value;
-    }
+    return;
   }
-}
 
-void Opaq_storage::getLinearInterpolatedPoint ( uint8_t deviceId, uint8_t signalId,
-    float x, uint8_t* y )
-{
-  uint8_t x0 = 25, y0 = 25, x1 = 25, y1 = 25;
-  bool finded = false;
+  statemap[code] = state;
+  
+  
+  // comunicate with coprocessor
+  Serial.println(F("ASK AVR TO RECEIVE RF433 STREAM"));
 
-  x = ( x / 24 * 255 );
-
-  // find two points where value is between them
-  if ( deviceId > 0 && signalId > 0 )
-  {
-    if ( lightDevice[deviceId - 1].signal[signalId - 1][S_LEN_EACH - 1] > 0 )
-    {
-      for ( int i = 0;
-            i < lightDevice[deviceId - 1].signal[signalId - 1][S_LEN_EACH - 1] - 1; i++ )
-      {
-        if ( lightDevice[deviceId - 1].signal[signalId - 1][i * 2 + 1] <= x &&
-             x < lightDevice[deviceId - 1].signal[signalId - 1][ ( i + 1 ) * 2 + 1] )
-        {
-          y0 = lightDevice[deviceId - 1].signal[signalId - 1][i * 2];
-          x0 = lightDevice[deviceId - 1].signal[signalId - 1][i * 2 + 1];
-          y1 = lightDevice[deviceId - 1].signal[signalId - 1][ ( i + 1 ) * 2];
-          x1 = lightDevice[deviceId - 1].signal[signalId - 1][ ( i + 1 ) * 2 + 1];
-          finded = true;
-          break;
-        }
-      }
-
-      if ( finded )
-      {
-        *y = y0 + ( ( uint8_t ) ( ( ( float ) ( y1 - y0 ) ) * ( ( ( float ) (
-                                    x - x0 ) ) / ( ( float ) ( x1 - x0 ) ) ) ) );
-        DEBUGV ( "::li %d %d %d %d %d %d \r\n", x0, y0, x1, y1, ( unsigned int )x, *y );
-      }
-      else
-      {
-        DEBUGV ( "::li not found\r\n" );
-        *y = 26;
-      }
-    }
-    else
-    {
-      *y = 25;
-    }
-  }
-}
-
-void Opaq_storage::setDeviceType ( const uint8_t deviceId, const uint8_t type )
-{
-  if ( deviceId > 0 )
-  {
-    lightDevice[deviceId - 1].type = type;
-  }
-}
-
-uint8_t Opaq_storage::getDeviceType ( uint8_t deviceId )
-{
-  if ( deviceId > 0 && deviceId <= N_LIGHT_DEVICES )
-    return lightDevice[deviceId - 1].type;
-
-  return 0;
-}
-
-void Opaq_storage::addPowerDevice()
-{
-  // defensive case
-  if ( *numberOfPowerDevices >= N_POWER_DEVICES )
+  if( communicate.connect() )
     return;
 
-  powerDevice[*numberOfPowerDevices].id = *numberOfPowerDevices + 1;
-  powerDevice[*numberOfPowerDevices].type = CHACON_DIO;
-  powerDevice[*numberOfPowerDevices].state = OFF;
-  powerDevice[*numberOfPowerDevices].code = random ( 0x1, 0x3ffffff );
+  tmp[idx++] = SPI.transfer (ID_RF433_STREAM);
+  delayMicroseconds (30);
 
-  char buf[FILE_DESC_SIZE + 1];
-  sprintf( buf, "Description.%d", *numberOfPowerDevices );
+  // payload length
+  tmp[idx++] = SPI.transfer ( 0x05 );
+  delayMicroseconds (30);
   
-  File psocketsFile = SPIFFS.open("/settings/psockets.json", "r+");
+  tmp[idx++] = SPI.transfer ( (byte)code );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 8) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 16) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( (byte)(code >> 24) );
+  delayMicroseconds (30);
+  tmp[idx++] = SPI.transfer ( state );
+  delayMicroseconds (30);
 
-  if ( psocketsFile == NULL )
-  {
-    // create file
-    psocketsFile = SPIFFS.open("/settings/psockets.json", "w");
-  }
+  // dummy
+  tmp[idx++] = SPI.transfer ( 0x10 );
+  delayMicroseconds (30);
   
-  psocketsFile.seek( FILE_DESC_SIZE * *numberOfPowerDevices, SeekSet ) ;
-  psocketsFile.write( (uint8_t*)buf, FILE_DESC_SIZE );
-  psocketsFile.close();
+  communicate.disconnect();
 
-  ( *numberOfPowerDevices )++;
+  for(byte i=0; i < idx; i++)
+    Serial.println("r: " + String(tmp[i]));
+
+  Serial.println(F("AVR ASKED!"));
 }
 
-void Opaq_storage::setPowerDeviceState ( const uint8_t pdeviceId,
-                                      const uint8_t state )
-{
-  if ( pdeviceId > 0 && pdeviceId <= N_POWER_DEVICES )
-  {
-    if ( pdeviceId - 1 < *numberOfPowerDevices )
-    {
-      powerDevice[pdeviceId - 1].state = state;
-    }
-  }
-}
 
-bool Opaq_storage::getPDevicePoint( const uint8_t stepId, const uint8_t value )
-{
-  for( int s=0; s < getPDeviceStepSize( id2idx(stepId) ); s += 2 )
-  {
-    if ( getPDeviceStep( id2idx(stepId), s ) <= value && value < getPDeviceStep( id2idx(stepId), s + 1 ) )
-    {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-void Opaq_storage::setPDesription( const uint8_t pidx, const char * desc )
-{
-  File psocketsFile = SPIFFS.open("/settings/psockets.json", "r+");
-
-  if ( psocketsFile == NULL )
-  {
-    // create file
-    psocketsFile = SPIFFS.open("/settings/psockets.json", "w");
-  }
-  
-  // set position
-  psocketsFile.seek( FILE_DESC_SIZE * pidx, SeekSet ) ;
-  psocketsFile.write( (uint8_t*)desc, FILE_DESC_SIZE );
-  psocketsFile.close();
-}
-*/
 
 
 

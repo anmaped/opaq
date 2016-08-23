@@ -74,10 +74,10 @@
         <li>
 
           <div data-role="fieldcontain">
-            <label for="select-native-fc" class="select">Device type:</label>
-            <select name="select-native-fc" id="select-native-fc">
-              <option value="standard">Opaq n1</option>
-              <option value="rush">Zet Lancia</option>
+            <label for="adimmodel" class="select">Device type:</label>
+            <select name="adimmodel" id="adimmodel">
+              <option value="opaqn1">Opaq n1</option>
+              <option value="zetlancia">Zet Lancia</option>
             </select>
           </div>
 
@@ -89,8 +89,9 @@
           <div data-role="fieldcontain">
             <label for="ldeviceactions" class="select">Actions:</label>
             <div data-role="controlgroup" data-type="horizontal" id="ldeviceactions">
-              <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-plus">Bind</a>
-              <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-delete">Unbind</a>
+              <a id="bindadim" href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-plus">Bind</a>
+              <a id="setautoadim" href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-delete">Auto</a>
+              <a id="setlistenadim" href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-delete">Listen</a>
               <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-find">Search</a>
             </div>
           </div>
@@ -131,6 +132,68 @@
 
   <script type="text/javascript" defer>
 
+    $('#adimmodel').on("change", function() {
+      var idx = find_adim();
+      var selected = $(this).val();
+
+      if ( selected !=  global.fullaquariumdimmer.data[idx].type )
+      {
+        global.fullaquariumdimmer.data[idx].type = selected;
+        ws.send(JSON.stringify(global.fullaquariumdimmer.data[idx]));
+      }
+    });
+
+    var find_adim = function ()
+    {
+      // find idx based on id
+      var idx=0;
+
+      $.each(global.fullaquariumdimmer.data, function (index, value) 
+        {
+          if (value.adimid == localStorage["adimid"])
+          {
+            console.log("adim " + localStorage["adimid"] + "is found." );
+            idx = index;
+          }
+        });
+      return idx;
+    };
+
+    $(document).on('click', '#bindadim', function()
+    {
+      console.log("binding adim.");
+
+      var idx = find_adim();
+
+      localStorage["adimidrestore"] = global.fullaquariumdimmer.data[idx].state;
+
+      global.fullaquariumdimmer.data[idx].state = "bind";
+
+      ws.send(JSON.stringify(global.fullaquariumdimmer.data[idx]));
+    });
+
+    $(document).on('click', '#setautoadim', function()
+    {
+      console.log("set auto adim.");
+
+      var idx = find_adim();
+
+      global.fullaquariumdimmer.data[idx].state = "auto";
+
+      ws.send(JSON.stringify(global.fullaquariumdimmer.data[idx]));
+    });
+
+    $(document).on('click', '#setlistenadim', function()
+    {
+      console.log("set listen adim.");
+
+      var idx = find_adim();
+
+      global.fullaquariumdimmer.data[idx].state = "listen";
+
+      ws.send(JSON.stringify(global.fullaquariumdimmer.data[idx]));
+    });
+
     $(document).on("pagebeforeshow", "#pagesettingsfadimmer",function(event){
       if ( "plot1" in window["global"] )
       {
@@ -142,16 +205,15 @@
     $(document)
       .on("pageshow", "#pagesettingsfadimmer", function()
       {
-        //ws.send('{"adimremove":"00ffffffff"}');
-        //ws.send('{"adimremove":"ffffffffff"}');
-        //ws.send('{"adimremove":"ffffffffffff"}');
-
-
         $('#graphid')
-          .html("Graph for device " + global.state.lightdevicedescription + '(' + global.state.lightdeviceidx + ')');
+          .html("Graph for device " + localStorage["adimid"]);
+
+        var idx = find_adim();
+
+        $('#adimmodel').val(global.fullaquariumdimmer.data[idx].type).change();
 
         // get the light settings
-        s1 = global.fullaquariumdimmer.data[global.state.lightdeviceidx].data;
+        s1 = global.fullaquariumdimmer.data[idx].data;
         
         //var v = new Date().getTime();
         //s1 = [[[new Date(0).getTime(),0],[new Date(3600*1).getTime(),10],[new Date(3600*2).getTime(),2],[new Date(3600*3).getTime(),3]]];
@@ -243,25 +305,26 @@
             function(seriesIndex, pointIndex, pixelposition, data)
             {
               var dt = [];
+              var idx = find_adim();
               // for each plot1.series
               $.each(global.plot1.series, function(index, value)
               {
                 dt[index] = value.data;
               });
               console.log(dt);
-              global.fullaquariumdimmer.data[global.state.lightdeviceidx].data = dt;
+              global.fullaquariumdimmer.data[idx].data = dt;
               // let's do the save
-              //alert(JSON.stringify(global.fullaquariumdimmer.data[global.state.lightdeviceidx]));
-              ws.send(JSON.stringify(global.fullaquariumdimmer.data[global.state.lightdeviceidx]));
+              //alert(JSON.stringify(global.fullaquariumdimmer.data[idx]));
+              ws.send(JSON.stringify(global.fullaquariumdimmer.data[idx]));
             });
 
           $( "#channelslider" ).bind( "change", function(event, ui) {
-
+            var idx = find_adim();
             // [TODO]
-            //var tmp = global.fullaquariumdimmer.data[global.state.lightdeviceidx].data.slice(0, $('#channelslider').val());
-            //global.fullaquariumdimmer.data[global.state.lightdeviceidx].cursor = $('#channelslider').val();
+            var tmp = global.fullaquariumdimmer.data[idx].data.slice(0, $('#channelslider').val());
+            global.fullaquariumdimmer.data[idx].cursor = $('#channelslider').val();
             //alert( JSON.stringify(tmp)) ;
-            //global.plot1.replot({data:tmp});
+            global.plot1.replot({data:tmp});
           });
         }
         else
@@ -271,7 +334,7 @@
 
         }
 
-        var cursor = global.fullaquariumdimmer.data[global.state.lightdeviceidx].cursor;
+        var cursor = global.fullaquariumdimmer.data[idx].cursor;
         $('#channelslider').val(cursor);
         $("#channelslider").attr("max", s1.length);
         //$('#channelslider').val(s1.length);

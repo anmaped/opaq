@@ -394,12 +394,6 @@ void Opaq_iaqua::settings_screen_e(unsigned x, unsigned y, touch_evt_type id)
 // ####################################################################################
 // ####################################################################################
 
-void Opaq_iaqua::screenWelcome()
-{
-  tft.fillScreen(ILI9341_BLACK);
-  myFiles.load(26, 110, 188, 72, "opaq.raw");
-}
-
 void Opaq_iaqua::screenHome()  // draw main home screen showing overview info
 { 
   dispScreen=1;  // set screen so we can know what screen was touched later

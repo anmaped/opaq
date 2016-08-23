@@ -5,13 +5,19 @@
 #include <RtcDateTime.h>
 #include <SPI.h>
 
+#include "src/RF24/nRF24L01.h"
+#include "src/RF24/RF24.h"
 
-class Opaq_com_rf433
+
+class Opaq_com_nrf24
 {
-  public:
-  Opaq_com_rf433() {};
-  void send(unsigned int code, short unsigned int state);
-  bool ready();
+private:
+  // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
+  RF24 radio;
+public:
+  Opaq_com_nrf24() : radio ( RF24 ( 0, 0 ) ) {}
+  void init();
+  RF24& getRF24() { return radio; };
 };
 
 class Opaq_com
@@ -33,9 +39,8 @@ class Opaq_com
   void getClock(RtcDateTime& clock);
 
   void getCiferKey();
-  //void rf433(uint32_t code, uint8_t state);
 
-  Opaq_com_rf433 rf433;
+  Opaq_com_nrf24 nrf24;
 
 };
 

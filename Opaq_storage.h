@@ -28,13 +28,13 @@
 
 #include <Arduino.h>
 #include <FS.h>
+#include <LinkedList.h>
+
 #include "src/ADS7846/ADS7846.h"
 
-
 // enumerations for light and power devices settings
-enum type {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH};
-enum ptype {CHACON_DIO = 1, OTHERS};
-//enum pstate {OFF = 0, ON, BINDING, UNBINDING, ON_PERMANENT, OFF_PERMANENT, AUTO, LISTENING};
+enum pdevtype {CHACON_DIO = 1, OTHERS};
+enum nrf24state {NRF24_OFF = 0, NRF24_ON, NRF24_BINDING, NRF24_UNBINDING, NRF24_LISTENING};
 
 
 // forward-declaration to allow use in Iter
@@ -124,6 +124,8 @@ public:
 
 class Opaq_st_plugin_faqdim : public Opaq_st_plugin
 {
+  enum adimtype {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH, UNKNOWN};
+  adimtype tmp_type;
 public:
 
   void defaults();
@@ -133,6 +135,10 @@ public:
   void getDir(String& filename);
   void getFilename(String& filename, const char * code);
   void remove(const char* code);  
+
+  void run();
+  void send(unsigned int code, nrf24state state);
+  void send(unsigned int code, LinkedList<byte>& state);
 };
 
 
@@ -149,6 +155,7 @@ public:
   void remove(const char* code);
 
   void run();
+  void send(unsigned int code, short unsigned int state);
 };
 
 class Opaq_st_plugin_wifisett : public Opaq_st_plugin

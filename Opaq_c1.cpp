@@ -33,6 +33,7 @@
 #include "Opaq_websockets.h"
 #include "Opaq_storage.h"
 #include "Opaq_iaqua.h"
+#include "Opaq_iaqua_pages.h"
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -43,6 +44,7 @@
 ArduinoOTA ota_server;
 #endif
 
+#ifdef OPAQ_C1_SCREEN
 // change this....
 #define TFT_CS 16
 #define TFT_DC 15
@@ -52,26 +54,24 @@ Opaq_iaqua iaqua;
 ADS7846 touch;
 LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // until here...
+#endif
 
 // non-class functions begin
 
-bool run1hz = false;
+bool run1hz_flag = false;
 
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
-  opaq_controller.run_task_ds3231();
-  opaq_controller.setClockReady();
-
-  opaq_controller.run_atsha204();
-
-  run1hz = true;
+  run1hz_flag = true;
 }
 
 static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
 {
-  opaq_controller.run_task_nrf24();
 
+#ifdef OPAQ_C1_SCREEN
   opaq_controller.run_touch();
+#endif
+
 }
 
 static void _devicesTask_timmingEvent()
@@ -96,7 +96,6 @@ OpenAq_Controller::OpenAq_Controller() :
   ws ( AsyncWebSocket("/ws") ),
   avrprog (328, 2),
   timming_events ( Ticker() ),
-  radio ( RF24 ( 0, 0 ) ),
   //storage ( Opaq_storage() ),
   str ( String() ),
   clockIsReady( false )
@@ -126,17 +125,30 @@ void OpenAq_Controller::setup_controller()
     ESP.restart();
   }
   
+  #ifdef OPAQ_C1_SCREEN
+  // display welcome screen tft
+  tft.begin();
+
+  Opaq_iaqua_page_welcome wscreen = Opaq_iaqua_page_welcome();
+  wscreen.draw();
+  wscreen.setExecutionBar(5);
+  #endif
+
+  
   if ( storage.getSignature() != SIG )
   {
+    Serial.println ( F("default settings will be applied.") );
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(100);
+    wscreen.msg( String(F("Please reboot")).c_str() );
+#endif
+
     storage.defaults ( SIG ); // uncomment to set the factory defaults
-    Serial.println ( F("default settings applied.") );
   }
 
   Serial.println("SIG Accepted");
-  
-  // display welcome screen tft
-  tft.begin();
-  iaqua.screenWelcome();
+
 
   if ( storage.wifisett.getModeOperation() )
   {
@@ -149,8 +161,17 @@ void OpenAq_Controller::setup_controller()
     Serial.print ( F("SSID: ") );
     Serial.println ( ssid );
 
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(20);
+    wscreen.msg( String(F("Initializing AP mode")).c_str() );
+#endif
+
     WiFi.mode(WIFI_AP);
     delay(5000);
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(45);
+#endif
     
     WiFi.printDiag(Serial);
 
@@ -170,11 +191,24 @@ void OpenAq_Controller::setup_controller()
     storage.wifisett.getClientSSID(ssid);
     storage.wifisett.getClientPwd(pwd);
 
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(20);
+    wscreen.msg( String(F("Initializing WIFI station")).c_str() );
+#endif
+
     WiFi.mode(WIFI_STA);
     delay(5000);
 
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(45);
+#endif
+
     Serial.print ( F("Connecting to ") );
     Serial.println ( ssid );
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.msg( (String(F("Connecting to ")) + ssid ).c_str() );
+#endif
 
     WiFi.begin ( ssid.c_str(), pwd.c_str() );
 
@@ -191,15 +225,29 @@ void OpenAq_Controller::setup_controller()
       if (count_tries > 100)
       {
         Serial.println ( F("returning to AP mode. Reboot.") );
+
+#ifdef OPAQ_C1_SCREEN
+        wscreen.msg( String(F("Returning to AP mode")).c_str() );
+#endif
+
+        delay(1000);
         storage.wifisett.enableSoftAP();
         ESP.reset();
       }
     }
 
+#ifdef OPAQ_C1_SCREEN
+    wscreen.msg( String(F("Connected")).c_str() );
+#endif
+
     Serial.println ( F("WiFi connected") );
     Serial.println ( F("IP address: ") );
     Serial.println ( WiFi.localIP() );
   }
+
+#ifdef OPAQ_C1_SCREEN
+  wscreen.setExecutionBar(55);
+#endif
 
 #if OPAQ_OTA_ARDUINO
   // OTA server
@@ -207,6 +255,11 @@ void OpenAq_Controller::setup_controller()
 #endif
 
 #if OPAQ_MDNS_RESPONDER
+
+#ifdef OPAQ_C1_SCREEN
+  wscreen.msg( String(F("mDNS responder")).c_str() );
+#endif
+
   // mDNS responder
   if (!MDNS.begin("opaq")) {
     Serial.println("Error setting up MDNS responder!");
@@ -241,6 +294,10 @@ void OpenAq_Controller::setup_controller()
       //  server.on ( filename.c_str(), [=]() { server.send_F ( 200, String(mime).c_str(), filename.c_str() ); } ); // verify filename string (can desapear...)
     };
   
+#ifdef OPAQ_C1_SCREEN
+  wscreen.msg( String(F("Filesystem check")).c_str() );
+#endif
+
   // search available SPIFFS files starting with prefix '_p'
   Dir d = SPIFFS.openDir("/");
   // list directory
@@ -251,6 +308,7 @@ void OpenAq_Controller::setup_controller()
   }
 
   //  ENDS the LOADING OF FILES FROM SPIFFS
+
 
   // setup webserver
   server.serveStatic("/", SPIFFS, "/www/").setDefaultFile("opaqc1.html");
@@ -275,6 +333,8 @@ void OpenAq_Controller::setup_controller()
   //rtc.Begin();
   //Wire.begin ( 4, 5 );
 
+#ifdef OPAQ_C1_SCREEN
+  wscreen.setExecutionBar(75);
 
   // 
   // TOUCH CONTROLLER INITIALIZATION
@@ -305,30 +365,10 @@ void OpenAq_Controller::setup_controller()
   // END TOUCH CONTROLLER INITIALIZATION
 
 
-  // NRF24 setup and radio configuration
-  radio.begin();
-  radio.setChannel(1);
-  radio.setDataRate(RF24_1MBPS);
-  radio.setAutoAck(false);
-  //radio.disableCRC();
-  radio.openWritingPipe( 0x5544332211LL ); // set address for outcoming messages
-  radio.openReadingPipe( 1, 0x5544332211LL ); // set address for incoming messages
+  wscreen.setExecutionBar(100);
+#endif
 
-  // manual test
-  //uint8_t buf[5] = {0x11, 0x22, 0x33, 0x44, 0x55};
-  //radio.write_register ( TX_ADDR, buf, 5 );
-  //radio.write_register ( SETUP_AW, 0x3 );
-  //radio.write_register ( EN_AA, 0x0 ); // mandatory - no ACK
-  //radio.write_register ( EN_RXADDR, 0x0 );
-  //radio.write_register ( SETUP_RETR, 0x0 );
-  //radio.write_register ( RF_CH, 0x1 );
-  //radio.write_register ( RF_SETUP, 0x7 );
-  //radio.write_register ( CONFIG, 0xE ); // mandatory
-
-  //radio.startListening();
-
-  // for debug purposes of radio transceiver
-  radio.printDetails();
+  communicate.nrf24.init();
 
   // registers deviceTask in the OS control structures
   system_os_task ( _deviceTaskLoop, deviceTaskPrio, deviceTaskQueue,
@@ -338,11 +378,13 @@ void OpenAq_Controller::setup_controller()
                    _10hzLoopTaskQueueLen );
 
   // Attach deviceTask event trigger function for periodic releases
-  timming_events.attach_ms ( 2000, _devicesTask_timmingEvent );
+  timming_events.attach_ms ( 1000, _devicesTask_timmingEvent );
 
   t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );
 
+#ifdef OPAQ_C1_SCREEN
   run_tft();
+#endif
 }
 
 int count = 0;
@@ -366,12 +408,19 @@ void OpenAq_Controller::run_controller()
     storage.setUpdate(false);
   }
 
-
   // run that at 1hz
-  if(run1hz)
+  if(run1hz_flag)
   {
+    run_task_ds3231();
+    setClockReady();
+
+    run_atsha204();
+
     storage.pwdevice.run();
-    run1hz = false;
+
+    storage.faqdim.run();
+
+    run1hz_flag = false;
   }
 
 }
@@ -379,11 +428,16 @@ void OpenAq_Controller::run_controller()
 void OpenAq_Controller::run_programmer()
 {
   static AVRISPState_t last_state = AVRISP_STATE_IDLE;
+  bool lock = true;
+
+  while(lock)
+  {
     AVRISPState_t new_state = avrprog.update();
     if (last_state != new_state) {
         switch (new_state) {
             case AVRISP_STATE_IDLE: {
                 Serial.printf("[AVRISP] now idle\r\n");
+                lock = false;
                 communicate.unlock();
                 break;
             }
@@ -396,15 +450,28 @@ void OpenAq_Controller::run_programmer()
                 Serial.printf("[AVRISP] programming mode\r\n");
                 // Stand by for completion
                 communicate.spinlock();
+                lock = true;
                 break;
             }
         }
         last_state = new_state;
     }
+    else
+    {
+      if(new_state == AVRISP_STATE_IDLE)
+      {
+        lock = false;
+      }
+    }
+
     // Serve the client
-    if (last_state != AVRISP_STATE_IDLE) {
+    if (last_state != AVRISP_STATE_IDLE)
+    {
       avrprog.serve();
     }
+
+    optimistic_yield(10000);
+  }
 }
 
 uint16_t normalizeClock(RtcDateTime * clock, const uint16_t a, const uint16_t b )
@@ -427,6 +494,7 @@ void OpenAq_Controller::run_atsha204()
   communicate.getCiferKey();
 }
 
+#ifdef OPAQ_C1_SCREEN
 void OpenAq_Controller::run_touch()
 {
   if( communicate.lock() )
@@ -448,6 +516,7 @@ void OpenAq_Controller::run_touch()
   
 }
 
+
 void OpenAq_Controller::run_tft()
 {
   Serial.println("ASK ILI9341");
@@ -462,191 +531,9 @@ void OpenAq_Controller::run_tft()
   Serial.println("ILI9341 ASKED");
   
 }
+#endif
 
 /*--------------------  nrf24 device controller task  ---------------------*/
-
-uint8_t calculate_lrc(uint8_t *buf)
-{
-  // calculate LRC - longitudinal redundancy check
-  uint8_t LRC = 0;
-
-  for ( int j = 1; j < 14; j++ )
-  {
-    LRC ^= buf[j];
-  }
-
-  return LRC;
-}
-
-void OpenAq_Controller::run_task_nrf24()
-{
-  /*static uint8_t deviceId = 1;
-  float clktmp;
-  uint8_t buf[32];
-    
-  if ( !isClockReady() )
-    return;
-
-  if ( communicate.lock() )
-    return;
-
-  // definition for Zetlight lancia dimmers
-  // ---------------------------------------------------------------------------
-  if ( storage.getDeviceType ( deviceId ) == ZETLIGHT_LANCIA_2CH )
-  {
-    // compute signal values according to the clock
-    uint8_t signal1 = 0;
-    uint8_t signal2 = 0;
-
-    clktmp = ( ( float )clock.Hour() ) + ( ( ( float )clock.Minute() ) / 60 )
-             + ( ( ( float )clock.Second() ) / 3600 );
-    storage.getLinearInterpolatedPoint ( deviceId, 1, clktmp, &signal1 );
-    storage.getLinearInterpolatedPoint ( deviceId, 2, clktmp, &signal2 );
-
-    // normal message
-    uint8_t buf[32] = {
-      //<3byte static signature>
-      0xEE, 0xD, 0xA,
-      // <------------------------------ LIGHT -------------------------------------------------->
-      //  <Mode>= DAM(0x03); SUNRISE(0xb6); DAYTIME(0xb6); SUNSET(0xD4); NIGHTTIME(0x06)
-      //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
-      // Normal mode (N_MODE)
-      //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE>             < binding mode >  <groupId>    <LRC>
-      0x00,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
-      //<unknown> = 0xEC
-      0xEC,
-      //<fixed values>
-      0x0, 0x0, 0x0,
-      //<5bytes controllerID>
-      0xF2, 0x83, 0x1D, 0x4A, 0x20,
-      //<fixed values>
-      0x0, 0x0,
-      //<unknown bytes>
-      0x68, 0x71,
-      //<2bytes group binding>
-      0x00, 0x0,   // means nothing
-      //<unknown values>
-      0x0, 0x0
-    };
-
-    buf[14] = calculate_lrc(buf);
-
-
-    // binding message
-    uint8_t binding_data[32] = {
-      //<3byte static signature>
-      0xEE, 0x0D, 0x0A,
-      // BINDING mode
-      //                                            <N_MODE>             < binding mode >  <groupId>    <LRC>
-      0x0,         0x0,      0x0,      0x0,        0x0,      0x0, 0x0, 0x23, 0xdc, 0x0,    0x01,      0x00,
-      //<unknown> = 0xEC
-      0xEC,
-      //<fixed values>
-      0x0, 0x0, 0x0,
-      //<5bytes controllerID>
-      0xF2, 0x83, 0x1D, 0x4A, 0x20,
-      //<fixed values>
-      0x0, 0x0,
-      //<unknown bytes>
-      0x68, 0x71,
-      //<2bytes group binding>
-      0x00, 0x00,   // 0x08, 0x06 -  0x7b, 0x15,
-      //<unknown values>
-      0x0, 0x0
-    };
-
-    binding_data[14] = calculate_lrc(binding_data);
-
-    uint8_t * codepointer = storage.getCodeId( deviceId );
-
-
-    if ( storage.getLState( deviceId ) == ON )
-    {
-      radio.stopListening();
-      //DEBUGV("ac:: ON msg sent\n");
-
-      buf[19] = codepointer[0];
-      buf[20] = codepointer[1];
-      buf[21] = codepointer[2];
-      buf[22] = codepointer[3];
-      buf[23] = codepointer[4];
-
-      radio.startWrite ( buf, 32 );
-
-    }
-
-    if ( storage.getLState( deviceId ) == BINDING )
-    {
-      radio.stopListening();
-      //DEBUGV("ac:: BIND msg sent\n");
-
-      radio.setChannel(100);
-      delayMicroseconds(10000);
-
-      binding_data[19] = codepointer[0];
-      binding_data[20] = codepointer[1];
-      binding_data[21] = codepointer[2];
-      binding_data[22] = codepointer[3];
-      binding_data[23] = codepointer[4];
-
-      binding_data[28] = 0x7B;
-      binding_data[29] = 0x15;
-
-      radio.startWrite ( binding_data, 32 );
-
-      delayMicroseconds(10000);
-      radio.setChannel(1);
-
-    }
-
-    if ( storage.getLState( deviceId ) == LISTENING )
-    {
-      // read...
-
-      //radio.setChannel(100);
-      bool a = true;
-      String x = String("{\"nrf24M\" :[");
-      
-      if ( radio.available() )
-      {
-        bool done = false;
-        //while (!done)
-        {
-          done = radio.read( buf, 32 );
-
-          char tmp[10];
-          
-          for (int ib = 0; ib < 32; ib++)
-          {
-            sprintf(tmp, "\"%02x\"%c ", buf[ib], ib < 31 ? ',' : ' ' );
-            x += tmp;
-          }
-          x += "]}";
-        }
-        a=false;
-      }
-
-      radio.startListening();
-
-      if(a == false)
-      {
-        a=true;
-        Serial.println(x);
-        //[TODO] put that to output ... webSocket.sendTXT(0, x.c_str(), x.length());
-      }
-    }
-
-  }
-  // Zetlight definition END
-
-  deviceId++;
-
-  if (deviceId > storage.getNumberOfLightDevices())
-    deviceId = 1;
-
-  communicate.unlock();
-  */
-}
 
 void OpenAq_Controller::syncClock()
 {

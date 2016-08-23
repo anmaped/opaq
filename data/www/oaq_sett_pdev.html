@@ -25,16 +25,16 @@
         <li>
           
           <div data-role="fieldcontain">
-            <label for="select-native-fc" class="select">Model:</label>
-            <select name="select-native-fc" id="select-native-fc">
-              <option value="standard">Opaq n2</option>
-              <option value="rush">Chacon DIO</option>
+            <label for="pdevmodel" class="select">Model:</label>
+            <select name="pdevmodel" id="pdevmodel" data-mini="true">
+              <option value="opaqn2">Opaq n2</option>
+              <option value="chacondio">Chacon DIO</option>
             </select>
           </div>
 
           <div data-role="fieldcontain">
             <label for="ldeviceactions" class="select">Actions:</label>
-            <div data-role="controlgroup" data-type="horizontal" id="ldeviceactions">
+            <div data-role="controlgroup" data-type="horizontal" id="ldeviceactions" data-mini="true">
               <a id="bindpdev" href="#bindpdevdialog" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-plus">Bind</a>
               <a id="unbindpdev" href="#unbindpdevdialog" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-delete">Unbind</a>
               <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-bullets">Search</a>
@@ -72,6 +72,23 @@
         <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
           Advanced Settings
         </li>
+
+        <li>      
+          <table style='width:100%'>
+            <tr>
+              <td>
+                <label for="pdevidchange">Outlet id:</label>
+              </td>
+              <td>
+                <input name="pdevidchange" id="pdevidchange" pattern="[a-fA-f0-9-]{7}" value="" type="text">
+              </td>
+              <td style='width:10%'>
+                <a id="submitpdevid" href="#" class="ui-btn ui-shadow ui-corner-all ui-icon-check ui-btn-icon-notext ui-btn-inline">Check</a>
+              </td>
+            </tr>
+          </table>
+        </li>
+
         <li>
 
           <div data-role="fieldcontain">
@@ -86,7 +103,28 @@
 
     </div>
 
+
+
     <script>
+
+    $('#pdevmodel').on("change", function() {
+      var idx = find();
+      var selected = $(this).val();
+
+      if ( selected !=  global.poweroutletcontroller.data[idx].type )
+      {
+        global.poweroutletcontroller.data[idx].type = selected;
+        ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+      }
+    });
+
+    $('#submitpdevid').on("click", function () {
+      var idx = find();
+
+      global.poweroutletcontroller.data[idx].pdevid = $('#pdevidchange').val();
+
+      ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+    });
 
     var find = function ()
     {
@@ -160,7 +198,13 @@
         
         $('#pdevgridid').html("Grid for power device " + localStorage["pdevid"]);
 
+        $('#pdevidchange').val(localStorage["pdevid"]);
+
         var idx = find();
+
+        $('#pdevmodel').val(global.poweroutletcontroller.data[idx].type).change();
+
+        
 
         // get the light settings
         s1 = global.poweroutletcontroller.data[idx].data;
@@ -181,7 +225,7 @@
               {
                 formatString: '%H:%M'
               },
-              numberTicks: 10,
+              numberTicks: 24,
               min: new Date(0).getTime(),
               max: new Date(86400000-1).getTime()
             },
@@ -245,10 +289,42 @@
         });
 
 
-        $('#pdevchart')
-          .bind('jqplotDragStop',
+        $('#pdevchart').bind('jqplotDragStop',
             function(seriesIndex, pointIndex, pixelposition, data)
             {
+              var idx = find();
+              var dt = [];
+
+              // for each plot1.series
+              $.each(global.pdevplot.series, function(index, value)
+              {
+                dt[index] = value.data;
+              });
+
+              console.log(dt);
+
+              global.poweroutletcontroller.data[idx].data = dt;
+
+              $.each(global.poweroutletcontroller.data[idx].data, function (index, value) {
+                $.each(value, function (index2, value2) {
+                  if ( global.poweroutletcontroller.data[idx].data[index][index2][1] >= 0.5 )
+                  {
+                    global.poweroutletcontroller.data[idx].data[index][index2][1] = true;
+                  }
+
+                  if (global.poweroutletcontroller.data[idx].data[index][index2][1] < 0.5)
+                  {
+                    global.poweroutletcontroller.data[idx].data[index][index2][1] = false;
+                  }
+                });
+              });
+
+              s1 = global.poweroutletcontroller.data[idx].data;
+              global.pdevplot.replot({data:s1});
+
+              // let's do the save
+              //alert(JSON.stringify(global.fullaquariumdimmer.data[global.state.lightdeviceidx]));
+              ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
             
             });
 

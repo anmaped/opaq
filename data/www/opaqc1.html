@@ -94,7 +94,7 @@
     if ("WebSocket" in window)
     {
       // window.location.hostname [CHANGE]
-      var ws = new WebSocket("ws://192.168.1.136/ws");
+      var ws = new WebSocket("ws://" + window.location.hostname + "/ws");
 
       ws.onopen = function()
       {
@@ -251,15 +251,6 @@
       alert("WebSocket NOT supported by your Browser!");
     }
 
-function getParam(url,id) {
-    var parsed = $.mobile.path.parseUrl(url),
-        hash = parsed.hash.split("?");
-    var hashsplit = hash[1].split("&");
-    return {
-        search: hashsplit[id].split("=")[1]
-    };
-}
-
     $(document).bind("pagebeforechange", function(e, data)
     {
       // We only want to handle changePage() calls where the caller is
@@ -292,15 +283,6 @@ function getParam(url,id) {
           $('#poweroutletcontroller').collapsible( "option", "collapsed", true );
 
           $.mobile.pageContainer.pagecontainer("change", "#pagesettings");
-        }
-
-        re = /^#pagesettingsfadimmer/;
-        if (u.hash.search(re) !== -1)
-        {
-          global.state = {};
-          global.state.lightdevicedescription = getParam(data.absUrl,1).search;
-          global.state.lightdeviceidx = getParam(data.absUrl,0).search;
-
         }
       }
     });

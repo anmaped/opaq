@@ -4,72 +4,11 @@
 #include "cas.h"
 
 #include <Arduino.h>
-#include <HashMap.h>
 
 Opaq_com communicate;
-
-
-
-void Opaq_com_rf433::send(unsigned int code, short unsigned int state)
-{
-  static CreateHashMap(statemap, unsigned int, byte, 50);
-
-  byte tmp[10];
-  byte idx = 0;
   
 
-  if ( statemap.contains(code) && state == statemap[code] )
-  {
-    return;
-  }
-
-  statemap[code] = state;
-  
-  
-  // comunicate with coprocessor
-  Serial.println(F("ASK AVR TO RECEIVE RF433 STREAM"));
-
-  if( communicate.connect() )
-    return;
-
-  tmp[idx++] = SPI.transfer (ID_RF433_STREAM);
-  delayMicroseconds (30);
-
-  // payload length
-  tmp[idx++] = SPI.transfer ( 0x05 );
-  delayMicroseconds (30);
-  
-  tmp[idx++] = SPI.transfer ( (byte)code );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 8) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 16) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( (byte)(code >> 24) );
-  delayMicroseconds (30);
-  tmp[idx++] = SPI.transfer ( state );
-  delayMicroseconds (30);
-
-  // dummy
-  tmp[idx++] = SPI.transfer ( 0x10 );
-  delayMicroseconds (30);
-  
-  communicate.disconnect();
-
-  for(byte i=0; i < idx; i++)
-    Serial.println("r: " + String(tmp[i]));
-
-  Serial.println(F("AVR ASKED!"));
-}
-
-bool Opaq_com_rf433::ready()
-{
-  // [TODO]
-  return true;
-}
-  
-
-Opaq_com::Opaq_com()
+Opaq_com::Opaq_com() : nrf24 (Opaq_com_nrf24())
 {
   spi_lock = false;
 }
@@ -84,7 +23,7 @@ bool Opaq_com::lock()
 
 void Opaq_com::spinlock()
 {
-  while(!cas((uint8_t*)&spi_lock, false, true)) { delay(100); }
+  while(!cas((uint8_t*)&spi_lock, false, true)) { optimistic_yield(10000); }
 }
 
 void Opaq_com::unlock()
@@ -95,9 +34,7 @@ void Opaq_com::unlock()
 
 bool Opaq_com::connect()
 {
-
-  if( lock() )
-    return true;
+  spinlock();
 
   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
 
@@ -117,6 +54,33 @@ void Opaq_com::disconnect()
   unlock();
 }
 
+void Opaq_com_nrf24::init()
+{
+  // NRF24 setup and radio configuration
+  radio.begin();
+  radio.setChannel(1);
+  radio.setDataRate(RF24_1MBPS);
+  radio.setAutoAck(false);
+  //radio.disableCRC();
+  radio.openWritingPipe( 0x5544332211LL ); // set address for outcoming messages
+  radio.openReadingPipe( 1, 0x5544332211LL ); // set address for incoming messages
+
+  // manual test
+  //uint8_t buf[5] = {0x11, 0x22, 0x33, 0x44, 0x55};
+  //radio.write_register ( TX_ADDR, buf, 5 );
+  //radio.write_register ( SETUP_AW, 0x3 );
+  //radio.write_register ( EN_AA, 0x0 ); // mandatory - no ACK
+  //radio.write_register ( EN_RXADDR, 0x0 );
+  //radio.write_register ( SETUP_RETR, 0x0 );
+  //radio.write_register ( RF_CH, 0x1 );
+  //radio.write_register ( RF_SETUP, 0x7 );
+  //radio.write_register ( CONFIG, 0xE ); // mandatory
+
+  //radio.startListening();
+
+  // for debug purposes of radio transceiver
+  radio.printDetails();
+}
 
 void Opaq_com::setClock(RtcDateTime c)
 {

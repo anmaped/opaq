@@ -93,9 +93,12 @@ typedef enum touch_evt touch_evt_type;
 
 class Opaq_iaqua
 {
+protected:
   Files_Hal   myFiles;
   Lcd_Hal     myGLCD;
   Storage_Hal EEPROM;
+
+private:
 
   uint8_t* arial_bold = (uint8_t*)0x1; // dummy variable
   uint8_t* Sinclair_S = (uint8_t*)0x1; // dummy variable
@@ -349,7 +352,6 @@ class Opaq_iaqua
 
   public:
   
-  void screenWelcome();
   void screenHome();
   void screenFeeding();
   void screenPower();
