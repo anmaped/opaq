@@ -59,6 +59,7 @@ LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // non-class functions begin
 
 bool run1hz_flag = false;
+bool enableFactoryFS = false;
 
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
@@ -307,6 +308,32 @@ void OpenAq_Controller::setup_controller()
     serveron(d);
   }
 
+
+  server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
+    request->send(200);
+  }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+      static File f = SPIFFS.open("/www/www.tar", "w");
+      if(!index){
+        Serial.printf("UploadStart: %s\n", filename.c_str());
+      }
+      for(size_t i=0; i<len; i++){
+        f.write(data[i]);
+      }
+      if(final){
+        f.close();
+
+        enableFactoryFS = true;
+        Serial.printf("UploadEnd: %s, %u B\n", filename.c_str(), index+len);
+      }
+    }
+  );
+
+  // Simple Firmware Update Form
+  server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='upload'></form>");
+  });
+
+
   //  ENDS the LOADING OF FILES FROM SPIFFS
 
 
@@ -406,6 +433,12 @@ void OpenAq_Controller::run_controller()
     // initialize opaq services
     storage.initOpaqC1Service();
     storage.setUpdate(false);
+  }
+
+  if(enableFactoryFS)
+  {
+    enableFactoryFS = false;
+    storage.initOpaqC1Service();
   }
 
   // run that at 1hz

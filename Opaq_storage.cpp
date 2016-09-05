@@ -148,7 +148,7 @@ auto download_file = [](const char * filename)
 
   File f = SPIFFS.open((String("/www/") + filename).c_str(),"w");
 
-  if (f == NULL)
+  if (!f)
   {
     return;
   }
@@ -222,9 +222,25 @@ auto download_file = [](const char * filename)
   download_file("opaqc1_index.html");
   download_file("opaqc1_settings.html");*/
 
-  download_file("www.tar");
+  
+  //libtar_list("/www/www.tar");
 
-  libtar_list("/www/www.tar");
+  /*SPIFFS.end();
+
+  SPIFFS.format();
+
+  SPIFFS.begin();
+*/
+
+  //SPIFFS.format();
+
+  // check the downloaded file
+  //download_file("www.tar");
+
+
+  libtar_extract("/www/www.tar", "/www");
+
+  SPIFFS.remove("/www/www.tar");
 
 
 }
@@ -235,7 +251,7 @@ const uint8_t Opaq_storage::getSignature()
 
   File fl = SPIFFS.open("/sett/sig", "r");
 
-  if( fl != NULL )
+  if(fl)
   {
     sig = fl.read();
     fl.close();
@@ -248,7 +264,7 @@ void Opaq_storage::writeSignature(byte sig)
 {
   File fl = SPIFFS.open("/sett/sig", "w");
 
-  if( fl != NULL )
+  if(fl)
   {
     fl.write(sig);
     fl.close();
