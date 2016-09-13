@@ -34,6 +34,8 @@
 #include "Opaq_storage.h"
 #include "Opaq_iaqua.h"
 #include "Opaq_iaqua_pages.h"
+#include "Opaq_recovery.h"
+#include "Opaq_command.h"
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -59,7 +61,7 @@ LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // non-class functions begin
 
 bool run1hz_flag = false;
-bool enableFactoryFS = false;
+bool enableTartExtract = false;
 
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
@@ -312,27 +314,100 @@ void OpenAq_Controller::setup_controller()
   server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
     request->send(200);
   }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
-      static File f = SPIFFS.open("/www/www.tar", "w");
+
+      static File f;
+
+      /*// filename and path to store
+      char * filename[64] = "foo";
+
+      if(request->hasParam("filename", true))
+      {
+        AsyncWebParameter* p = request->getParam("filename", true);
+        p->name().c_str()
+        strcpy(filename, p->value().c_str());
+      }*/
+
+      Serial.println(filename);
+
+
       if(!index){
+
+        // test if we want to format
+        //SPIFFS.format();
+
+        if(!f)
+        {
+          f = SPIFFS.open(String(String("/tmp/") + filename).c_str(), "w");
+        }
+
         Serial.printf("UploadStart: %s\n", filename.c_str());
       }
+
       for(size_t i=0; i<len; i++){
         f.write(data[i]);
       }
+
       if(final){
         f.close();
 
-        enableFactoryFS = true;
+        // contain tar extension ? apply tar extractor.
+        if(filename == "www.tar")
+        {
+          oq_cmd c;
+          c.exec = [](LinkedList<String>& args) { storage.tarextract(args.pop().c_str(), args.pop().c_str()); };
+
+          String a = "/tmp/www.tar";
+          String b = "/www";
+          c.args.add(b);
+          c.args.add(a);
+
+          command.send(c);
+
+          request->redirect("/rcv?success=true");
+        }
+        else
+        if(filename == "fw.bin")
+        {
+          oq_cmd c;
+          c.exec = [](LinkedList<String> args) { storage.fwupdate(args.pop().c_str(), args.pop().c_str()); };
+          c.args = LinkedList<String>();
+          String a = "/tmp/fw.bin";
+          String b = "XXX";
+          c.args.add(b);
+          c.args.add(a);
+
+          command.send(c);
+
+          request->redirect("/rcv?success=true&fw=true");
+        }
+        else
+        {
+          //request->send(200, "text/html", "SUCCESS.");
+          request->redirect("/rcv?success=false");
+        }
+
         Serial.printf("UploadEnd: %s, %u B\n", filename.c_str(), index+len);
+
       }
     }
   );
 
   // Simple Firmware Update Form
-  server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "text/html", "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='upload'></form>");
+  server.on("/rcv", HTTP_GET, [](AsyncWebServerRequest *request){
+    opaq_recovery(request);
+    //request->send(200, "text/html","<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='upload'></form><a href='format'>Format</a>");
   });
 
+  server.on("/formatspiffs", HTTP_GET, [](AsyncWebServerRequest *request){
+    
+    oq_cmd c;
+    c.exec = [](LinkedList<String> args) { SPIFFS.format(); };
+    c.args = LinkedList<String>();
+
+    command.send(c);
+
+    request->send(200);
+  });
 
   //  ENDS the LOADING OF FILES FROM SPIFFS
 
@@ -435,11 +510,8 @@ void OpenAq_Controller::run_controller()
     storage.setUpdate(false);
   }
 
-  if(enableFactoryFS)
-  {
-    enableFactoryFS = false;
-    storage.initOpaqC1Service();
-  }
+  command.exec();
+
 
   // run that at 1hz
   if(run1hz_flag)

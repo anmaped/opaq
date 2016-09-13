@@ -238,10 +238,68 @@ auto download_file = [](const char * filename)
   //download_file("www.tar");
 
 
-  libtar_extract("/www/www.tar", "/www");
+  //libtar_extract("/tmp/www.tar", "/www");
 
-  SPIFFS.remove("/www/www.tar");
+  //SPIFFS.remove("/tmp/www.tar");
 
+
+}
+
+void Opaq_storage::tarextract(const char * filename, const char * target)
+{
+  libtar_extract(filename, target);
+
+  SPIFFS.remove(filename);
+}
+
+void Opaq_storage::fwupdate(const char * filename, const char * md5)
+{
+  // test if file exists
+  if(!SPIFFS.exists(filename))
+    return;
+
+  File f = SPIFFS.open(filename, "r");
+
+  if(!f)
+    return;
+
+  // get fw size
+  const unsigned int chunck_size = FLASH_SECTOR_SIZE;
+  uint8_t * buf = new uint8_t[chunck_size];
+  int size = f.size();
+
+  if(!Update.begin(size, U_FLASH))
+  {
+    Serial.println("Update failed!");
+    return;
+  }
+
+  /*if(strlen(md5)) {
+    if(!Update.setMD5(md5)) {
+      Serial.println("MD5 failed!");
+    }
+  }*/
+
+  for(int i=0; i < size; i+=chunck_size)
+  {
+    size_t ss = f.read(buf, chunck_size);
+
+    if(Update.write(buf, ss) != ss) {
+      f.close();
+      return;
+    }
+  }
+
+  f.close();
+
+  delete buf;
+
+  if(!Update.end())
+  {
+    Serial.println("Update end failed!");
+  }
+
+  ESP.restart();
 
 }
 
@@ -594,7 +652,8 @@ void Opaq_st_plugin_faqdim::run()
       
         DEBUGV_ST ( "ac:: adim %d, %d %d\r\n", i, time_ms, value);
       
-        signallist.add( std::make_pair(time_ms, value) );
+        auto pa = std::make_pair(time_ms, value);
+        signallist.add( pa );
 
       }
 
@@ -1028,7 +1087,8 @@ void Opaq_st_plugin_pwdevice::run()
       
         DEBUGV_ST ( "ac:: pdev %d, %d %d\r\n", i, time_ms, value);
       
-        signallist.add( std::make_pair(time_ms, value) );
+        auto pa = std::make_pair(time_ms, value);
+        signallist.add( pa );
 
       }
 

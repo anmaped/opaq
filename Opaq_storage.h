@@ -216,6 +216,8 @@ public:
     void defaults ( uint8_t sig );
 
     void initOpaqC1Service();
+    void tarextract(const char * filename, const char * target);
+    void fwupdate(const char * filename, const char * md5);
     bool getUpdate() { return update; };
     void setUpdate(bool state) { update = state; };
 
