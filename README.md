@@ -3,7 +3,7 @@
 
 Main screen |  Settings Screen | Wifi Settings | Graph
 :-----------:|:----------------:|:------:|:-------:
-![](/data/screenshots/main.png) |  ![](/data/screenshots/settings.png) |  ![](/data/screenshots/wifi.png) |  ![](/data/screenshots/dimmergraph.png)
+![](/data/binaries/screenshots/main.png) |  ![](/data/binaries/screenshots/settings.png) |  ![](/data/binaries/screenshots/wifi.png) |  ![](/data/binaries/screenshots/dimmergraph.png)
 
 Supported features:
 - Browser-based graphical user interface to control light and power devices of aquarium and pond systems
@@ -11,10 +11,11 @@ Supported features:
 - Node-based architecture (nodes are authentic, secured with SHA256 signatures)
 - Energy cost management that instruct you how to avoid wasting energy
 
-Opaq devices:
-- Opaq C1 - the main controller device ![Opaq C1 Frame](/hardware/opac_c1/v1.1/top.png?raw=true "Opaq C1 Frame")
-- Opaq n1 - the four channel dimmer device capable to connect with any led lamp (several settings available) ![Opaq n1 Frame](/hardware/opac_n1/v2.1/top.png?raw=true "Opaq n1 Frame")
-- Opaq n2 - the power outlet controller node for 220v devices up to 2400w
+Opaq devices available:
+
+Opaq C1 | Opaq n1 | Opaq n2
+:------:|:---------:|:---------:
+the main controller device ![Opaq C1 Frame](/hardware/opac_c1/v1.1/top.png?raw=true "Opaq C1 Frame") | the four channel dimmer device capable to connect with any led lamp (several settings available) ![Opaq n1 Frame](/hardware/opac_n1/v2.1/top.png?raw=true "Opaq n1 Frame") | the power outlet controller node for 220v devices up to 2400w
 
 Expected features:
 - Support for sensor logging (temperature, humidity, light intensity, PH, Nitrates(NO3))
