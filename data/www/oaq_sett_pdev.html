@@ -1,0 +1,346 @@
+<div data-role="page" id="pagesettingspdev" data-dom-cache="true">
+  <div data-role="header">
+    <h1>Setup.Aquarium Power</h1><a href="#pagesettings" data-transition="slidefade" class="ui-btn ui-corner-all ui-btn-inline ui-icon-back ui-btn-icon-left">Setup</a>
+
+  </div>
+
+  <div role="main" class="ui-content">
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li id="pdevgridid" class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+          
+        </li>
+        <li>
+          <div id="pdevchart" style="height:50%; width:100%;"></div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li id="pdevgridid" class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+          Settings
+        </li>
+        <li>
+          
+          <div data-role="fieldcontain">
+            <label for="pdevmodel" class="select">Model:</label>
+            <select name="pdevmodel" id="pdevmodel" data-mini="true">
+              <option value="opaqn2">Opaq n2</option>
+              <option value="chacondio">Chacon DIO</option>
+            </select>
+          </div>
+
+          <div data-role="fieldcontain">
+            <label for="ldeviceactions" class="select">Actions:</label>
+            <div data-role="controlgroup" data-type="horizontal" id="ldeviceactions" data-mini="true">
+              <a id="bindpdev" href="#bindpdevdialog" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-plus">Bind</a>
+              <a id="unbindpdev" href="#unbindpdevdialog" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-delete">Unbind</a>
+              <a href="#" class="ui-shadow ui-btn ui-corner-all ui-btn-icon-left ui-icon-bullets">Search</a>
+            </div>
+          </div>
+
+      <div data-role="popup" id="bindpdevdialog" data-overlay-theme="a" data-theme="a" data-dismissible="false" style="max-width:400px;">
+        <div data-role="header" data-theme="a">
+          <h1>Connecting Device</h1>
+        </div>
+        <div role="main" class="ui-content">
+          <h3 class="ui-title">Is device connected ?</h3>
+          <p>This action can be retried later.</p>
+          <a id="pdevbinddone" href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">Continue</a>
+        </div>
+      </div>
+
+      <div data-role="popup" id="unbindpdevdialog" data-overlay-theme="a" data-theme="a" data-dismissible="false" style="max-width:400px;">
+        <div data-role="header" data-theme="a">
+          <h1>Disconnecting Device</h1>
+        </div>
+        <div role="main" class="ui-content">
+          <h3 class="ui-title">Is device disconnected ?</h3>
+          <p>This action can be retried later.</p>
+          <a id="pdevunbinddone" href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">Continue</a>
+        </div>
+      </div>
+
+        </li>
+      </ul>
+    </div>
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
+          Advanced Settings
+        </li>
+
+        <li>      
+          <table style='width:100%'>
+            <tr>
+              <td>
+                <label for="pdevidchange">Outlet id:</label>
+              </td>
+              <td>
+                <input name="pdevidchange" id="pdevidchange" pattern="[a-fA-f0-9-]{7}" value="" type="text">
+              </td>
+              <td style='width:10%'>
+                <a id="submitpdevid" href="#" class="ui-btn ui-shadow ui-corner-all ui-icon-check ui-btn-icon-notext ui-btn-inline">Check</a>
+              </td>
+            </tr>
+          </table>
+        </li>
+
+        <li>
+
+          <div data-role="fieldcontain">
+            <label for="file">Update:</label>
+            <input name="file" id="file" value="" type="file">
+          </div>
+
+        </li>
+      </ul>
+    </div>
+
+
+    </div>
+
+
+
+    <script>
+
+    $('#pdevmodel').on("change", function() {
+      var idx = find();
+      var selected = $(this).val();
+
+      if ( selected !=  global.poweroutletcontroller.data[idx].type )
+      {
+        global.poweroutletcontroller.data[idx].type = selected;
+        ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+      }
+    });
+
+    $('#submitpdevid').on("click", function () {
+      var idx = find();
+
+      global.poweroutletcontroller.data[idx].pdevid = $('#pdevidchange').val();
+
+      ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+    });
+
+    var find = function ()
+    {
+      // find idx based on id
+      var idx=0;
+
+      $.each(global.poweroutletcontroller.data, function (index, value) 
+        {
+          if (value.pdevid == localStorage["pdevid"])
+          {
+            console.log("pdev " + localStorage["pdevid"] + "is found." );
+            idx = index;
+          }
+        });
+      return idx;
+    }
+
+    $(document).on('click', '#bindpdev', function()
+    {
+      console.log("binding pdev.");
+
+      var idx = find();
+
+      localStorage["pdevidrestore"] = global.poweroutletcontroller.data[idx].state;
+
+      global.poweroutletcontroller.data[idx].state = "bind";
+
+      ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+    });
+
+    $(document).on('click', '#pdevbinddone', function()
+    {
+      console.log("bind pdev ended.");
+
+      var idx = find();
+
+      global.poweroutletcontroller.data[idx].state = localStorage["pdevidrestore"];
+
+      ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+    });
+
+
+    $(document).on('click', '#unbindpdev', function()
+    {
+      console.log("unbinding pdev.");
+
+      var idx = find();
+
+      localStorage["pdevidrestore"] = global.poweroutletcontroller.data[idx].state;
+
+      global.poweroutletcontroller.data[idx].state = "unbind";
+
+      ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+    });
+
+    $(document).on('click', '#pdevunbinddone', function()
+    {
+      console.log("unbind pdev ended.");
+
+      var idx = find();
+
+      global.poweroutletcontroller.data[idx].state = localStorage["pdevidrestore"];
+
+      ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+    });
+
+
+    $(document)
+      .on("pageshow", "#pagesettingspdev", function()
+      {
+        
+        $('#pdevgridid').html("Grid for power device " + localStorage["pdevid"]);
+
+        $('#pdevidchange').val(localStorage["pdevid"]);
+
+        var idx = find();
+
+        $('#pdevmodel').val(global.poweroutletcontroller.data[idx].type).change();
+
+        
+
+        // get the light settings
+        s1 = global.poweroutletcontroller.data[idx].data;
+        
+        if ( !("pdevplot" in window["global"]) )
+        {
+
+        $.jqplot.config.enablePlugins = true;
+
+        global.pdevplot = $.jqplot('pdevchart', s1,
+        {
+          axes:
+          {
+            xaxis:
+            {
+              renderer: $.jqplot.DateAxisRenderer,
+              tickOptions:
+              {
+                formatString: '%H:%M'
+              },
+              numberTicks: 24,
+              min: new Date(0).getTime(),
+              max: new Date(86400000-1).getTime()
+            },
+            yaxis:
+            {
+              tickOptions:
+              {
+                formatString: '%b'
+              },
+              numberTicks: 2,
+              min: false,
+              max: true
+            }
+          },
+          highlighter:
+          {
+            sizeAdjust: 10,
+            tooltipLocation: 'n',
+            tooltipAxes: 'y',
+            tooltipFormatString: ' %.2f ',
+            useAxesFormatters: false
+          },
+          cursor:
+          {
+            show: true
+          },
+          seriesColors: ["#4bb2c5", "#c5b47f", "#EAA228", "#579575", "#839557", "#958c12", "#953579", "#4b5de4", "#d8b83f", "#ff5800", "#0085cc"],
+          series: [
+            {
+              dragable:
+              {
+                color: '#ffb2c5',
+                constrainTo: 'y',
+              }
+        },
+            {
+              dragable:
+              {
+                color: '#ffb47f',
+                constrainTo: 'y',
+              }
+        },
+            {
+              dragable:
+              {
+                color: '#ffb47f',
+                constrainTo: 'y',
+              }
+        },
+            {
+              dragable:
+              {
+                color: '#ffb47f',
+                constrainTo: 'y',
+              }
+        }],
+          grid:
+          {
+            background: '#ffffff'
+          }
+        });
+
+
+        $('#pdevchart').bind('jqplotDragStop',
+            function(seriesIndex, pointIndex, pixelposition, data)
+            {
+              var idx = find();
+              var dt = [];
+
+              // for each plot1.series
+              $.each(global.pdevplot.series, function(index, value)
+              {
+                dt[index] = value.data;
+              });
+
+              console.log(dt);
+
+              global.poweroutletcontroller.data[idx].data = dt;
+
+              $.each(global.poweroutletcontroller.data[idx].data, function (index, value) {
+                $.each(value, function (index2, value2) {
+                  if ( global.poweroutletcontroller.data[idx].data[index][index2][1] >= 0.5 )
+                  {
+                    global.poweroutletcontroller.data[idx].data[index][index2][1] = true;
+                  }
+
+                  if (global.poweroutletcontroller.data[idx].data[index][index2][1] < 0.5)
+                  {
+                    global.poweroutletcontroller.data[idx].data[index][index2][1] = false;
+                  }
+                });
+              });
+
+              s1 = global.poweroutletcontroller.data[idx].data;
+              global.pdevplot.replot({data:s1});
+
+              // let's do the save
+              //alert(JSON.stringify(global.fullaquariumdimmer.data[global.state.lightdeviceidx]));
+              ws.send(JSON.stringify(global.poweroutletcontroller.data[idx]));
+            
+            });
+
+          $( "#channelslider" ).bind( "change", function(event, ui) {
+
+          });
+        }
+        else
+        {
+          // update graph
+          global.pdevplot.replot({data:s1});
+
+        }
+
+
+      });
+
+    </script>
+</div>

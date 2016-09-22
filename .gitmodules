@@ -1,0 +1,12 @@
+[submodule "libs/ESPAsyncTCP"]
+	path = libs/ESPAsyncTCP
+	url = https://github.com/me-no-dev/ESPAsyncTCP.git
+[submodule "libs/ESPAsyncWebServer"]
+	path = libs/ESPAsyncWebServer
+	url = https://github.com/me-no-dev/ESPAsyncWebServer.git
+[submodule "libs/ArduinoJson"]
+	path = libs/ArduinoJson
+	url = https://github.com/bblanchon/ArduinoJson.git
+[submodule "libs/LinkedList"]
+	path = libs/LinkedList
+	url = https://github.com/ivanseidel/LinkedList.git

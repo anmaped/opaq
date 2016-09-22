@@ -26,12 +26,25 @@
 #include "Opaq_c1.h"
 
 #include <ESP8266WiFi.h> 
-#include <ESP8266WebServer.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+#include <ESP8266AVRISP.h>
 #include <ESP8266httpUpdate.h>
-#include <ESP8266httpClient.h>
-#include <JsonParser.h>
-#include <WebSocketsServer.h>
-#include <Hash.h>
+#include <ArduinoJson.h>
+//#include <Hash.h>
+#include <HashMap.h>
+#include <LinkedList.h>
+
+#include <Adafruit_ILI9341.h>
+#include <Adafruit_GFX.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include <RtcDateTime.h>
+
+#include <protocol.h>
+
+#include <memory>
+#include <libtar.h>
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -40,11 +53,6 @@
 #if OPAQ_OTA_ARDUINO
 //#include <ArduinoOTA.h>
 #endif
-
-#include <RtcDS3231.h>
-
-#include <nRF24L01.h>
-#include <RF24.h>
 
 #include <EEPROM.h>
 #include <SPI.h>

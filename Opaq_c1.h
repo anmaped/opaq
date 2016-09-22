@@ -26,18 +26,19 @@
 #ifndef OPENAQ_H
 #define OPENAQ_H
 
-#include "AcHtml.h"
+#include "Opaq_com.h"
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <JsonParser.h>
-#include <RtcDS3231.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
-#include <nRF24L01.h>
-#include <RF24.h>
+#include <ESP8266AVRISP.h>
+#include <RtcDateTime.h>
 
 #include <Wire.h>
 #include <Ticker.h>
+
+#include <atomic>
 
 // ESP8266 specific headers
 extern "C" {
@@ -46,11 +47,10 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x02
-#define OPAQ_VERSION "1.0.4"
+#define SIG 0x06
+#define OPAQ_VERSION "1.0.6"
 
 // configuration parameters
-#define OPAQ_URL_FIRMWARE_UPLOAD "ec2-52-29-83-128.eu-central-1.compute.amazonaws.com"
 #define OPAQ_MDNS_RESPONDER 1
 #define OPAQ_OTA_ARDUINO 0
 
@@ -65,26 +65,21 @@ class OpenAq_Controller
 {
 private:
 
-  //JsonParser<32> parser;
+  AsyncWebServer server;
+  AsyncWebSocket ws;
 
-  ESP8266WebServer server;
+  ESP8266AVRISP avrprog;
 
   // Set up alarms to call periodic tasks
   Ticker timming_events;
   Ticker t_evt;
 
+  
   // real-time clock initialization
-  RtcDS3231 rtc;
   bool clockIsReady;
 
-  // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
-  RF24 radio;
-
-  // manages html producer
-  AcHtml html;
-
   // manages flash memory block for permanent settings
-  //AcStorage storage;
+  //Opaq_storage storage;
 
   // temporary string container
   String str;
@@ -96,18 +91,9 @@ private:
   os_event_t deviceTaskQueue[deviceTaskQueueLen];
   os_event_t _10hzLoopQueue[deviceTaskQueueLen];
 
-  void handleRoot();
-  void handleLight();
-  void handleAdvset();
-  void handleClock();
-  void handlePower();
-  void handleGlobal();
-
-  void updatePowerOutlets ( uint8_t pdeviceId );
-
-  std::function<void(String*)> sendBlockGlobal( ESP8266WebServer* sv, uint16_t* count, uint8_t* step );
-
   void ota();
+
+  void run_programmer();
 
 public:
 
@@ -117,14 +103,19 @@ public:
 
   void setClockReady() { clockIsReady = true; };
   bool isClockReady() { return clockIsReady; };
+  RtcDateTime getClock() { return clock; };
 
   void run_controller();
-  void run_task_rf433ook();
   void run_task_ds3231();
-  void run_task_nrf24();
+  void run_touch();
+  void run_tft();
+
+  Opaq_com& getCom() { return communicate; };
+
+  void syncClock();
 
 };
 
-extern OpenAq_Controller opaq_controller;;
+extern OpenAq_Controller opaq_controller;
 
 #endif // OPENAQ_H

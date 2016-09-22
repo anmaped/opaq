@@ -25,14 +25,19 @@
 
 #include <pgmspace.h>
 #include <FS.h>
-#include <ESP8266WiFi.h>
 #include <ESP8266httpUpdate.h>
 
 #include "Opaq_c1.h"
-#include "Rf433ook.h"
-#include "websites.h"
+#include "opaq.h"
 
-#include "Op_websockets.h"
+#include "Opaq_websockets.h"
+#include "Opaq_storage.h"
+#include "Opaq_iaqua.h"
+#include "Opaq_iaqua_pages.h"
+#include "Opaq_recovery.h"
+#include "Opaq_command.h"
+
+#include "slre.h"
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -43,19 +48,37 @@
 ArduinoOTA ota_server;
 #endif
 
+#ifdef OPAQ_C1_SCREEN
+// change this....
+#define TFT_CS 16
+#define TFT_DC 15
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+Opaq_iaqua iaqua;
+
+LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
+// until here...
+#endif
+
+
+OpenAq_Controller opaq_controller;
+
 // non-class functions begin
+
+bool run1hz_flag = false;
+bool enableTartExtract = false;
 
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
-  opaq_controller.run_task_ds3231();
-  opaq_controller.setClockReady();
-
-  opaq_controller.run_task_rf433ook();
+  run1hz_flag = true;
 }
 
 static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
 {
-  opaq_controller.run_task_nrf24();
+
+#ifdef OPAQ_C1_SCREEN
+  opaq_controller.run_touch();
+#endif
+
 }
 
 static void _devicesTask_timmingEvent()
@@ -76,12 +99,11 @@ static void _10hzLoop_timmingEvent()
 =============================================================================*/
 
 OpenAq_Controller::OpenAq_Controller() :
-  server ( ESP8266WebServer ( 80 ) ),
+  server ( AsyncWebServer ( 80 ) ),
+  ws ( AsyncWebSocket("/ws") ),
+  avrprog (328, 2),
   timming_events ( Ticker() ),
-  rtc ( RtcDS3231() ),
-  radio ( RF24 ( 16, 15 ) ),
-  html ( AcHtml() ),
-  //storage ( AcStorage() ),
+  //storage ( Opaq_storage() ),
   str ( String() ),
   clockIsReady( false )
 {
@@ -91,7 +113,7 @@ OpenAq_Controller::OpenAq_Controller() :
 
 void OpenAq_Controller::setup_controller()
 {
-  delay ( 2000 );
+  delay ( 100 );
 
   // initialize seed for code generation
   randomSeed ( ESP.getCycleCount() );
@@ -100,10 +122,16 @@ void OpenAq_Controller::setup_controller()
   Serial.begin ( 115200 );
   Serial.setDebugOutput ( true );
 
-  if ( storage.getSignature() != SIG )
+  pinMode(5,OUTPUT); // AVR_CS OUT MODE
+  digitalWrite(5, HIGH); // AVR_CS
+
+  // reovery mode
+  byte _c;
+  delay(1000);
+  if(Serial.readBytes(&_c,1))
   {
-    storage.defaults ( SIG ); // uncomment to set the factory defaults
-    Serial.println ( F("default settings applied.") );
+    Serial.println("recovery mode!");
+    return;
   }
 
   // Initialize file system.
@@ -113,37 +141,93 @@ void OpenAq_Controller::setup_controller()
     ESP.restart();
   }
 
-  // read openaq mode from eeprom
-  bool mode = storage.getModeOperation() & 0b00000001;
+  Serial.println(String(F("Opaq Version ")) + OPAQ_VERSION);
+  Serial.println(F("Copyright (c) 2015 Andre Pedro. All rights reserved."));
+  
+  #ifdef OPAQ_C1_SCREEN
+  // display welcome screen tft
+  tft.begin();
 
-  if ( mode )
+  Opaq_iaqua_page_welcome wscreen = Opaq_iaqua_page_welcome();
+  wscreen.draw();
+  wscreen.setExecutionBar(5);
+  #endif
+
+  
+  if ( storage.getSignature() != SIG )
   {
-    const char* ssid = storage.getSSID();
+    Serial.println ( F("default settings will be applied.") );
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(100);
+    wscreen.msg( String(F("Please reboot")).c_str() );
+#endif
+
+    storage.defaults ( SIG ); // uncomment to set the factory defaults
+  }
+
+  Serial.println(F("SIG Accepted"));
+
+
+  if ( storage.wifisett.getModeOperation() )
+  {
+    Serial.println(F("softAP"));
+    
+    String ssid, pwd;
+    storage.wifisett.getSSID(ssid);
+    storage.wifisett.getPwd(pwd);
 
     Serial.print ( F("SSID: ") );
     Serial.println ( ssid );
 
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(20);
+    wscreen.msg( String(F("Initializing AP mode")).c_str() );
+#endif
+
     WiFi.mode(WIFI_AP);
-    delay(5000);
-    
-    WiFi.printDiag(Serial);
+    delay(4000);
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(45);
+#endif
 
     // setup the access point
-    WiFi.softAP ( ssid , storage.getPwd(), 6 ); // with password and fixed ssid
+    WiFi.softAP ( ssid.c_str() , pwd.c_str(), 6 ); // with password and fixed ssid
+
+    Serial.print(F("IP address: "));
+    Serial.println(WiFi.softAPIP());
   }
   else
   {
+    Serial.println(F("client"));
+    
     // or setup the station
-    /*const char* ssid = storage.getClientSSID();
-    const char* pwd = storage.getClientPwd();
+    String ssid, pwd;
+    
+    storage.wifisett.getClientSSID(ssid);
+    storage.wifisett.getClientPwd(pwd);
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(20);
+    wscreen.msg( String(F("Initializing WIFI station")).c_str() );
+#endif
 
     WiFi.mode(WIFI_STA);
-    delay(5000);
+    delay(4000);
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(45);
+#endif
 
     Serial.print ( F("Connecting to ") );
     Serial.println ( ssid );
 
-    WiFi.begin ( ssid, pwd );*/
+#ifdef OPAQ_C1_SCREEN
+    wscreen.msg( (String(F("Connecting to ")) + ssid ).c_str() );
+#endif
+
+    WiFi.begin ( ssid.c_str(), pwd.c_str() );
 
     WiFi.printDiag(Serial);
     
@@ -158,16 +242,29 @@ void OpenAq_Controller::setup_controller()
       if (count_tries > 100)
       {
         Serial.println ( F("returning to AP mode. Reboot.") );
-        storage.enableSoftAP();
-        storage.save();
+
+#ifdef OPAQ_C1_SCREEN
+        wscreen.msg( String(F("Returning to AP mode")).c_str() );
+#endif
+
+        delay(1000);
+        storage.wifisett.enableSoftAP();
         ESP.reset();
       }
     }
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.msg( String(F("Connected")).c_str() );
+#endif
 
     Serial.println ( F("WiFi connected") );
     Serial.println ( F("IP address: ") );
     Serial.println ( WiFi.localIP() );
   }
+
+#ifdef OPAQ_C1_SCREEN
+  wscreen.setExecutionBar(55);
+#endif
 
 #if OPAQ_OTA_ARDUINO
   // OTA server
@@ -175,112 +272,204 @@ void OpenAq_Controller::setup_controller()
 #endif
 
 #if OPAQ_MDNS_RESPONDER
+
+#ifdef OPAQ_C1_SCREEN
+  wscreen.msg( String(F("mDNS responder")).c_str() );
+#endif
+
   // mDNS responder
   if (!MDNS.begin("opaq")) {
-    Serial.println("Error setting up MDNS responder!");
+    Serial.println(F("Error setting up MDNS responder!"));
     while (1) {
       delay(1000);
     }
   }
-  Serial.println("mDNS responder started");
+  Serial.println(F("mDNS responder started"));
   MDNS.addService("http", "tcp", 80);
 #endif
 
   //  BEGINS the LOADING OF FILES FROM SPIFFS
-
-  auto serveron = [=](Dir d)
-    {
-      String filename = d.fileName();
-      Serial.printf("%s %d  ", filename.c_str(), d.fileSize() );
-      
-      // get extension
-      String ext = filename.substring(filename.indexOf('.', 0), filename.indexOf('\n', 0));
-      const __FlashStringHelper* mime;
-      
-      if (ext == F(".txt"))
-      {
-        mime = F("text/plain");
-      }
-    
-      Serial.println(mime);
-      
-      server.on ( filename.c_str(), [=]() { server.send_F ( 200, String(mime).c_str(), filename.c_str() ); } ); // verify filename string (can desapear...)
-    };
   
-  // search available SPIFFS files starting with prefix '_p'
-  Dir d = SPIFFS.openDir("/");
-  // list directory
-  Serial.println("LIST DIR: ");
-  while ( d.next() )
-  {
-    serveron(d);
-  }
+#ifdef OPAQ_C1_SCREEN
+  wscreen.msg( String(F("Filesystem check")).c_str() );
+#endif
+
+
+  server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
+    request->send(200);
+  }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+
+      static File f;
+
+      /*// filename and path to store
+      char * filename[64] = "foo";
+
+      if(request->hasParam("filename", true))
+      {
+        AsyncWebParameter* p = request->getParam("filename", true);
+        p->name().c_str()
+        strcpy(filename, p->value().c_str());
+      }*/
+
+      if(!index){
+
+        // test if we want to format
+        //SPIFFS.format();
+
+        if(!f)
+        {
+          f = SPIFFS.open(String(String(F("/tmp/")) + filename).c_str(), "w");
+        }
+
+        Serial.printf("UploadStart: %s\n", filename.c_str());
+      }
+
+      for(size_t i=0; i<len; i++){
+        f.write(data[i]);
+      }
+
+      if(final){
+        f.close();
+
+        struct slre_cap caps[5];
+
+        String lre_tar = String(F("^opaqc1-([a-z]+)-v([0-9]+).tar$"));
+        String lre_bin = String(F("^opaqc1-v([0-9]+)-([a-z0-9]+).bin$"));
+
+        // contain tar extension ? apply tar extractor.
+        if (slre_match(lre_tar.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
+        //if(filename == "www.tar")
+        {
+          String target = F("/");
+          target += caps[0].ptr;
+          target.setCharAt(caps[0].len + 1, '\0');
+          Serial.printf("Path: %s\n", target.c_str());
+
+          oq_cmd c;
+          c.exec = [](LinkedList<String>& args) { storage.tarextract(args.pop().c_str(), args.pop().c_str()); };
+
+          String filepath = String(F("/tmp/")) + filename;
+          //String b = "/www";
+          c.args.add(target);
+          c.args.add(filepath);
+
+          command.send(c);
+
+          request->redirect("/rcv?success=true");
+        }
+        else
+        if (slre_match(lre_bin.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
+        //if(filename == "fw.bin")
+        {
+          String md5 = "";
+          md5 += caps[1].ptr;
+          md5.setCharAt(caps[1].len, '\0');
+          Serial.printf("MD5: %s\n", md5.c_str());
+
+          oq_cmd c;
+          c.exec = [](LinkedList<String> args) { storage.fwupdate(args.pop().c_str(), args.pop().c_str()); };
+          c.args = LinkedList<String>();
+          String filepath = String(F("/tmp/")) + filename;
+          //String a = "/tmp/fw.bin";
+          //String b = "XXX";
+          c.args.add(md5);
+          c.args.add(filepath);
+
+          command.send(c);
+
+          request->redirect("/rcv?success=true&fw=true");
+        }
+        else
+        {
+          //request->send(200, "text/html", "SUCCESS.");
+          request->redirect("/rcv?success=false");
+        }
+
+        Serial.printf("UploadEnd: %s, %u B\n", filename.c_str(), index+len);
+
+      }
+    }
+  );
+
+  // Simple Firmware Update Form
+  server.on("/rcv", HTTP_GET, [](AsyncWebServerRequest *request){
+    opaq_recovery(request);
+    //request->send(200, "text/html","<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='upload'></form><a href='format'>Format</a>");
+  });
+
+  server.on("/formatspiffs", HTTP_GET, [](AsyncWebServerRequest *request){
+    
+    oq_cmd c;
+    c.exec = [](LinkedList<String> args) { SPIFFS.format(); };
+    c.args = LinkedList<String>();
+
+    command.send(c);
+
+    request->send(200);
+  });
 
   //  ENDS the LOADING OF FILES FROM SPIFFS
 
+
   // setup webserver
-  server.on ( "/"      , std::bind ( &OpenAq_Controller::handleRoot, this ) );
-  server.on ( "/light" , std::bind ( &OpenAq_Controller::handleLight, this ) );
-  server.on ( "/clock" , std::bind ( &OpenAq_Controller::handleClock, this ) );
-  server.on ( "/power" , std::bind ( &OpenAq_Controller::handlePower, this ) );
-  server.on ( "/advset", std::bind ( &OpenAq_Controller::handleAdvset, this ) );
-  server.on ( "/global", std::bind ( &OpenAq_Controller::handleGlobal, this ) );
+  server.serveStatic("/", SPIFFS, "/www/").setDefaultFile("opaqc1.html");
 
-  // setup webfiles for webserver
-  for ( int fl = 0; fl < N_FILES; fl++ )
+  server.onNotFound ( [ = ](AsyncWebServerRequest *request)
   {
-    server.on ( files[fl].filename, [ = ]()
-    {
-      server.sendHeader ( "Content-Length", String ( files[fl].len ) );
-      server.send_P ( 200, files[fl].mime, ( PGM_P )files[fl].content,
-                      files[fl].len );
-    } );
-  }
-
-  server.onNotFound ( [ = ]()
-  {
-    server.send ( 404, "  text/plain", String ( "    " ) );
+    request->send ( 404, "  text/plain", String ( "    " ) );
   } );
+
+  // attach AsyncWebSocket
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+  
 
   // start server
   server.begin();
 
-  // websockets
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-
-  // RF433 setup
-  Rf433_transmitter.set_pin ( 2 );
-  Rf433_transmitter.set_encoding ( Rf433_transmitter.CHANON_DIO_DEVICE );
+  // start avrprog
+  avrprog.begin();
 
   // RTC setup
-  rtc.Begin();
-  Wire.begin ( 4, 5 );
+  //rtc.Begin();
+  //Wire.begin ( 4, 5 );
 
-  // NRF24 setup and radio configuration
-  radio.begin();
-  radio.setChannel(1);
-  radio.setDataRate(RF24_1MBPS);
-  radio.setAutoAck(false);
-  //radio.disableCRC();
-  radio.openWritingPipe( 0x5544332211LL ); // set address for outcoming messages
-  radio.openReadingPipe( 1, 0x5544332211LL ); // set address for incoming messages
+#ifdef OPAQ_C1_SCREEN
+  wscreen.setExecutionBar(75);
 
-  // manual test
-  //uint8_t buf[5] = {0x11, 0x22, 0x33, 0x44, 0x55};
-  //radio.write_register ( TX_ADDR, buf, 5 );
-  //radio.write_register ( SETUP_AW, 0x3 );
-  //radio.write_register ( EN_AA, 0x0 ); // mandatory - no ACK
-  //radio.write_register ( EN_RXADDR, 0x0 );
-  //radio.write_register ( SETUP_RETR, 0x0 );
-  //radio.write_register ( RF_CH, 0x1 );
-  //radio.write_register ( RF_SETUP, 0x7 );
-  //radio.write_register ( CONFIG, 0xE ); // mandatory
+  // 
+  // TOUCH CONTROLLER INITIALIZATION
+  // 
+  communicate.touch.begin();
 
-  //radio.startListening();
+  if ( !storage.touchsett.isTouchMatrixAvailable() )
+  {
+    // do calibration
+    communicate.touch.doCalibration(tft_interface);
+    if( communicate.touch.getCalibrationMatrix(storage.touchsett.getTouchMatrixRef()) )
+    {
+      storage.touchsett.commitTouchSettings();
+      Serial.println(F("Touch settings has been updated."));
+    }
+    else
+    {
+      Serial.println(F("Touch settings generation has been failed. Reseting ..."));
+      
+      ESP.reset();
+    }
+  }
+  else
+  {
+    Serial.println(F("Touch settings has been read."));
+    communicate.touch.setCalibration(storage.touchsett.getTouchMatrix());
+  }
+  // END TOUCH CONTROLLER INITIALIZATION
 
-  // for debug purposes of radio transceiver
-  radio.printDetails();
+
+  wscreen.setExecutionBar(100);
+#endif
+
+  communicate.nrf24.init();
 
   // registers deviceTask in the OS control structures
   system_os_task ( _deviceTaskLoop, deviceTaskPrio, deviceTaskQueue,
@@ -290,93 +479,95 @@ void OpenAq_Controller::setup_controller()
                    _10hzLoopTaskQueueLen );
 
   // Attach deviceTask event trigger function for periodic releases
-  timming_events.attach_ms ( 2000, _devicesTask_timmingEvent );
+  timming_events.attach_ms ( 1000, _devicesTask_timmingEvent );
 
-  t_evt.attach_ms ( 100, _10hzLoop_timmingEvent );
+  t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );
+
+#ifdef OPAQ_C1_SCREEN
+  run_tft();
+#endif
+
+  Serial.print(F("opaq>"));
+
 }
 
-int count = 0;
-bool opaq_defaults = false;
 void OpenAq_Controller::run_controller()
 {
-  //ota_server.handle();
+  // program handler
+  run_programmer();
 
-  server.handleClient();
-
-  webSocket.loop();
-
-  /*if (count == 100000)
-  {
-    //opaq_controller.run_task_rf433ook();
-    count=0;
-  }
-  count++;*/
-
-  if (opaq_defaults)
+  if (storage.getUpdate())
   {
     // initialize opaq services
     storage.initOpaqC1Service();
-    opaq_defaults = false;
+    storage.setUpdate(false);
+  }
+
+  command.handler();
+
+  // run that at 1hz
+  if(run1hz_flag)
+  {
+    run_task_ds3231();
+    setClockReady();
+
+    communicate.atsha204.getCiferKey();
+
+    storage.pwdevice.run();
+
+    storage.faqdim.run();
+
+    run1hz_flag = false;
   }
 
 }
 
-void OpenAq_Controller::updatePowerOutlets ( uint8_t pdeviceId )
+void OpenAq_Controller::run_programmer()
 {
-  bool vector[36] = { 0 };
-  // vector is organized as follows :
-  //              |---------------------------------------ID------------------------------------|--GROUPFLAG--|--ON/OFF--|---GROUPID---|-DIMMER-|
-  // GLOBAL OFF -- unbinds everything
-  // encoding   : 01 01 10 10 10 10 01 10 10 10 10 10 10 01 01 01 10 01 10 10 10 10 10 10 10 01 |       10         01    | 01 01 01 01 | UNDEF
-  // bit stream : 0  0  1  1  1  1  0  1  1  1  1  1  1  0  0  0  1  0  1  1  1  1  1  1  1  0  |       1          0     |  0  0  0  0 | UNDEF
-  // GLOBAL ON -- do not bind (binds are only allowed when groupflag is zero)
-  // bit stream : 0  0  1  1  1  1  0  1  1  1  1  1  1  0  0  0  1  0  1  1  1  1  1  1  1  0  |       1          1     |  0  0  0  0 | UNDEF
+  static AVRISPState_t last_state = AVRISP_STATE_IDLE;
+  bool lock = true;
 
-  // get device code id
-  uint32_t code = storage.getPDeviceCode ( pdeviceId );
+  while(lock)
+  {
+    AVRISPState_t new_state = avrprog.update();
+    if (last_state != new_state) {
+        switch (new_state) {
+            case AVRISP_STATE_IDLE: {
+                Serial.println(F("[AVRISP] now idle"));
+                lock = false;
+                communicate.unlock();
+                break;
+            }
+            case AVRISP_STATE_PENDING: {
+                Serial.println(F("[AVRISP] connection pending"));
+                // Clean up your other purposes and prepare for programming mode
+                break;
+            }
+            case AVRISP_STATE_ACTIVE: {
+                Serial.println(F("[AVRISP] programming mode"));
+                // Stand by for completion
+                communicate.spinlock();
+                lock = true;
+                break;
+            }
+        }
+        last_state = new_state;
+    }
+    else
+    {
+      if(new_state == AVRISP_STATE_IDLE)
+      {
+        lock = false;
+      }
+    }
 
-  int j = 0;
-  while ( j < 26 && code )
-  {
-    vector[j++] = code & 1;
-    code >>= 1;
-  }
+    // Serve the client
+    if (last_state != AVRISP_STATE_IDLE)
+    {
+      avrprog.serve();
+    }
 
-  // get state from settings
-  uint8_t state = storage.getPDeviceState ( pdeviceId );
-
-  if ( state == OFF )
-  {
-    vector[26] = 0;
-    vector[27] = 0;
-  }
-  else if ( state == UNBINDING )
-  {
-    vector[26] = 1;
-    vector[27] = 0;
-  }
-  else if ( state == BINDING )
-  {
-    // set group flag to zero for allowing bind operations
-    vector[26] = 0;
-    vector[27] = 1;
-  }
-  else
-  {
-    vector[26] = 1;
-    vector[27] = 1;
-  }
-
-  for ( int i = 0; i < 36; i++ )
-  {
-    DEBUGV ( "%d,", vector[i] );
-  }
-  DEBUGV ( "\n" );
-
-  for ( int i = 0; i < 3; i++ )
-  {
-    Rf433_transmitter.sendMessage ( vector );
-    delayMicroseconds ( 10000 );
+    optimistic_yield(10000);
   }
 }
 
@@ -390,755 +581,149 @@ uint16_t normalizeClock(RtcDateTime * clock, const uint16_t a, const uint16_t b 
   return (uint16_t)clktmp;
 }
 
-void OpenAq_Controller::run_task_rf433ook()
-{
-  if (storage.getNumberOfPowerDevices() == 0)
-    return;
-
-  // check if some device is binding...
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
-        pdeviceId++ )
-  {
-    if ( storage.getPDeviceState ( pdeviceId ) == BINDING )
-    {
-      // do binding
-
-      updatePowerOutlets ( pdeviceId );
-
-      return;
-    }
-  }
-
-  // check if some device is unbinding
-  for ( int pdeviceId = 1; pdeviceId <= storage.getNumberOfPowerDevices();
-        pdeviceId++ )
-  {
-    if ( storage.getPDeviceState ( pdeviceId ) == UNBINDING )
-    {
-      // do unbinding
-
-      updatePowerOutlets ( pdeviceId );
-
-      return;
-    }
-  }
-
-  static bool wait_next_change[N_POWER_DEVICES] = { false };
-  static int pdeviceId = 1;
-
-  // normal execution
-  // ----------------------------------
-  DEBUGV ( "ac:: power %d\r\n", storage.getPDeviceState ( pdeviceId ) );
-
-  pstate auto_state = (pstate)storage.getPDevicePoint( pdeviceId, normalizeClock(&clock, 0, 255) );
-
-  // update Power outlet state according to the step functions
-  DEBUGV("::ac nclock %d\n", normalizeClock(&clock, 0, 255));
-  DEBUGV("::ac val %d\n", auto_state );
-
-  // get state, if state is "permanent on"
-  if ( storage.getPDeviceState( pdeviceId ) == ON_PERMANENT )
-  {
-    // set on until next state change
-    wait_next_change[ id2idx( pdeviceId ) ] = true;
-    storage.setPowerDeviceState( pdeviceId, ON );
-  }
-
-  // get state, if state is "permanent off"
-  if ( storage.getPDeviceState( pdeviceId ) == OFF_PERMANENT )
-  {
-    // set off until next change
-    wait_next_change[ id2idx( pdeviceId ) ] = true;
-    storage.setPowerDeviceState( pdeviceId, OFF );
-  }
-
-  // detect change
-  if ( storage.getPDeviceState( pdeviceId ) == AUTO )
-  {
-    wait_next_change[ id2idx( pdeviceId ) ] = false;
-  }
-
-  if ( !wait_next_change[ id2idx( pdeviceId ) ] )
-  {
-    if ( auto_state )
-    {
-      storage.setPowerDeviceState( pdeviceId, ON );
-    }
-    else
-    {
-      storage.setPowerDeviceState( pdeviceId, OFF );
-    }
-  }
-
-  updatePowerOutlets ( pdeviceId );
-
-  // re-send messages cyclically
-  pdeviceId++;
-
-  if (pdeviceId > storage.getNumberOfPowerDevices())
-    pdeviceId = 1;
-
-}
-
 void OpenAq_Controller::run_task_ds3231()
 {
-  // update clock
-  clock = rtc.GetDateTime();
+  communicate.getClock(clock);
 }
 
+#ifdef OPAQ_C1_SCREEN
+void OpenAq_Controller::run_touch()
+{
+  communicate.touch.service();
+  touch_t data = communicate.touch.get();
+
+  if( communicate.lock() )
+    return;
+
+  iaqua.service(data.x, data.y, data.pressure);
+
+  communicate.unlock();
+  
+}
+
+
+void OpenAq_Controller::run_tft()
+{
+  //Serial.println(F("ASK ILI9341"));
+
+  communicate.spinlock();
+  
+  tft.fillScreen(ILI9341_BLACK);
+  iaqua.screenHome();
+
+  communicate.unlock();
+  
+  //Serial.println(F("ILI9341 ASKED"));
+  
+}
+#endif
 
 /*--------------------  nrf24 device controller task  ---------------------*/
 
-uint8_t calculate_lrc(uint8_t *buf)
+void OpenAq_Controller::syncClock()
 {
-  // calculate LRC - longitudinal redundancy check
-  uint8_t LRC = 0;
+  unsigned int localPort = 2390;      // local port to listen for UDP packets
 
-  for ( int j = 1; j < 14; j++ )
-  {
-    LRC ^= buf[j];
+/* Don't hardwire the IP address or we won't get the benefits of the pool.
+ *  Lookup the IP address for the host name instead */
+//IPAddress timeServer(129, 6, 15, 28); // time.nist.gov NTP server
+IPAddress timeServerIP; // time.nist.gov NTP server address
+const char* ntpServerName = "time.nist.gov";
+
+const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
+
+byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
+
+// A UDP instance to let us send and receive packets over UDP
+WiFiUDP udp;
+
+ Serial.println("Starting UDP");
+  udp.begin(localPort);
+  Serial.print("Local port: ");
+Serial.println(udp.localPort());
+
+  //get a random server from the pool
+  WiFi.hostByName(ntpServerName, timeServerIP); 
+
+  //sendNTPpacket(timeServerIP); // send an NTP packet to a time server
+  Serial.println("sending NTP packet...");
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  udp.beginPacket(timeServerIP, 123); //NTP requests are to port 123
+  udp.write(packetBuffer, NTP_PACKET_SIZE);
+  udp.endPacket();
+  // wait to see if a reply is available
+  delay(1000);
+  
+  int cb = udp.parsePacket();
+  if (!cb) {
+    Serial.println("no packet yet");
   }
+  else {
+    Serial.print("packet received, length=");
+    Serial.println(cb);
+    // We've received a packet, read the data from it
+    udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
 
-  return LRC;
+    //the timestamp starts at byte 40 of the received packet and is four bytes,
+    // or two words, long. First, esxtract the two words:
+
+    unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+    unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+    // combine the four bytes (two words) into a long integer
+    // this is NTP time (seconds since Jan 1 1900):
+    unsigned long secsSince1900 = highWord << 16 | lowWord;
+    Serial.print("Seconds since Jan 1 1900 = " );
+    Serial.println(secsSince1900);
+
+    // now convert NTP time into everyday time:
+    Serial.print("Unix time = ");
+    // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
+    const unsigned long seventyYears = 2208988800UL;
+    // subtract seventy years:
+    unsigned long epoch = secsSince1900 - seventyYears;
+    // print Unix time:
+    Serial.println(epoch);
+
+
+    // print the hour, minute and second:
+    Serial.print("The UTC time is ");       // UTC is the time at Greenwich Meridian (GMT)
+    Serial.print((epoch  % 86400L) / 3600); // print the hour (86400 equals secs per day)
+    Serial.print(':');
+    if ( ((epoch % 3600) / 60) < 10 ) {
+      // In the first 10 minutes of each hour, we'll want a leading '0'
+      Serial.print('0');
+    }
+    Serial.print((epoch  % 3600) / 60); // print the minute (3600 equals secs per minute)
+    Serial.print(':');
+    if ( (epoch % 60) < 10 ) {
+      // In the first 10 seconds of each minute, we'll want a leading '0'
+      Serial.print('0');
+    }
+    Serial.println(epoch % 60); // print the second
+
+
+  // [TODO]
+  RtcDateTime tmp = RtcDateTime( 0, 0, 0, (epoch  % 86400L) / 3600, (epoch  % 3600) / 60, epoch % 60);
+  getCom().setClock(tmp);
+
 }
 
-void OpenAq_Controller::run_task_nrf24()
-{
-  static uint8_t deviceId = 1;
-  float clktmp;
-
-  uint8_t buf[32];
-
-  if ( !isClockReady() )
-    return;
-
-  // definition for Zetlight lancia dimmers
-  // ---------------------------------------------------------------------------
-  if ( storage.getDeviceType ( deviceId ) == ZETLIGHT_LANCIA_2CH )
-  {
-    // compute signal values according to the clock
-    uint8_t signal1 = 0;
-    uint8_t signal2 = 0;
-
-    clktmp = ( ( float )clock.Hour() ) + ( ( ( float )clock.Minute() ) / 60 )
-             + ( ( ( float )clock.Second() ) / 3600 );
-    storage.getLinearInterpolatedPoint ( deviceId, 1, clktmp, &signal1 );
-    storage.getLinearInterpolatedPoint ( deviceId, 2, clktmp, &signal2 );
-
-    // normal message
-    uint8_t buf[32] = {
-      //<3byte static signature>
-      0xEE, 0xD, 0xA,
-      // <------------------------------ LIGHT -------------------------------------------------->
-      //  <Mode>= DAM(0x03); SUNRISE(0xb6); DAYTIME(0xb6); SUNSET(0xD4); NIGHTTIME(0x06)
-      //  <Mode2>= DAM(0x00); SUNRISE(0x15); DAYTIME(0x58); SUNSET(0x2A); NIGHTIME(0x2A)
-      // Normal mode (N_MODE)
-      //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE>             < binding mode >  <groupId>    <LRC>
-      0x00,      signal1,    0x00,     signal2,    0x10,     0x0, 0x0, 0x0,  0x0,  0x0,     0x0,      0x00,
-      //<unknown> = 0xEC
-      0xEC,
-      //<fixed values>
-      0x0, 0x0, 0x0,
-      //<5bytes controllerID>
-      0xF2, 0x83, 0x1D, 0x4A, 0x20,
-      //<fixed values>
-      0x0, 0x0,
-      //<unknown bytes>
-      0x68, 0x71,
-      //<2bytes group binding>
-      0x00, 0x0,   // means nothing
-      //<unknown values>
-      0x0, 0x0
-    };
-
-    buf[14] = calculate_lrc(buf);
-
-
-    // binding message
-    uint8_t binding_data[32] = {
-      //<3byte static signature>
-      0xEE, 0x0D, 0x0A,
-      // BINDING mode
-      //                                            <N_MODE>             < binding mode >  <groupId>    <LRC>
-      0x0,         0x0,      0x0,      0x0,        0x0,      0x0, 0x0, 0x23, 0xdc, 0x0,    0x01,      0x00,
-      //<unknown> = 0xEC
-      0xEC,
-      //<fixed values>
-      0x0, 0x0, 0x0,
-      //<5bytes controllerID>
-      0xF2, 0x83, 0x1D, 0x4A, 0x20,
-      //<fixed values>
-      0x0, 0x0,
-      //<unknown bytes>
-      0x68, 0x71,
-      //<2bytes group binding>
-      0x00, 0x00,   // 0x08, 0x06 -  0x7b, 0x15,
-      //<unknown values>
-      0x0, 0x0
-    };
-
-    binding_data[14] = calculate_lrc(binding_data);
-
-    uint8_t * codepointer = storage.getCodeId( deviceId );
-
-
-    if ( storage.getLState( deviceId ) == ON )
-    {
-      radio.stopListening();
-      //DEBUGV("ac:: ON msg sent\n");
-
-      buf[19] = codepointer[0];
-      buf[20] = codepointer[1];
-      buf[21] = codepointer[2];
-      buf[22] = codepointer[3];
-      buf[23] = codepointer[4];
-
-      radio.startWrite ( buf, 32 );
-
-    }
-
-    if ( storage.getLState( deviceId ) == BINDING )
-    {
-      radio.stopListening();
-      //DEBUGV("ac:: BIND msg sent\n");
-
-      radio.setChannel(100);
-      delayMicroseconds(10000);
-
-      binding_data[19] = codepointer[0];
-      binding_data[20] = codepointer[1];
-      binding_data[21] = codepointer[2];
-      binding_data[22] = codepointer[3];
-      binding_data[23] = codepointer[4];
-
-      binding_data[28] = 0x7B;
-      binding_data[29] = 0x15;
-
-      radio.startWrite ( binding_data, 32 );
-
-      delayMicroseconds(10000);
-      radio.setChannel(1);
-
-    }
-
-    if ( storage.getLState( deviceId ) == LISTENING )
-    {
-      // read...
-
-      //radio.setChannel(100);
-
-      if ( radio.available() )
-      {
-        bool done = false;
-        //while (!done)
-        {
-          done = radio.read( buf, 32 );
-
-          char tmp[5];
-          for (int ib = 0; ib < 32; ib++)
-          {
-            sprintf(tmp, "%02x ", buf[ib]);
-            Serial.print(tmp);
-          }
-          Serial.println("recv.");
-        }
-      }
-
-      radio.startListening();
-    }
-
-  }
-  // Zetlight definition END
-
-  deviceId++;
-
-  if (deviceId > storage.getNumberOfLightDevices())
-    deviceId = 1;
 }
+
 
 /*======================  End of Opaq public methods  =======================*/
-
-
-
-
-/*=============================================================================
-=                      Opaq controller private handlers                       =
-=============================================================================*/
-
-void sendBlockS(String* str, ESP8266WebServer *sv)
-{
-  int index;
-  for (index = 0; index < floor((*str).length() / HTTP_DOWNLOAD_UNIT_SIZE); index++)
-  {
-    sv->client().write((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
-  }
-
-  if ( index != 0 )
-  {
-    *str = (char *)((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
-  }
-
-  DEBUGV( "ac:: B %d", index );
-}
-
-void sendBlockCS(String* str, ESP8266WebServer *sv, uint16_t* count)
-{
-  int index;
-  for (index = 0; index < floor((*str).length() / HTTP_DOWNLOAD_UNIT_SIZE); index++)
-  {
-    *count += HTTP_DOWNLOAD_UNIT_SIZE;
-  }
-
-  if ( index != 0 )
-  {
-    *str = (char *)((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
-  }
-
-  DEBUGV( "ac:: CS %d", *count );
-}
-
-std::function<void(String*)> OpenAq_Controller::sendBlockGlobal( ESP8266WebServer* sv, uint16_t* count, uint8_t* step )
-{
-  if ( *step )
-  {
-    return std::function<void(String*)>( [&sv]( String * str ) -> void { sendBlockS(str, sv); } );
-  }
-  else
-  {
-    return std::function<void(String*)>( [&sv, &count]( String * str ) -> void { sendBlockCS(str, sv, count); } );
-  }
-};
-
-void OpenAq_Controller::handleRoot()
-{
-  ESP8266WebServer *sv = &server;
-  uint16_t count = 0;
-  uint8_t step;
-
-  // sends webpage content in chunks
-
-  // first calculate the expected size of the webpage and then sends the webpage
-  for ( step = 0; step < 2; step++ )
-  {
-    // reset global str
-    str = "";
-
-    if ( step == 1 )
-    {
-      server.setContentLength( count );
-      server.send ( 200, "text/html", String ( "" ) );
-    }
-
-    str.concat ( html.get_begin() );
-    str.concat ( html.get_header() );
-    str.concat ( html.get_body_begin() );
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    str.concat ( html.get_menu() );
-
-    html.send_status_div( &str, &storage, sendBlockGlobal(sv, &count, &step) );
-
-    str.concat( html.get_body_end() );
-    str.concat( html.get_end() );
-
-    if ( step == 0 )
-      count += str.length();
-    else
-      server.client().write( str.c_str(), str.length() );
-  }
-}
-
-void zetlight_template1( uint8_t deviceId, AcStorage * const lstorage )
-{
-  auto apply_template = [&lstorage]( uint8_t deviceId, uint8_t signalId, uint8_t signal[SIGNAL_LENGTH][SIGNAL_STEP_SIZE], const uint8_t signal_len )
-  {
-    for (uint8_t i = 1; i <= SIGNAL_LENGTH; i++)
-    {
-      lstorage->setPointXLD( id2idx(deviceId), id2idx(signalId), i, signal[i - 1][0] );
-      lstorage->setPointYLD( id2idx(deviceId), id2idx(signalId), i, signal[i - 1][1] );
-    }
-
-    lstorage->setLDeviceSignalLength( id2idx(deviceId), id2idx(signalId), signal_len );
-  };
-
-  uint8_t signal1[SIGNAL_LENGTH][SIGNAL_STEP_SIZE] = { {28, 0}, {63, 32}, {24, 79}, {0, 112}, {235, 157}, {242, 192},  {106, 233},  {28, 255},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0} }; // number of steps 8
-  uint8_t signal2[SIGNAL_LENGTH][SIGNAL_STEP_SIZE] = { {0, 0}, {0, 109}, {234, 155}, {244, 187}, {147, 206}, {0, 255}, {0, 0},  {0, 0}, {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0} }; // number of steps 6
-
-  apply_template( deviceId, 1, signal1, 8 );
-  apply_template( deviceId, 2, signal2, 6 );
-}
-
-void OpenAq_Controller::handleLight()
-{
-  // lets send light configuration
-
-  if (server.hasArg("adevice"))
-  {
-    storage.addLightDevice();
-
-    server.send(200, "text/html", String(F("<h3>Add device done</h3>")));
-
-    return;
-  }
-
-  if (server.hasArg("sigdev") && server.hasArg("asigid") && server.hasArg("asigpt") && server.hasArg("asigxy") && server.hasArg("asigvalue"))
-  {
-    uint8_t sig_dev = atoi(server.arg("sigdev").c_str());
-    uint8_t sig_id  = atoi(server.arg("asigid").c_str());
-    uint8_t sig_pt  = atoi(server.arg("asigpt").c_str());
-    uint8_t sig_xy  = atoi(server.arg("asigxy").c_str());
-    uint8_t sig_val = atoi(server.arg("asigvalue").c_str());
-
-    DEBUGV("::ac %d %d %d %d %d\r\n", sig_dev, sig_id, sig_pt, sig_xy, sig_val);
-
-    storage.addSignal(sig_dev, sig_id, sig_pt, sig_xy, sig_val);
-
-    server.send(200, "text/html", String(F("<h3>Add signal done</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("sdevice") && server.hasArg("tdevice") )
-  {
-    uint8_t id   = atoi(server.arg("sdevice").c_str());
-    uint8_t type = atoi(server.arg("tdevice").c_str());
-
-    storage.setDeviceType(id, type);
-
-    // set defaults when device is not initialized
-    if ( !( 0 < storage.getLDeviceSignalLength(id2idx(id), 0) ) && type == ZETLIGHT_LANCIA_2CH )
-    {
-      zetlight_template1(id, &storage);
-    }
-
-    server.send(200, "text/html", String(F("<h3>Set device done</h3>")));
-
-    return;
-  }
-
-  /* update selected device */
-  if ( server.hasArg("sdevice") && server.hasArg("setcurrent") )
-  {
-    uint8_t id = atoi(server.arg("sdevice").c_str());
-    storage.selectLDevice( id2idx(id) );
-    server.send(200, "text/html", String(F("<h3>Device selected</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("sdevice") && server.hasArg("lstate") )
-  {
-    uint8_t idx = atoi(server.arg("sdevice").c_str());
-    uint8_t state = atoi(server.arg("lstate").c_str());
-
-    storage.setLState( idx, (pstate)state );
-    server.send(200, "text/html", String(F("<h3>LDevice State Changed.</h3>")));
-
-    return;
-  }
-
-  // default light webpage
-  DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
-
-  ESP8266WebServer *sv = &server;
-  uint16_t count = 0;
-  uint8_t step;
-
-  // first calculate the expected size of the webpage and then sends the webpage
-  for ( step = 0; step < 2; step++ )
-  {
-    // reset global str
-    str = String("");
-
-    if ( step == 1 )
-    {
-      server.setContentLength( count );
-      server.send ( 200, "text/html", String ( "" ) );
-    }
-
-    str += html.get_begin();
-    str += html.get_header_light();
-    str += html.get_body_begin();
-    sendBlockGlobal(sv, &count, &step)(&str);
-    str += html.get_menu();
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    html.get_light_script( &storage, &str, sendBlockGlobal( sv, &count, &step ) );
-    str += html.get_light_settings_mbegin();
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    html.get_light_settings_mclock(&str, clock);
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    str += html.get_light_settings_mend();
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    RtcTemperature temp = rtc.GetTemperature();
-    str += String(temp.AsWholeDegrees());
-    str += ".";
-    str += String(temp.GetFractional());
-    str += F("º</div>");
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    str += html.get_body_end();
-    str += html.get_end();
-
-    if ( step == 0 )
-      count += str.length();
-    else
-      server.client().write( str.c_str(), str.length() );
-  }
-
-  Serial.println("L#Packet Lenght: " + String(str.length()));
-  Serial.println("L#Heap Size: " + String(ESP.getFreeHeap()));
-
-  return;
-}
-
-void OpenAq_Controller::handleAdvset()
-{
-  DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
-
-  ESP8266WebServer *sv = &server;
-  uint16_t count = 0;
-  uint8_t step;
-
-  // first calculate the expected size of the webpage and then sends the webpage
-  for ( step = 0; step < 2; step++ )
-  {
-    // reset global str
-    str = "";
-
-    if ( step == 1 )
-    {
-      server.setContentLength( count );
-      server.send( 200, "text/html", String ( "" ) );
-    }
-
-    str.concat( html.get_begin() );
-    str.concat( html.get_header() );
-    str.concat( html.get_body_begin() );
-    sendBlockGlobal( sv, &count, &step )( &str );
-    str.concat( html.get_menu() );
-
-    html.get_advset_light1( &str );
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light_device(storage.getNumberOfLightDevices(), storage.getLightDevices(), &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light2(&storage, &str);
-
-    html.get_advset_light_devicesel(&storage, &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light_device_signals(&storage, &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light4(&storage, &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_clock(&str, clock);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_psockets(&str, storage.getNumberOfPowerDevices(), storage.getPowerDevices());
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_psockets_step( &storage, &str, &server, sendBlockGlobal( sv, &count, &step ) );
-    DEBUGV("acH:: %d\n", str.length());
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    str.concat(html.get_body_end());
-    str.concat(html.get_end());
-
-    // send the remaining part
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    if ( step == 0 )
-      count += str.length();
-    else
-      server.client().write( str.c_str(), str.length() );
-  }
-
-  Serial.println("Packet Lenght: " + String(str.length()));
-  Serial.println("Heap Size: " + String(ESP.getFreeHeap()));
-}
-
-void OpenAq_Controller::handleClock()
-{
-  RtcDateTime dt;
-
-  if (server.hasArg("stimeh"))
-  {
-    uint8_t h = atoi(server.arg("stimeh").c_str());
-    dt = RtcDateTime(clock.Year(), clock.Month(), clock.Day(), h, clock.Minute(), clock.Second());
-  }
-  else if (server.hasArg("stimem"))
-  {
-    uint8_t m = atoi(server.arg("stimem").c_str());
-    dt = RtcDateTime(clock.Year(), clock.Month(), clock.Day(), clock.Hour(), m, clock.Second());
-  }
-  else if (server.hasArg("stimed"))
-  {
-    uint8_t d = atoi(server.arg("stimed").c_str());
-    dt = RtcDateTime(clock.Year(), clock.Month(), d, clock.Hour(), clock.Minute(), clock.Second());
-  }
-  else if (server.hasArg("stimemo"))
-  {
-    uint8_t mo = atoi(server.arg("stimemo").c_str());
-    dt = RtcDateTime(clock.Year(), mo, clock.Day(), clock.Hour(), clock.Minute(), clock.Second());
-  }
-  else if (server.hasArg("stimey"))
-  {
-    uint16_t y = atoi(server.arg("stimey").c_str());
-    dt = RtcDateTime(y, clock.Month(), clock.Day(), clock.Hour(), clock.Minute(), clock.Second());
-  }
-  else
-    return;
-
-  rtc.SetDateTime(dt);
-
-}
-
-void OpenAq_Controller::handlePower()
-{
-  if (server.hasArg("addpdevice"))
-  {
-    storage.addPowerDevice();
-
-    server.send(200, "text/html", String(F("<h3>Power device added</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("pdevice") && server.hasArg("pstate") )
-  {
-    uint8_t id = atoi(server.arg("pdevice").c_str());
-    uint8_t state = atoi(server.arg("pstate").c_str());
-
-    storage.setPowerDeviceState(id, state);
-
-    if (state == ON)
-    {
-      server.send(200, "text/html", String(F("<h3>Power socket ON</h3>")));
-    }
-    else
-    {
-      if ( state == OFF )
-      {
-        server.send(200, "text/html", String(F("<h3>Power socket OFF</h3>")));
-      }
-      else
-      {
-        server.send(200, "text/html", String(F("<h3>Power socket BINDING</h3>")));
-      }
-    }
-
-    return;
-  }
-
-
-  if ( server.hasArg("pdevice") && server.hasArg("psid") && server.hasArg("pvalue") )
-  {
-    uint8_t p_id = atoi(server.arg("pdevice").c_str());
-    uint8_t step_id = atoi(server.arg("psid").c_str());
-    uint8_t val = atoi(server.arg("pvalue").c_str());
-
-    storage.setPDeviceStep( id2idx(p_id), id2idx(step_id), val );
-
-    server.send(200, "text/html", String(F("<h3>Power socket value set</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("pdevice") && server.hasArg("pdesc") )
-  {
-    uint8_t p_id = atoi(server.arg("pdevice").c_str());
-
-    storage.setPDesription( id2idx( p_id ), server.arg("pdesc").c_str() );
-
-    server.send(200, "text/html", String(F("<h3>Power socket description set</h3>")));
-
-    return;
-  }
-
-}
-
-void OpenAq_Controller::handleGlobal()
-{
-  if ( server.hasArg("storesettings") )
-  {
-    storage.save();
-
-    server.send(200, "text/html", String(F("Settings are stored")));
-
-    return;
-  }
-
-  if ( server.hasArg("clientssid") && server.hasArg("clientpwd") )
-  {
-    storage.setClientSSID( server.arg("clientssid").c_str() );
-    storage.setClientPwd( server.arg("clientpwd").c_str() );
-
-    storage.enableClient();
-
-    server.send(200, "text/html", String(F("<h3>Client enabled.</h3>")));
-    
-    storage.save();
-
-    WiFi.mode(WIFI_STA);
-    delay(5000);
-    WiFi.begin ( storage.getClientSSID(), storage.getClientPwd() );
-    
-    ESP.reset();
-
-    return;
-  }
-
-  if ( server.hasArg("setfactorysettings") )
-  {
-    storage.defaults(SIG);
-    //storage.save();
-    //ESP.restart();
-  }
-
-  if ( server.hasArg("setreboot") )
-  {
-    ESP.restart();
-  }
-
-  if ( server.hasArg("update") )
-  {
-    ota();
-  }
-
-  if ( server.hasArg("opaqdefaults") )
-  {
-    server.send(200, "text/html", String(F("<h3>OPAQ_DEFAULTS_RUNNING</h3>")));
-    opaq_defaults = true;
-  }
-}
-
-
-void OpenAq_Controller::ota()
-{
-
-  t_httpUpdate_return ret = ESPhttpUpdate.update(OPAQ_URL_FIRMWARE_UPLOAD, 80, "/binaries", OPAQ_VERSION);
-
-  switch (ret) {
-    case HTTP_UPDATE_FAILED:
-      Serial.println("HTTP_UPDATE_FAILED");
-      server.send(200, "text/html", String(F("<h3>HTTP_UPDATE_FAILED</h3>")));
-      break;
-
-    case HTTP_UPDATE_NO_UPDATES:
-      Serial.println("HTTP_UPDATE_NO_UPDATES");
-      break;
-
-  }
-}
-
-/*=====  End of Opaq controller private methods  ======*/
-
-OpenAq_Controller opaq_controller;
-
