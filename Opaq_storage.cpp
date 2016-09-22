@@ -25,6 +25,7 @@
  
 #include "Opaq_storage.h"
 #include "Opaq_com.h"
+#include "Opaq_command.h"
 #include "interpolate.h"
 
 #include <ESP8266HTTPClient.h>
@@ -32,8 +33,6 @@
 #include <HashMap.h>
 
 #include <libtar.h>
-
-#define DEBUGV_ST(...) ets_printf(__VA_ARGS__)
 
 Opaq_storage storage = Opaq_storage();
 
@@ -146,26 +145,26 @@ auto download_file = [](const char * filename)
 {
   HTTPClient http;
 
-  File f = SPIFFS.open((String("/www/") + filename).c_str(),"w");
+  File f = SPIFFS.open((String("/tmp/") + filename).c_str(),"w");
 
   if (!f)
   {
     return;
   }
   
-  Serial.print("[HTTP] begin...\n");
+  Serial.print(F("[HTTP] begin...\n"));
   Serial.println(filename);
 
   // configure server and url
-  http.begin((String("http://ec2-52-29-83-128.eu-central-1.compute.amazonaws.com/opaq/c1/www/") + filename).c_str() );
+  http.begin((String(F("http://")) + OPAQ_URL_FIRMWARE_UPLOAD + F("/") + filename).c_str() );
 
-  Serial.print("[HTTP] GET...\n");
+  Serial.print(F("[HTTP] GET...\n"));
   // start connection and send HTTP header
   int httpCode = http.GET();
   
   if(httpCode > 0) {
     // HTTP header has been send and Server response header has been handled
-    Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+    Serial.printf(FF("[HTTP] GET... code: %d\n"), httpCode);
 
     // file found at server
     if(httpCode == HTTP_CODE_OK) {
@@ -201,14 +200,14 @@ auto download_file = [](const char * filename)
       }
 
       Serial.println();
-      Serial.print("[HTTP] connection closed or file end.\n");
+      Serial.print(F("[HTTP] connection closed or file end.\n"));
 
       f.close();
     }
   }
   else
   {
-    Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    Serial.printf(FF("[HTTP] GET... failed, error: %s\n"), http.errorToString(httpCode).c_str());
   }
 
   http.end();
@@ -234,8 +233,34 @@ auto download_file = [](const char * filename)
 
   //SPIFFS.format();
 
-  // check the downloaded file
-  //download_file("www.tar");
+  // download file to get the lastest firmware and system files for opaq
+  download_file("opaqc1.json");
+
+  //parseConfiguration()
+
+  String filename = "";
+  String md5 = "";
+  Opaq_st_plugin_dummy dummy;
+
+  if(SPIFFS.exists("/tmp/opaqc1.json"))
+  {
+    dummy.parse("/tmp/opaqc1.json", "fw", filename);
+    dummy.parse("/tmp/opaqc1.json", "md5", md5);
+
+    download_file(filename.c_str());
+
+    if(SPIFFS.exists(String("/tmp/") + filename))
+    {
+      oq_cmd c;
+      c.exec = [](LinkedList<String> args) { storage.fwupdate(args.pop().c_str(), args.pop().c_str()); };
+      c.args = LinkedList<String>();
+      String filepath = String(F("/tmp/")) + filename;
+      c.args.add(md5);
+      c.args.add(filepath);
+
+      command.send(c);
+    }
+  }
 
 
   //libtar_extract("/tmp/www.tar", "/www");
@@ -274,11 +299,11 @@ void Opaq_storage::fwupdate(const char * filename, const char * md5)
     return;
   }
 
-  /*if(strlen(md5)) {
+  if(strlen(md5)) {
     if(!Update.setMD5(md5)) {
       Serial.println("MD5 failed!");
     }
-  }*/
+  }
 
   for(int i=0; i < size; i+=chunck_size)
   {
@@ -294,12 +319,17 @@ void Opaq_storage::fwupdate(const char * filename, const char * md5)
 
   delete buf;
 
+  // lets remove the unnecessary file
+  SPIFFS.remove(filename);
+
   if(!Update.end())
   {
     Serial.println("Update end failed!");
   }
-
+  else
+  {
   ESP.restart();
+  }
 
 }
 
@@ -372,7 +402,7 @@ void Opaq_st_plugin::load(File& fl, String& toParse)
     toParse += (char*)buf;
   }
   
-  Serial.println(toParse);
+  DEBUG_MSG_STORAGE(FF("%s\n"), toParse);
 }
 
 bool Opaq_st_plugin::load(const char * filename, String& toParse)
@@ -380,7 +410,7 @@ bool Opaq_st_plugin::load(const char * filename, String& toParse)
   if ( !SPIFFS.exists(filename) )
     return true;
 
-  Serial.println("Loading...");
+  DEBUG_MSG_STORAGE(FF("Loading..."));
   
   File fl = SPIFFS.open(filename, "r+");
 
@@ -391,6 +421,23 @@ bool Opaq_st_plugin::load(const char * filename, String& toParse)
   return false;
 }
 
+void Opaq_st_plugin::parse(const char *filename, const char * param, String& out)
+{
+  String toParse;
+  StaticJsonBuffer<512> jsonBuffer;
+
+  DEBUG_MSG_STORAGE(FF("%d\n"), param);
+  
+  if ( !load(filename, toParse) )
+  {
+    JsonObject& root = jsonBuffer.parseObject(toParse);
+
+    out = (const char *)root[param];
+
+    DEBUG_MSG_STORAGE(FF("out: %s\n"), out);
+  }
+}
+
 
 
 
@@ -398,20 +445,7 @@ bool Opaq_st_plugin::load(const char * filename, String& toParse)
 
 void Opaq_st_plugin_wifisett::parseConfiguration(const char * param, String& out)
 {
-  String toParse;
-  StaticJsonBuffer<512> jsonBuffer;
-
-  Serial.println(param);
-  
-  if ( !load("/sett/wifi/conf.json", toParse) )
-  {
-    Serial.println("TEST!");
-    JsonObject& root = jsonBuffer.parseObject(toParse);
-
-    out = (const char *)root[param];
-
-    Serial.println(out);
-  }
+  parse("/sett/wifi/conf.json", param, out);
 }
 
 void Opaq_st_plugin_wifisett::changeConfiguration(const char * param, const char * value)
@@ -650,7 +684,7 @@ void Opaq_st_plugin_faqdim::run()
         unsigned long time_ms = subsubarr[0];
         byte value = subsubarr[1];
       
-        DEBUGV_ST ( "ac:: adim %d, %d %d\r\n", i, time_ms, value);
+        DEBUG_MSG_STORAGE ( FF("ac:: adim %d, %d %d\r\n"), i, time_ms, value);
       
         auto pa = std::make_pair(time_ms, value);
         signallist.add( pa );
@@ -659,7 +693,7 @@ void Opaq_st_plugin_faqdim::run()
 
       byte new_value = hermiteInterpolate<unsigned long, byte>(signallist, clk, 0, 0);
       
-      DEBUGV_ST ( "ac:: adim %d\r\n", new_value);
+      DEBUG_MSG_STORAGE ( FF("ac:: adim %d\r\n"), new_value);
 
       signal.add(new_value);
 
@@ -669,7 +703,6 @@ void Opaq_st_plugin_faqdim::run()
 
 
   // for each aquarium dimmer device
-  Serial.println("ST!");
   // probably is not safe at all (files can be removed... concurrent accesses)
   Directory dr = Directory("/sett/adim");
   for ( File fl : dr )
@@ -694,7 +727,7 @@ void Opaq_st_plugin_faqdim::run()
     String state       = String((const char *)adimfile["state"]);
     String type        = String((const char *)adimfile["type"]); // [TODO] restrict that by type
 
-    DEBUGV_ST ( "ac:: adim %d %s %lu\r\n", code, state.c_str(), clock_value);
+    DEBUG_MSG_STORAGE ( FF("ac:: adim %d %s %lu\r\n"), code, state.c_str(), clock_value);
 
     // store computed signal values according to the clock value
     LinkedList<byte> signalstate_list;
@@ -1085,7 +1118,7 @@ void Opaq_st_plugin_pwdevice::run()
         unsigned long time_ms = subsubarr[0];
         byte value = subsubarr[1];
       
-        DEBUGV_ST ( "ac:: pdev %d, %d %d\r\n", i, time_ms, value);
+        DEBUG_MSG_STORAGE ( FF("ac:: pdev %d, %d %d\r\n"), i, time_ms, value);
       
         auto pa = std::make_pair(time_ms, value);
         signallist.add( pa );
@@ -1094,7 +1127,7 @@ void Opaq_st_plugin_pwdevice::run()
 
       byte new_value = hermiteInterpolate<unsigned long, byte>(signallist, clk, 0, 0);
       
-      DEBUGV_ST ( "ac:: pdev %d\r\n", new_value);
+      DEBUG_MSG_STORAGE ( FF("ac:: pdev %d\r\n"), new_value);
 
     }
 
@@ -1110,7 +1143,6 @@ void Opaq_st_plugin_pwdevice::run()
   unsigned long clock_value = (date.Second() + date.Minute()*60 + date.Hour()*60*60)*1000;
 
   
-  Serial.println("ST!");
   // probably is not safe at all (files can be removed... concurrent accesses)
   Directory dr = Directory("/sett/pdev");
   for ( File fl : dr )
@@ -1135,7 +1167,7 @@ void Opaq_st_plugin_pwdevice::run()
     String state =  String((const char *)pwdevfile["state"]);
     String type = String((const char *)pwdevfile["type"]); // [TODO] restrict that by type
 
-    DEBUGV_ST ( "ac:: pdev %d %s %lu\r\n", code, state.c_str(), clock_value);
+    DEBUG_MSG_STORAGE ( FF("ac:: pdev %d %s %lu\r\n"), code, state.c_str(), clock_value);
 
     // for chacon dio case
     if( type != "chacondio")

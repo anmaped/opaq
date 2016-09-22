@@ -9,8 +9,15 @@
 #include <Arduino.h>
 #include <functional>
 #include <atomic>
-
 #include <LinkedList.h>
+
+#include "opaq.h"
+
+#ifdef DEBUG_ESP_OPAQCOMMAND
+#define DEBUG_MSG_COMMAND(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#else
+#define DEBUG_MSG_COMMAND(...) 
+#endif
 
 struct oq_cmd
 {
@@ -38,7 +45,6 @@ public:
 	void exec();
 	void handler();
 	void terminal();
-	void terminalHandler();
 	
 };
 

@@ -266,7 +266,7 @@ uint16_t Adafruit_ILI9341::getWidth(void){
 #ifdef SPI_HAS_TRANSACTION
 #ifndef ILI9341_SPEED
 #ifdef ESP8266
-SPISettings spiSettings = SPISettings(ESP8266_CLOCK, MSBFIRST, SPI_MODE0);
+SPISettings spiSettings = SPISettings(72000000, MSBFIRST, SPI_MODE0);
 #else
 SPISettings spiSettings =  SPISettings(8000000, MSBFIRST, SPI_MODE0);
 #endif

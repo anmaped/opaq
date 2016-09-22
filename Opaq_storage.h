@@ -31,6 +31,14 @@
 #include <LinkedList.h>
 
 #include "src/ADS7846/ADS7846.h"
+#include "opaq.h"
+
+#ifdef DEBUG_ESP_OPAQSTORAGE
+#define DEBUG_MSG_STORAGE(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#else
+#define DEBUG_MSG_STORAGE(...) 
+#endif
+
 
 // enumerations for light and power devices settings
 enum pdevtype {CHACON_DIO = 1, OTHERS};
@@ -120,6 +128,12 @@ public:
   virtual void defaults() = 0;
   bool load(const char * filename, String& toParse);
   void load(File& fl, String& toParse);
+  void parse(const char * filename, const char * param, String& out);
+};
+
+class Opaq_st_plugin_dummy : public Opaq_st_plugin
+{
+  void defaults() {};
 };
 
 class Opaq_st_plugin_faqdim : public Opaq_st_plugin

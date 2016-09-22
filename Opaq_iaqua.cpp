@@ -36,9 +36,6 @@
 #include <Time.h>
 
 
-using namespace Opaq_iaqua_device_HAL;
-
-
 // #### EVENTS
 
 void Opaq_iaqua::service(unsigned x, unsigned y, unsigned z)

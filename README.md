@@ -1,7 +1,9 @@
 # Opaq - IoT aquarium and pond controllers for everyone
-#### Release 1.0.4
+#### Release 1.0.6
 
-![Opaq Frame](/tools/images/opaq_framev103.png?raw=true "Opaq Frame")
+Main screen |  Settings Screen | Wifi Settings | Graph
+:-----------:|:----------------:|:------:|:-------:
+![](/data/screenshots/main.png) |  ![](/data/screenshots/settings.png) |  ![](/data/screenshots/wifi.png) |  ![](/data/screenshots/dimmergraph.png)
 
 Supported features:
 - Browser-based graphical user interface to control light and power devices of aquarium and pond systems
@@ -21,5 +23,4 @@ Expected features:
 
 Expected Hardware:
 - Opaq N3 (the node for probing PH, light intensity and humidity)
-
 

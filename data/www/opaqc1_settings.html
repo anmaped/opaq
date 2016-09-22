@@ -552,10 +552,23 @@
               Basic
             </li>
             <li>
-              <a href="" id="updateopaq">Update</a>
+              <a href="#updatedialog" id="updateopaq" data-rel="popup" data-position-to="window" data-transition="pop">Update</a>
             </li>
           </ul>
         </div>
+
+        <div data-role="popup" id="updatedialog" data-overlay-theme="a" data-theme="a" data-dismissible="false" style="max-width:400px;">
+        <div data-role="header" data-theme="a">
+          <h1>Opaq Cloud?</h1>
+        </div>
+        <div role="main" class="ui-content">
+          <h3 class="ui-title">Are you sure you want to update this device?</h3>
+          <p><font color="#ff3333">WARNING!!</font> The opaq project is not responsible for any faulty update or damage of the device. DO THAT AT YOUR OWN RISK.</p>
+          <a href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">Cancel</a>
+          <a id="updateagree" href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back" data-transition="flow">Agree</a>
+        </div>
+      </div>
+
       </div>
 
     </div>
@@ -573,8 +586,7 @@
 
     <script type="text/javascript" defer>
 
-      $(document).on('click', '#updateopaq', function () {
-        alert("UPDATE");
+      $(document).on('click', '#updateagree', function () {
         ws.send('{"updatefilesystem":1}');
       });
 

@@ -51,7 +51,6 @@ extern "C" {
 #define OPAQ_VERSION "1.0.6"
 
 // configuration parameters
-#define OPAQ_URL_FIRMWARE_UPLOAD "ec2-52-29-83-128.eu-central-1.compute.amazonaws.com"
 #define OPAQ_MDNS_RESPONDER 1
 #define OPAQ_OTA_ARDUINO 0
 
@@ -108,7 +107,6 @@ public:
 
   void run_controller();
   void run_task_ds3231();
-  void run_atsha204();
   void run_touch();
   void run_tft();
 

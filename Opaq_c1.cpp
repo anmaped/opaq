@@ -28,7 +28,7 @@
 #include <ESP8266httpUpdate.h>
 
 #include "Opaq_c1.h"
-#include "websites.h"
+#include "opaq.h"
 
 #include "Opaq_websockets.h"
 #include "Opaq_storage.h"
@@ -36,6 +36,8 @@
 #include "Opaq_iaqua_pages.h"
 #include "Opaq_recovery.h"
 #include "Opaq_command.h"
+
+#include "slre.h"
 
 #if OPAQ_MDNS_RESPONDER
 #include <ESP8266mDNS.h>
@@ -53,10 +55,12 @@ ArduinoOTA ota_server;
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 Opaq_iaqua iaqua;
 
-ADS7846 touch;
 LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // until here...
 #endif
+
+
+OpenAq_Controller opaq_controller;
 
 // non-class functions begin
 
@@ -121,12 +125,24 @@ void OpenAq_Controller::setup_controller()
   pinMode(5,OUTPUT); // AVR_CS OUT MODE
   digitalWrite(5, HIGH); // AVR_CS
 
+  // reovery mode
+  byte _c;
+  delay(1000);
+  if(Serial.readBytes(&_c,1))
+  {
+    Serial.println("recovery mode!");
+    return;
+  }
+
   // Initialize file system.
   if (!SPIFFS.begin())
   {
     Serial.println(F("Failed to mount file system"));
     ESP.restart();
   }
+
+  Serial.println(String(F("Opaq Version ")) + OPAQ_VERSION);
+  Serial.println(F("Copyright (c) 2015 Andre Pedro. All rights reserved."));
   
   #ifdef OPAQ_C1_SCREEN
   // display welcome screen tft
@@ -150,12 +166,12 @@ void OpenAq_Controller::setup_controller()
     storage.defaults ( SIG ); // uncomment to set the factory defaults
   }
 
-  Serial.println("SIG Accepted");
+  Serial.println(F("SIG Accepted"));
 
 
   if ( storage.wifisett.getModeOperation() )
   {
-    Serial.println("softAP");
+    Serial.println(F("softAP"));
     
     String ssid, pwd;
     storage.wifisett.getSSID(ssid);
@@ -170,23 +186,21 @@ void OpenAq_Controller::setup_controller()
 #endif
 
     WiFi.mode(WIFI_AP);
-    delay(5000);
+    delay(4000);
 
 #ifdef OPAQ_C1_SCREEN
     wscreen.setExecutionBar(45);
 #endif
-    
-    WiFi.printDiag(Serial);
 
     // setup the access point
     WiFi.softAP ( ssid.c_str() , pwd.c_str(), 6 ); // with password and fixed ssid
 
-    Serial.print("IP address: ");
+    Serial.print(F("IP address: "));
     Serial.println(WiFi.softAPIP());
   }
   else
   {
-    Serial.println("client");
+    Serial.println(F("client"));
     
     // or setup the station
     String ssid, pwd;
@@ -200,7 +214,7 @@ void OpenAq_Controller::setup_controller()
 #endif
 
     WiFi.mode(WIFI_STA);
-    delay(5000);
+    delay(4000);
 
 #ifdef OPAQ_C1_SCREEN
     wscreen.setExecutionBar(45);
@@ -265,50 +279,20 @@ void OpenAq_Controller::setup_controller()
 
   // mDNS responder
   if (!MDNS.begin("opaq")) {
-    Serial.println("Error setting up MDNS responder!");
+    Serial.println(F("Error setting up MDNS responder!"));
     while (1) {
       delay(1000);
     }
   }
-  Serial.println("mDNS responder started");
+  Serial.println(F("mDNS responder started"));
   MDNS.addService("http", "tcp", 80);
 #endif
 
   //  BEGINS the LOADING OF FILES FROM SPIFFS
-
-  auto serveron = [=](Dir d)
-    {
-      String filename = d.fileName();
-      Serial.printf("%s %d  ", filename.c_str(), d.fileSize() );
-      
-      // get extension
-      String ext = filename.substring(filename.indexOf('.', 0), filename.indexOf('\n', 0));
-      const __FlashStringHelper* mime;
-      
-      if (ext == F(".txt"))
-      {
-        mime = F("text/plain");
-      }
-    
-      Serial.println(mime);
-      // THIS IS NOT THE SOLUTION FOR A MASSIVE AMOUNT OF FILES
-      // [TODO]
-      //if(ext == ".json") // puts the json files available for debugging
-      //  server.on ( filename.c_str(), [=]() { server.send_F ( 200, String(mime).c_str(), filename.c_str() ); } ); // verify filename string (can desapear...)
-    };
   
 #ifdef OPAQ_C1_SCREEN
   wscreen.msg( String(F("Filesystem check")).c_str() );
 #endif
-
-  // search available SPIFFS files starting with prefix '_p'
-  Dir d = SPIFFS.openDir("/");
-  // list directory
-  Serial.println("LIST DIR: ");
-  while ( d.next() )
-  {
-    serveron(d);
-  }
 
 
   server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
@@ -327,9 +311,6 @@ void OpenAq_Controller::setup_controller()
         strcpy(filename, p->value().c_str());
       }*/
 
-      Serial.println(filename);
-
-
       if(!index){
 
         // test if we want to format
@@ -337,7 +318,7 @@ void OpenAq_Controller::setup_controller()
 
         if(!f)
         {
-          f = SPIFFS.open(String(String("/tmp/") + filename).c_str(), "w");
+          f = SPIFFS.open(String(String(F("/tmp/")) + filename).c_str(), "w");
         }
 
         Serial.printf("UploadStart: %s\n", filename.c_str());
@@ -350,31 +331,49 @@ void OpenAq_Controller::setup_controller()
       if(final){
         f.close();
 
+        struct slre_cap caps[5];
+
+        String lre_tar = String(F("^opaqc1-([a-z]+)-v([0-9]+).tar$"));
+        String lre_bin = String(F("^opaqc1-v([0-9]+)-([a-z0-9]+).bin$"));
+
         // contain tar extension ? apply tar extractor.
-        if(filename == "www.tar")
+        if (slre_match(lre_tar.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
+        //if(filename == "www.tar")
         {
+          String target = F("/");
+          target += caps[0].ptr;
+          target.setCharAt(caps[0].len + 1, '\0');
+          Serial.printf("Path: %s\n", target.c_str());
+
           oq_cmd c;
           c.exec = [](LinkedList<String>& args) { storage.tarextract(args.pop().c_str(), args.pop().c_str()); };
 
-          String a = "/tmp/www.tar";
-          String b = "/www";
-          c.args.add(b);
-          c.args.add(a);
+          String filepath = String(F("/tmp/")) + filename;
+          //String b = "/www";
+          c.args.add(target);
+          c.args.add(filepath);
 
           command.send(c);
 
           request->redirect("/rcv?success=true");
         }
         else
-        if(filename == "fw.bin")
+        if (slre_match(lre_bin.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
+        //if(filename == "fw.bin")
         {
+          String md5 = "";
+          md5 += caps[1].ptr;
+          md5.setCharAt(caps[1].len, '\0');
+          Serial.printf("MD5: %s\n", md5.c_str());
+
           oq_cmd c;
           c.exec = [](LinkedList<String> args) { storage.fwupdate(args.pop().c_str(), args.pop().c_str()); };
           c.args = LinkedList<String>();
-          String a = "/tmp/fw.bin";
-          String b = "XXX";
-          c.args.add(b);
-          c.args.add(a);
+          String filepath = String(F("/tmp/")) + filename;
+          //String a = "/tmp/fw.bin";
+          //String b = "XXX";
+          c.args.add(md5);
+          c.args.add(filepath);
 
           command.send(c);
 
@@ -441,13 +440,13 @@ void OpenAq_Controller::setup_controller()
   // 
   // TOUCH CONTROLLER INITIALIZATION
   // 
-  touch.begin();
+  communicate.touch.begin();
 
   if ( !storage.touchsett.isTouchMatrixAvailable() )
   {
     // do calibration
-    touch.doCalibration(&tft_interface);
-    if( touch.getCalibrationMatrix(storage.touchsett.getTouchMatrixRef()) )
+    communicate.touch.doCalibration(tft_interface);
+    if( communicate.touch.getCalibrationMatrix(storage.touchsett.getTouchMatrixRef()) )
     {
       storage.touchsett.commitTouchSettings();
       Serial.println(F("Touch settings has been updated."));
@@ -462,7 +461,7 @@ void OpenAq_Controller::setup_controller()
   else
   {
     Serial.println(F("Touch settings has been read."));
-    touch.setCalibration(storage.touchsett.getTouchMatrix());
+    communicate.touch.setCalibration(storage.touchsett.getTouchMatrix());
   }
   // END TOUCH CONTROLLER INITIALIZATION
 
@@ -487,21 +486,15 @@ void OpenAq_Controller::setup_controller()
 #ifdef OPAQ_C1_SCREEN
   run_tft();
 #endif
+
+  Serial.print(F("opaq>"));
+
 }
 
-int count = 0;
-bool opaq_defaults = false;
 void OpenAq_Controller::run_controller()
 {
-
+  // program handler
   run_programmer();
-
-  /*if (count == 100000)
-  {
-    //opaq_controller.run_task_rf433ook();
-    count=0;
-  }
-  count++;*/
 
   if (storage.getUpdate())
   {
@@ -510,8 +503,7 @@ void OpenAq_Controller::run_controller()
     storage.setUpdate(false);
   }
 
-  command.exec();
-
+  command.handler();
 
   // run that at 1hz
   if(run1hz_flag)
@@ -519,7 +511,7 @@ void OpenAq_Controller::run_controller()
     run_task_ds3231();
     setClockReady();
 
-    run_atsha204();
+    communicate.atsha204.getCiferKey();
 
     storage.pwdevice.run();
 
@@ -541,18 +533,18 @@ void OpenAq_Controller::run_programmer()
     if (last_state != new_state) {
         switch (new_state) {
             case AVRISP_STATE_IDLE: {
-                Serial.printf("[AVRISP] now idle\r\n");
+                Serial.println(F("[AVRISP] now idle"));
                 lock = false;
                 communicate.unlock();
                 break;
             }
             case AVRISP_STATE_PENDING: {
-                Serial.printf("[AVRISP] connection pending\r\n");
+                Serial.println(F("[AVRISP] connection pending"));
                 // Clean up your other purposes and prepare for programming mode
                 break;
             }
             case AVRISP_STATE_ACTIVE: {
-                Serial.printf("[AVRISP] programming mode\r\n");
+                Serial.println(F("[AVRISP] programming mode"));
                 // Stand by for completion
                 communicate.spinlock();
                 lock = true;
@@ -594,28 +586,16 @@ void OpenAq_Controller::run_task_ds3231()
   communicate.getClock(clock);
 }
 
-void OpenAq_Controller::run_atsha204()
-{
-  communicate.getCiferKey();
-}
-
 #ifdef OPAQ_C1_SCREEN
 void OpenAq_Controller::run_touch()
 {
+  communicate.touch.service();
+  touch_t data = communicate.touch.get();
+
   if( communicate.lock() )
     return;
-    
-  touch.service();
-  
-  /*Serial.println("ASK TOUCH:");
-  Serial.println(touch.tp_x);
-  Serial.println(touch.tp_y);
-  Serial.println(touch.pressure);
-  Serial.println(touch.getX());
-  Serial.println(touch.getY());
-  Serial.println("TOUCH ASKED!");
-*/
-  iaqua.service(touch.getX(),touch.getY(),touch.pressure);
+
+  iaqua.service(data.x, data.y, data.pressure);
 
   communicate.unlock();
   
@@ -624,7 +604,7 @@ void OpenAq_Controller::run_touch()
 
 void OpenAq_Controller::run_tft()
 {
-  Serial.println("ASK ILI9341");
+  //Serial.println(F("ASK ILI9341"));
 
   communicate.spinlock();
   
@@ -633,7 +613,7 @@ void OpenAq_Controller::run_tft()
 
   communicate.unlock();
   
-  Serial.println("ILI9341 ASKED");
+  //Serial.println(F("ILI9341 ASKED"));
   
 }
 #endif
@@ -747,492 +727,3 @@ Serial.println(udp.localPort());
 
 
 /*======================  End of Opaq public methods  =======================*/
-
-
-
-
-/*=============================================================================
-=                      Opaq controller private handlers                       =
-=============================================================================*/
-
-/*
-void sendBlockS(String* str, AsyncWebServer *sv)
-{
-  int index;
-  for (index = 0; index < floor((*str).length() / HTTP_DOWNLOAD_UNIT_SIZE); index++)
-  {
-    sv->client().write((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE), HTTP_DOWNLOAD_UNIT_SIZE);
-  }
-
-  if ( index != 0 )
-  {
-    *str = (char *)((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
-  }
-
-  DEBUGV( "ac:: B %d", index );
-}
-
-void sendBlockCS(String* str, AsyncWebServer *sv, uint16_t* count)
-{
-  int index;
-  for (index = 0; index < floor((*str).length() / HTTP_DOWNLOAD_UNIT_SIZE); index++)
-  {
-    *count += HTTP_DOWNLOAD_UNIT_SIZE;
-  }
-
-  if ( index != 0 )
-  {
-    *str = (char *)((*str).c_str() + (index * HTTP_DOWNLOAD_UNIT_SIZE));
-  }
-
-  DEBUGV( "ac:: CS %d", *count );
-}
-
-std::function<void(String*)> OpenAq_Controller::sendBlockGlobal( AsyncWebServer* sv, uint16_t* count, uint8_t* step )
-{
-  if ( *step )
-  {
-    return std::function<void(String*)>( [&sv]( String * str ) -> void { sendBlockS(str, sv); } );
-  }
-  else
-  {
-    return std::function<void(String*)>( [&sv, &count]( String * str ) -> void { sendBlockCS(str, sv, count); } );
-  }
-};
-
-void OpenAq_Controller::handleRoot()
-{
-  AsyncWebServer *sv = &server;
-  uint16_t count = 0;
-  uint8_t step;
-
-  // sends webpage content in chunks
-
-  // first calculate the expected size of the webpage and then sends the webpage
-  for ( step = 0; step < 2; step++ )
-  {
-    // reset global str
-    str = "";
-
-    if ( step == 1 )
-    {
-      server.setContentLength( count );
-      server.send ( 200, "text/html", String ( "" ) );
-    }
-
-    str.concat ( html.get_begin() );
-    str.concat ( html.get_header() );
-    str.concat ( html.get_body_begin() );
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    str.concat ( html.get_menu() );
-
-    html.send_status_div( &str, &storage, sendBlockGlobal(sv, &count, &step) );
-
-    str.concat( html.get_body_end() );
-    str.concat( html.get_end() );
-
-    if ( step == 0 )
-      count += str.length();
-    else
-      server.client().write( str.c_str(), str.length() );
-  }
-}
-
-void zetlight_template1( uint8_t deviceId, Opaq_storage * const lstorage )
-{
-  auto apply_template = [&lstorage]( uint8_t deviceId, uint8_t signalId, uint8_t signal[SIGNAL_LENGTH][SIGNAL_STEP_SIZE], const uint8_t signal_len )
-  {
-    for (uint8_t i = 1; i <= SIGNAL_LENGTH; i++)
-    {
-      lstorage->setPointXLD( id2idx(deviceId), id2idx(signalId), i, signal[i - 1][0] );
-      lstorage->setPointYLD( id2idx(deviceId), id2idx(signalId), i, signal[i - 1][1] );
-    }
-
-    lstorage->setLDeviceSignalLength( id2idx(deviceId), id2idx(signalId), signal_len );
-  };
-
-  uint8_t signal1[SIGNAL_LENGTH][SIGNAL_STEP_SIZE] = { {28, 0}, {63, 32}, {24, 79}, {0, 112}, {235, 157}, {242, 192},  {106, 233},  {28, 255},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0} }; // number of steps 8
-  uint8_t signal2[SIGNAL_LENGTH][SIGNAL_STEP_SIZE] = { {0, 0}, {0, 109}, {234, 155}, {244, 187}, {147, 206}, {0, 255}, {0, 0},  {0, 0}, {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0},  {0, 0} }; // number of steps 6
-
-  apply_template( deviceId, 1, signal1, 8 );
-  apply_template( deviceId, 2, signal2, 6 );
-}
-
-void OpenAq_Controller::handleLight()
-{
-  // lets send light configuration
-
-  if (server.hasArg("adevice"))
-  {
-    storage.addLightDevice();
-
-    server.send(200, "text/html", String(F("<h3>Add device done</h3>")));
-
-    return;
-  }
-
-  if (server.hasArg("sigdev") && server.hasArg("asigid") && server.hasArg("asigpt") && server.hasArg("asigxy") && server.hasArg("asigvalue"))
-  {
-    uint8_t sig_dev = atoi(server.arg("sigdev").c_str());
-    uint8_t sig_id  = atoi(server.arg("asigid").c_str());
-    uint8_t sig_pt  = atoi(server.arg("asigpt").c_str());
-    uint8_t sig_xy  = atoi(server.arg("asigxy").c_str());
-    uint8_t sig_val = atoi(server.arg("asigvalue").c_str());
-
-    DEBUGV("::ac %d %d %d %d %d\r\n", sig_dev, sig_id, sig_pt, sig_xy, sig_val);
-
-    storage.addSignal(sig_dev, sig_id, sig_pt, sig_xy, sig_val);
-
-    server.send(200, "text/html", String(F("<h3>Add signal done</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("sdevice") && server.hasArg("tdevice") )
-  {
-    uint8_t id   = atoi(server.arg("sdevice").c_str());
-    uint8_t type = atoi(server.arg("tdevice").c_str());
-
-    storage.setDeviceType(id, type);
-
-    // set defaults when device is not initialized
-    if ( !( 0 < storage.getLDeviceSignalLength(id2idx(id), 0) ) && type == ZETLIGHT_LANCIA_2CH )
-    {
-      zetlight_template1(id, &storage);
-    }
-
-    server.send(200, "text/html", String(F("<h3>Set device done</h3>")));
-
-    return;
-  }
-
-  // update selected device
-  if ( server.hasArg("sdevice") && server.hasArg("setcurrent") )
-  {
-    uint8_t id = atoi(server.arg("sdevice").c_str());
-    storage.selectLDevice( id2idx(id) );
-    server.send(200, "text/html", String(F("<h3>Device selected</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("sdevice") && server.hasArg("lstate") )
-  {
-    uint8_t idx = atoi(server.arg("sdevice").c_str());
-    uint8_t state = atoi(server.arg("lstate").c_str());
-
-    storage.setLState( idx, (pstate)state );
-    server.send(200, "text/html", String(F("<h3>LDevice State Changed.</h3>")));
-
-    return;
-  }
-
-  // default light webpage
-  DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
-
-  AsyncWebServer *sv = &server;
-  uint16_t count = 0;
-  uint8_t step;
-
-  // first calculate the expected size of the webpage and then sends the webpage
-  for ( step = 0; step < 2; step++ )
-  {
-    // reset global str
-    str = String("");
-
-    if ( step == 1 )
-    {
-      server.setContentLength( count );
-      server.send ( 200, "text/html", String ( "" ) );
-    }
-
-    str += html.get_begin();
-    str += html.get_header_light();
-    str += html.get_body_begin();
-    sendBlockGlobal(sv, &count, &step)(&str);
-    str += html.get_menu();
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    html.get_light_script( &storage, &str, sendBlockGlobal( sv, &count, &step ) );
-    str += html.get_light_settings_mbegin();
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    html.get_light_settings_mclock(&str, clock);
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    str += html.get_light_settings_mend();
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    //RtcTemperature temp = rtc.GetTemperature();
-    str += String(
-    //temp.AsWholeDegrees()
-    0);
-    str += ".";
-    str += String(//temp.GetFractional()
-    0);
-    str += F("º</div>");
-    sendBlockGlobal(sv, &count, &step)(&str);
-
-    str += html.get_body_end();
-    str += html.get_end();
-
-    if ( step == 0 )
-      count += str.length();
-    else
-      server.client().write( str.c_str(), str.length() );
-  }
-
-  Serial.println("L#Packet Lenght: " + String(str.length()));
-  Serial.println("L#Heap Size: " + String(ESP.getFreeHeap()));
-
-  return;
-}
-
-void OpenAq_Controller::handleAdvset()
-{
-  DEBUGV("ac:ihs: %s\r\n", String(ESP.getFreeHeap()).c_str());
-
-  AsyncWebServer *sv = &server;
-  uint16_t count = 0;
-  uint8_t step;
-
-  // first calculate the expected size of the webpage and then sends the webpage
-  for ( step = 0; step < 2; step++ )
-  {
-    // reset global str
-    str = "";
-
-    if ( step == 1 )
-    {
-      server.setContentLength( count );
-      server.send( 200, "text/html", String ( "" ) );
-    }
-
-    str.concat( html.get_begin() );
-    str.concat( html.get_header() );
-    str.concat( html.get_body_begin() );
-    sendBlockGlobal( sv, &count, &step )( &str );
-    str.concat( html.get_menu() );
-
-    html.get_advset_light1( &str );
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light_device(storage.getNumberOfLightDevices(), storage.getLightDevices(), &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light2(&storage, &str);
-
-    html.get_advset_light_devicesel(&storage, &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light_device_signals(&storage, &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_light4(&storage, &str);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_clock(&str, clock);
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_psockets(&str, storage.getNumberOfPowerDevices(), storage.getPowerDevices());
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    html.get_advset_psockets_step( &storage, &str, &server, sendBlockGlobal( sv, &count, &step ) );
-    DEBUGV("acH:: %d\n", str.length());
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    str.concat(html.get_body_end());
-    str.concat(html.get_end());
-
-    // send the remaining part
-    sendBlockGlobal( sv, &count, &step )( &str );
-
-    if ( step == 0 )
-      count += str.length();
-    else
-      server.client().write( str.c_str(), str.length() );
-  }
-
-  Serial.println("Packet Lenght: " + String(str.length()));
-  Serial.println("Heap Size: " + String(ESP.getFreeHeap()));
-}
-
-void OpenAq_Controller::handleClock()
-{
-  RtcDateTime dt;
-
-  if (server.hasArg("stimeh"))
-  {
-    uint8_t h = atoi(server.arg("stimeh").c_str());
-    dt = RtcDateTime(clock.Year(), clock.Month(), clock.Day(), h, clock.Minute(), clock.Second());
-  }
-  else if (server.hasArg("stimem"))
-  {
-    uint8_t m = atoi(server.arg("stimem").c_str());
-    dt = RtcDateTime(clock.Year(), clock.Month(), clock.Day(), clock.Hour(), m, clock.Second());
-  }
-  else if (server.hasArg("stimed"))
-  {
-    uint8_t d = atoi(server.arg("stimed").c_str());
-    dt = RtcDateTime(clock.Year(), clock.Month(), d, clock.Hour(), clock.Minute(), clock.Second());
-  }
-  else if (server.hasArg("stimemo"))
-  {
-    uint8_t mo = atoi(server.arg("stimemo").c_str());
-    dt = RtcDateTime(clock.Year(), mo, clock.Day(), clock.Hour(), clock.Minute(), clock.Second());
-  }
-  else if (server.hasArg("stimey"))
-  {
-    uint16_t y = atoi(server.arg("stimey").c_str());
-    dt = RtcDateTime(y, clock.Month(), clock.Day(), clock.Hour(), clock.Minute(), clock.Second());
-  }
-  else
-    return;
-
-  communicate.setClock(dt);
-
-}
-
-void OpenAq_Controller::handlePower()
-{
-  if (server.hasArg("addpdevice"))
-  {
-    storage.addPowerDevice();
-
-    server.send(200, "text/html", String(F("<h3>Power device added</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("pdevice") && server.hasArg("pstate") )
-  {
-    uint8_t id = atoi(server.arg("pdevice").c_str());
-    uint8_t state = atoi(server.arg("pstate").c_str());
-
-    storage.setPowerDeviceState(id, state);
-
-    if (state == ON)
-    {
-      server.send(200, "text/html", String(F("<h3>Power socket ON</h3>")));
-    }
-    else
-    {
-      if ( state == OFF )
-      {
-        server.send(200, "text/html", String(F("<h3>Power socket OFF</h3>")));
-      }
-      else
-      {
-        server.send(200, "text/html", String(F("<h3>Power socket BINDING</h3>")));
-      }
-    }
-
-    return;
-  }
-
-
-  if ( server.hasArg("pdevice") && server.hasArg("psid") && server.hasArg("pvalue") )
-  {
-    uint8_t p_id = atoi(server.arg("pdevice").c_str());
-    uint8_t step_id = atoi(server.arg("psid").c_str());
-    uint8_t val = atoi(server.arg("pvalue").c_str());
-
-    storage.setPDeviceStep( id2idx(p_id), id2idx(step_id), val );
-
-    server.send(200, "text/html", String(F("<h3>Power socket value set</h3>")));
-
-    return;
-  }
-
-  if ( server.hasArg("pdevice") && server.hasArg("pdesc") )
-  {
-    uint8_t p_id = atoi(server.arg("pdevice").c_str());
-
-    storage.setPDesription( id2idx( p_id ), server.arg("pdesc").c_str() );
-
-    server.send(200, "text/html", String(F("<h3>Power socket description set</h3>")));
-
-    return;
-  }
-
-}
-
-void OpenAq_Controller::handleGlobal()
-{
-  if ( server.hasArg("storesettings") )
-  {
-    storage.save();
-
-    server.send(200, "text/html", String(F("Settings are stored")));
-
-    return;
-  }
-
-  if ( server.hasArg("clientssid") && server.hasArg("clientpwd") )
-  {
-    storage.setClientSSID( server.arg("clientssid").c_str() );
-    storage.setClientPwd( server.arg("clientpwd").c_str() );
-
-    storage.enableClient();
-
-    server.send(200, "text/html", String(F("<h3>Client enabled.</h3>")));
-    
-    storage.save();
-
-    WiFi.mode(WIFI_STA);
-    delay(5000);
-    WiFi.begin ( storage.getClientSSID(), storage.getClientPwd() );
-    
-    ESP.reset();
-
-    return;
-  }
-
-  if ( server.hasArg("setfactorysettings") )
-  {
-    storage.defaults(SIG);
-    //storage.save();
-    //ESP.restart();
-  }
-
-  if ( server.hasArg("setreboot") )
-  {
-    ESP.restart();
-  }
-
-  if ( server.hasArg("update") )
-  {
-    ota();
-  }
-
-  if ( server.hasArg("opaqdefaults") )
-  {
-    server.send(200, "text/html", String(F("<h3>OPAQ_DEFAULTS_RUNNING</h3>")));
-    opaq_defaults = true;
-  }
-}
-
-
-void OpenAq_Controller::ota()
-{
-
-  t_httpUpdate_return ret = ESPhttpUpdate.update(OPAQ_URL_FIRMWARE_UPLOAD, 80, "/binaries", OPAQ_VERSION);
-
-  switch (ret) {
-    case HTTP_UPDATE_FAILED:
-      Serial.println("HTTP_UPDATE_FAILED");
-      server.send(200, "text/html", String(F("<h3>HTTP_UPDATE_FAILED</h3>")));
-      break;
-
-    case HTTP_UPDATE_NO_UPDATES:
-      Serial.println("HTTP_UPDATE_NO_UPDATES");
-      break;
-
-  }
-}
-*/
-/*=====  End of Opaq controller private methods  ======*/
-
-OpenAq_Controller opaq_controller;
-

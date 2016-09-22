@@ -343,35 +343,35 @@ void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
 
   if(type == WS_EVT_CONNECT){
     //client connected
-    os_printf("ws[%s][%u] connect\n", server->url(), client->id());
+    DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] connect\n"), server->url(), client->id());
     //client->printf("Hello Client %u :)", client->id());
     client->ping();
   } else if(type == WS_EVT_DISCONNECT){
     //client disconnected
-    os_printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+    DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] disconnect: %u\n"), server->url(), client->id());
   } else if(type == WS_EVT_ERROR){
     //error was received from the other end
-    os_printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+    DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] error(%u): %s\n"), server->url(), client->id(), *((uint16_t*)arg), (char*)data);
   } else if(type == WS_EVT_PONG){
     //pong message was received (in response to a ping request maybe)
-    os_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
+    DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] pong[%u]: %s\n"), server->url(), client->id(), len, (len)?(char*)data:"");
   } else if(type == WS_EVT_DATA){
     //data packet
     AwsFrameInfo * info = (AwsFrameInfo*)arg;
     if(info->final && info->index == 0 && info->len == len){
       //the whole message is in a single frame and we got all of it's data
-      os_printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+      DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] %s-message[%llu]: "), server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
       if(info->opcode == WS_TEXT){
         data[len] = 0;
-        os_printf("%s\n", (char*)data);
+        DEBUG_MSG_OPAQWEBSOCKET(FF("%s\n"), (char*)data);
 
         parseTextMessage(client, data, len);
         
       } else {
         for(size_t i=0; i < info->len; i++){
-          os_printf("%02x ", data[i]);
+          DEBUG_MSG_OPAQWEBSOCKET(FF("%02x "), data[i]);
         }
-        os_printf("\n");
+        DEBUG_MSG_OPAQWEBSOCKET(FF("\n"));
       }
 
       
@@ -379,29 +379,29 @@ void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
       //message is comprised of multiple frames or the frame is split into multiple packets
       if(info->index == 0){
         if(info->num == 0)
-          os_printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-        os_printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+          DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] %s-message start\n"), server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+        DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] frame[%u] start[%llu]\n"), server->url(), client->id(), info->num, info->len);
       }
 
-      os_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+      DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] frame[%u] %s[%llu - %llu]: "), server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
       if(info->message_opcode == WS_TEXT){
         data[len] = 0;
-        os_printf("%s\n", (char*)data);
+        DEBUG_MSG_OPAQWEBSOCKET(FF("%s\n"), (char*)data);
 
         tmps += (char*)data;
         
       } else {
         for(size_t i=0; i < len; i++){
-          os_printf("%02x ", data[i]);
+          DEBUG_MSG_OPAQWEBSOCKET(FF("%02x "), data[i]);
         }
-        os_printf("\n");
+        DEBUG_MSG_OPAQWEBSOCKET(FF("\n"));
       }
 
       if((info->index + len) == info->len){
-        os_printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+        DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] frame[%u] end[%llu]\n"), server->url(), client->id(), info->num, info->len);
         
         if(info->final){
-          os_printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+          DEBUG_MSG_OPAQWEBSOCKET(FF("ws[%s][%u] %s-message end\n"), server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
 
           parseTextMessage(client, (uint8_t*)const_cast<char*>(tmps.c_str()), tmps.length());
 

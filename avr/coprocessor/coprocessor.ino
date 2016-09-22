@@ -66,6 +66,9 @@ void setup() {
   digitalWrite(7, HIGH);
   digitalWrite(PIN_TOUCH_CS, HIGH);
 
+  pinMode(3, OUTPUT);
+  digitalWrite(3, HIGH);
+
   // real-time clock
   rtc.Begin();
   //rtc.SetDateTime(RtcDateTime(2016,5,25,5,34,0));

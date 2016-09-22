@@ -5,14 +5,14 @@ bool __atomic_compare_exchange_1(volatile bool * mem, bool * expected, bool desi
 {
 	bool status = true;
 	
-	noInterrupts();
+	//noInterrupts();
 
 	if (*mem == *expected)
 		*mem = desired;
 	else
 		status = false;
 
-	interrupts();
+	//interrupts();
 
 	return status;
 }
@@ -37,12 +37,12 @@ static inline void arch_local_irq_restore(unsigned long flags)
 bool cas(volatile uint8_t *mem, uint8_t expected, uint8_t desired)
 {
   bool status = true;
-  noInterrupts();
+  //noInterrupts();
   if (*mem == expected)
     *mem = desired;
   else
     status = false;
-  interrupts();
+  //interrupts();
 
   return status;
 }

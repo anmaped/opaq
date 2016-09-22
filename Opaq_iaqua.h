@@ -38,9 +38,6 @@
 #include "FS.h"
 #include "gfx.h"
 
-#include "Opaq_iaqua_device.h"
-
-
 #define CENTER 0
 #define VGA_WHITE RGB(255,255,255)
 #define VGA_BLACK RGB(0,0,0)
