@@ -1,6 +1,8 @@
 # Opaq - IoT aquarium and pond controllers for everyone
 #### Release 1.0.6
 
+[![Join the chat at https://gitter.im/opaqproject/general](https://badges.gitter.im/opaqproject/general.svg)](https://gitter.im/opaqproject/general?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Main screen |  Settings Screen | Wifi Settings | Graph
 :-----------:|:----------------:|:------:|:-------:
 ![](/data/binaries/screenshots/main.png) |  ![](/data/binaries/screenshots/settings.png) |  ![](/data/binaries/screenshots/wifi.png) |  ![](/data/binaries/screenshots/dimmergraph.png)
@@ -13,7 +15,7 @@ Supported features:
 
 Opaq devices available:
 
-Opaq C1 | Opaq n1 | Opaq n2
+Opaq c1 | Opaq n1 | Opaq n2
 :------:|:---------:|:---------:
 the main controller device ![Opaq C1 Frame](/hardware/opac_c1/v1.1/top.png?raw=true "Opaq C1 Frame") | the four channel dimmer device capable to connect with any led lamp (several settings available) ![Opaq n1 Frame](/hardware/opac_n1/v2.1/top.png?raw=true "Opaq n1 Frame") | the power outlet controller node for 220v devices up to 2400w
 
