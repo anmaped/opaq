@@ -32,7 +32,6 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-#include <ESP8266AVRISP.h>
 #include <RtcDateTime.h>
 
 #include <Wire.h>
@@ -68,13 +67,10 @@ private:
   AsyncWebServer server;
   AsyncWebSocket ws;
 
-  ESP8266AVRISP avrprog;
-
   // Set up alarms to call periodic tasks
   Ticker timming_events;
   Ticker t_evt;
 
-  
   // real-time clock initialization
   bool clockIsReady;
 

@@ -24,7 +24,7 @@
  */
 
 #ifdef ARDUINO
-#include "zmodem_fixes.h"
+//#include "zmodem_fixes.h"
 #include "zmodem.h"
 #include "zmodem_crc16.cpp"
 #include "zmodem_zm.h"
@@ -36,7 +36,7 @@
 
 // Shared globals
 long Bytesleft; // from rz - Shared with sz bytcnt
-long rxbytes;   // from rz - Shared with sz Lrxpos
+//long rxbytes;   // from rz - Shared with sz Lrxpos
 int Blklen;     // from rz - Shared with sz blklen
 
 #define Rxtimeout 100            /* Tenths of seconds to wait for something */

@@ -32,6 +32,8 @@
 
 #include "src/ADS7846/ADS7846.h"
 #include "opaq.h"
+#include "Opaq_coprogrammer.h"
+
 
 #ifdef DEBUG_ESP_OPAQSTORAGE
 #define DEBUG_MSG_STORAGE(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
@@ -245,6 +247,8 @@ public:
     Opaq_st_plugin_pwdevice   pwdevice;
     Opaq_st_plugin_wifisett   wifisett;
     Opaq_st_plugin_touchsett  touchsett;
+
+    Opaq_coprogrammer avrprog;
 
 };
 

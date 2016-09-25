@@ -12,11 +12,7 @@ From: http://stackoverflow.com/questions/2607853/why-prototype-is-used-header-fi
 
 #define _PROTOTYPE(function, params) function params
 
-#include <SdFat.h>
-
-extern SdFat sd;
-
-#include <string.h>
+//#include <string.h>
 
 // Dylan (monte_carlo_ecm, bitflipper, etc.) - changed serial read/write to macros to try to squeeze 
 // out higher speed
@@ -24,6 +20,7 @@ extern SdFat sd;
 #define READCHECK
 #define TYPICAL_SERIAL_TIMEOUT 1200
 
+//#define readline(timeout) ({ delay(1000); (ZSERIAL.available() > 0) ? ZSERIAL.read() : TIMEOUT; })
 #define readline(timeout) ({ byte _c; ZSERIAL.readBytes(&_c, 1) > 0 ? _c : TIMEOUT; })
 int zdlread2(int);
 #define zdlread(void) ({ int _z; ((_z = readline(Rxtimeout)) & 0140) ? _z : zdlread2(_z); })
@@ -50,6 +47,8 @@ extern int Filcnt;
 #define TXBSIZE 1024
 #endif
 
+//#define SEGMENTS 1
+
 #define sleep(x) delay((x)*1000L)
 #define signal(x,y)
 
@@ -61,7 +60,6 @@ extern int Filcnt;
 // enter the "if" statement's clause
 #define setjmp(...)
 
-#define printf(s, ... ) DSERIAL.println(s);
 #define fprintf(...)
 
 // fseek(in, Rxpos, 0)
@@ -81,5 +79,35 @@ void purgeline(void);
 #endif
 
 void flushmo(void);
+
+
+
+
+
+// new part
+#ifdef ARDUINO
+#include <Arduino.h>
+#ifndef ESP8266
+extern SdFile fout;
+#define printf(s, ... ) DSERIAL.println(s);
+// map SdFile to File
+#define File SdFile
+
+#else
+
+#include <FS.h>
+#define SERIAL_TX_BUFFER_SIZE UART_TX_FIFO_SIZE
+
+#endif
+
+File * _fopen(const char * filename, const char * mode);
+void _fclose(File * fl);
+void _putc(const char p, File * fl);
+
+#define fopen   _fopen
+#define fclose  _fclose
+#define putc    _putc
+
+#endif
 
 #endif

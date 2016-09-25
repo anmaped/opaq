@@ -67,7 +67,7 @@ void setup() {
   digitalWrite(PIN_TOUCH_CS, HIGH);
 
   pinMode(3, OUTPUT);
-  digitalWrite(3, HIGH);
+  analogWrite(3, 255);
 
   // real-time clock
   rtc.Begin();
@@ -259,12 +259,17 @@ ISR (SPI_STC_vect)
 
   case ID_RF433_STREAM:
 
-    byte data = SPDR;
+    //byte data = SPDR;
     // enqueue stream
     enqueue_stream(data, count);
     SPDR = data;
 
     count++;
+    break;
+
+  case ID_DIM_TFT:
+
+    analogWrite(3, data);
     break;
 
   } // end of switch

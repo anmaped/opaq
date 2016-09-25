@@ -231,3 +231,18 @@ void Opaq_com::getClock(RtcDateTime& clock)
   clock = RtcDateTime(x[1], x[2], x[3], x[4], x[5], x[6]);
   
 }
+
+void Opaq_com::tft_dimmer(byte value)
+{
+  if( connect() )
+    return;
+  
+  SPI.transfer (ID_DIM_TFT);
+  delayMicroseconds (30);
+
+  SPI.transfer (value);
+  delayMicroseconds (30);
+
+  disconnect();
+  
+}

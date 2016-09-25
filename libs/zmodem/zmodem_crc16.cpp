@@ -1,4 +1,9 @@
+
+#ifndef ESP8266
 #include <avr/pgmspace.h>
+#else
+#include <pgmspace.h>
+#endif
 
 
 /*

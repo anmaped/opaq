@@ -2,8 +2,9 @@
 
 //#define DEBUG_ESP_OPAQCOMMAND
 //#define DEBUG_ESP_OPAQSTORAGE
+#define DEBUG_ESP_OPAQCOPROG
+#define DEBUG_ESP_PORT Serial
 
-//#define DEBUG_ESP_PORT Serial
 
 #define OPAQ_C1_SCREEN
 

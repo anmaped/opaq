@@ -74,6 +74,8 @@ class Opaq_com
 
   void getCiferKey();
 
+  void tft_dimmer(byte value);
+
   Opaq_com_nrf24 nrf24;
   Opaq_com_atsha204 atsha204;
   Opaq_com_tsc2046 touch;

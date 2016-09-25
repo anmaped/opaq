@@ -1,20 +1,9 @@
 #ifndef ZMODEM_CONFIG_H
 #define ZMODEM_CONFIG_H
 
+#include <Arduino.h>
+
 #define Progname F("Arduino ZModem V2.1")
-
-// Dylan (monte_carlo_ecm, bitflipper, etc.) - The SparkFun MP3 shield (which contains an SDCard)
-// doesn't operate properly with the SDFat library (SPI related?) unless the MP3 library is
-// initialized as well.  If you are using a SparkFun MP3 shield as your SDCard interface,
-// the following macro must be defined.  Otherwise, comment it out.
-
-//#define SFMP3_SHIELD
-
-#ifndef SFMP3_SHIELD
-// Make sure you set this correctly to define the pin where you have connected your SDCard's
-// CS pin!
-#define SD_SEL 9
-#endif
 
 // Serial output for debugging info
 #define DSERIAL Serial
@@ -26,7 +15,7 @@
 #define ZSERIAL Serial
 
 // Dylan (monte_carlo_ecm, bitflipper, etc.) - Adjust the baud rate to suit your board and needs
-#define ZMODEM_SPEED 57600
+//#define ZMODEM_SPEED 57600
 
 // Dylan (monte_carlo_ecm, bitflipper, etc.) - For smaller boards (32K flash, 2K RAM) it may only
 // be possible to have only one or some of the following 3 features enabled at a time:  1) File manager

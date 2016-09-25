@@ -101,7 +101,6 @@ static void _10hzLoop_timmingEvent()
 OpenAq_Controller::OpenAq_Controller() :
   server ( AsyncWebServer ( 80 ) ),
   ws ( AsyncWebSocket("/ws") ),
-  avrprog (328, 2),
   timming_events ( Ticker() ),
   //storage ( Opaq_storage() ),
   str ( String() ),
@@ -333,8 +332,12 @@ void OpenAq_Controller::setup_controller()
 
         struct slre_cap caps[5];
 
+        // ex: "/opaqc1-www-v001.tar"
         String lre_tar = String(F("^opaqc1-([a-z]+)-v([0-9]+).tar$"));
+        // ex: "/opaqc1-v001-MD5.bin"
         String lre_bin = String(F("^opaqc1-v([0-9]+)-([a-z0-9]+).bin$"));
+        // ex: "/opaqc1-avr-v001-MD5.bin"
+        String lre_avr_bin = String(F("^opaqc1-avr-v([0-9]+)-([a-z0-9]+).bin$"));
 
         // contain tar extension ? apply tar extractor.
         if (slre_match(lre_tar.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
@@ -349,7 +352,7 @@ void OpenAq_Controller::setup_controller()
           c.exec = [](LinkedList<String>& args) { storage.tarextract(args.pop().c_str(), args.pop().c_str()); };
 
           String filepath = String(F("/tmp/")) + filename;
-          //String b = "/www";
+
           c.args.add(target);
           c.args.add(filepath);
 
@@ -358,32 +361,36 @@ void OpenAq_Controller::setup_controller()
           request->redirect("/rcv?success=true");
         }
         else
-        if (slre_match(lre_bin.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
-        //if(filename == "fw.bin")
-        {
-          String md5 = "";
-          md5 += caps[1].ptr;
-          md5.setCharAt(caps[1].len, '\0');
-          Serial.printf("MD5: %s\n", md5.c_str());
+          if (slre_match(lre_bin.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
+          //if(filename == "fw.bin")
+          {
+            String md5 = "";
+            md5 += caps[1].ptr;
+            md5.setCharAt(caps[1].len, '\0');
+            Serial.printf("MD5: %s\n", md5.c_str());
 
-          oq_cmd c;
-          c.exec = [](LinkedList<String> args) { storage.fwupdate(args.pop().c_str(), args.pop().c_str()); };
-          c.args = LinkedList<String>();
-          String filepath = String(F("/tmp/")) + filename;
-          //String a = "/tmp/fw.bin";
-          //String b = "XXX";
-          c.args.add(md5);
-          c.args.add(filepath);
+            oq_cmd c;
+            c.exec = [](LinkedList<String> args) { storage.fwupdate(args.pop().c_str(), args.pop().c_str()); };
+            c.args = LinkedList<String>();
+            String filepath = String(F("/tmp/")) + filename;
 
-          command.send(c);
+            c.args.add(md5);
+            c.args.add(filepath);
 
-          request->redirect("/rcv?success=true&fw=true");
-        }
-        else
-        {
-          //request->send(200, "text/html", "SUCCESS.");
-          request->redirect("/rcv?success=false");
-        }
+            command.send(c);
+
+            request->redirect("/rcv?success=true&fw=true");
+          }
+          else
+            if(slre_match(lre_avr_bin.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
+            {
+              storage.avrprog.program(filename.c_str());
+            }
+            else
+            {
+              //request->send(200, "text/html", "SUCCESS.");
+              request->redirect("/rcv?success=false");
+            }
 
         Serial.printf("UploadEnd: %s, %u B\n", filename.c_str(), index+len);
 
@@ -428,7 +435,7 @@ void OpenAq_Controller::setup_controller()
   server.begin();
 
   // start avrprog
-  avrprog.begin();
+  storage.avrprog.begin();
 
   // RTC setup
   //rtc.Begin();
@@ -529,7 +536,7 @@ void OpenAq_Controller::run_programmer()
 
   while(lock)
   {
-    AVRISPState_t new_state = avrprog.update();
+    AVRISPState_t new_state = storage.avrprog.update();
     if (last_state != new_state) {
         switch (new_state) {
             case AVRISP_STATE_IDLE: {
@@ -564,7 +571,7 @@ void OpenAq_Controller::run_programmer()
     // Serve the client
     if (last_state != AVRISP_STATE_IDLE)
     {
-      avrprog.serve();
+      storage.avrprog.serve();
     }
 
     optimistic_yield(10000);

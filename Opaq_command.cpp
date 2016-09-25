@@ -102,7 +102,7 @@ void Opaq_command::terminal()
 	struct slre_cap caps[5];
 
 	static String line = "";
-    String lre = String(F("^([a-z0-9]+)(\\s[a-zA-Z0-9./-]*)*"));
+    String lre = String(F("^([a-z0-9]+)(\\s[a-zA-Z0-9./-]*)*\\r|\\n$"));
 
     auto read_line = [](String &inData)
     {
@@ -261,6 +261,42 @@ void Opaq_command::terminal()
 									break;
 
 			case "update"_hash 	:	/*storage.fwupdate("noname.bin", "");*/
+									args = caps[1].ptr;
+									Serial.println(caps[1].len);
+									args = args.substring(1);
+									args.setCharAt(caps[1].len + caps[2].len - caps[0].len, '\0');
+									Serial.println(args.c_str());
+
+									split(args, arg);
+
+									Serial.println(arg[0]);
+									Serial.println(arg[1]);
+
+									if(arg[0] == "avr")
+									{
+										if(SPIFFS.exists(arg[1].c_str()))
+										{
+											communicate.spinlock();
+
+											storage.avrprog.program(arg[1].c_str());
+
+											communicate.unlock();
+										}
+										else
+										{
+											Serial.println("File does not found.");
+										}
+									}
+									else
+										if(arg[0] == "esp")
+										{
+
+										}
+										else
+										{
+											Serial.println(String() + "update of " + arg[0] + " is not allowed.");
+										}
+
 									break;
 
 			case "tar"_hash     :	
@@ -328,20 +364,30 @@ void Opaq_command::terminal()
 									ESP.restart();
 									break;
 
-			case "fscls"_hash :	
+			case "fscls"_hash 	:	
 									for(int i=0; i<100; i++)
 									SPIFFS.garbage();
 									Serial.println("Filesystem cleanup.");
 									break;
 
-			case "state"_hash	:	
+			case "dim"_hash		:
+									args = caps[1].ptr;
+									Serial.println(caps[1].len);
+									args = args.substring(1);
+									args.setCharAt(caps[1].len - caps[0].len, '\0');
+									Serial.println(args.c_str());
+
+									communicate.tft_dimmer(atoi(args.c_str()));
+									break;
+
+			case "esp"_hash		:	
 									Serial.print("Heap: ");
 									Serial.println(ESP.getFreeHeap());
 									break;
 
 			case "help"_hash 	:
 									// show available commands
-									Serial.println(F("Available commands: \r\nformat \r\nupdate \r\ntar \r\nls \r\nrm \r\nwifi \r\nnrf24 \r\nrz \r\nfscls \r\nhelp"));
+									Serial.println(F("Available commands: \r\nformat \r\nupdate \r\ntar \r\nls \r\nrm \r\nwifi \r\nnrf24 \r\nrz \r\nfscls \r\nesp \r\nhelp"));
 									break;
 			default 			:
 									Serial.println(F("Unknown command."));

@@ -41,7 +41,8 @@ Opaq_storage::Opaq_storage() :
   faqdim(Opaq_st_plugin_faqdim ()),
   pwdevice(Opaq_st_plugin_pwdevice()),
   wifisett(Opaq_st_plugin_wifisett()),
-  touchsett(Opaq_st_plugin_touchsett())
+  touchsett(Opaq_st_plugin_touchsett()),
+  avrprog (328, 2)
 {
   
 }
