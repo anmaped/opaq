@@ -10,3 +10,6 @@
 [submodule "libs/LinkedList"]
 	path = libs/LinkedList
 	url = https://github.com/ivanseidel/LinkedList.git
+[submodule "avr/n1/libs/rf24"]
+	path = avr/n1/libs/rf24
+	url = https://github.com/TMRh20/RF24.git
