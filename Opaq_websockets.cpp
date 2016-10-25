@@ -36,7 +36,7 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
   if( data[0] =='{' && data[len - 1] == '}' )
   {
      // let's parse the json file
-     Serial.println("JSON STR RECEIVED!");
+     Serial.println(F("JSON STR RECEIVED!"));
 
      char tmp[len + 1];
      memcpy(tmp, (char *)data, len);
@@ -46,22 +46,22 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
      // ########################
      // Wifi configuration file
      // ########################
-     if ( root.containsKey("mode") )
+     if ( root.containsKey(FF("mode")) )
      {
   
-       if ( strcmp((const char*)root["mode"], "ap") == 0 )
+       if ( strcmp((const char*)root[F("mode")], FF("ap")) == 0 )
        {
-         Serial.println("AP");
-         storage.wifisett.setSSID((const char*)root["ssid"]);
-         storage.wifisett.setPwd((const char*)root["pwd"]);
+         Serial.println(F("AP"));
+         storage.wifisett.setSSID((const char*)root[F("ssid")]);
+         storage.wifisett.setPwd((const char*)root[F("pwd")]);
 
          storage.wifisett.enableSoftAP();
        }
-       else if ( strcmp((const char*)root["mode"], "sta") == 0 )
+       else if ( strcmp((const char*)root[F("mode")], FF("sta")) == 0 )
        {
-         Serial.println("STA");
-         storage.wifisett.setClientSSID((const char*)root["ssid"]);
-         storage.wifisett.setClientPwd((const char*)root["pwd"]);
+         Serial.println(F("STA"));
+         storage.wifisett.setClientSSID((const char*)root[F("ssid")]);
+         storage.wifisett.setClientPwd((const char*)root[F("pwd")]);
   
          // set mode to STA
          storage.wifisett.enableClient();
@@ -74,11 +74,11 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
      // #########################
      // Set Clock
      // #########################
-     if (root.containsKey("setclock") )
+     if (root.containsKey(FF("setclock")) )
      {
-       JsonObject& rootsetclock = root.get("setclock");
+       JsonObject& rootsetclock = root.get(FF("setclock"));
       
-       if ( rootsetclock.containsKey("type") && ( strcmp((const char*)rootsetclock["type"], "ntp") == 0 ) )
+       if ( rootsetclock.containsKey("type") && ( strcmp((const char*)rootsetclock[F("type")], FF("ntp")) == 0 ) )
        {
          // get ntp time
          opaq_controller.syncClock();
@@ -86,7 +86,7 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
        else
        {
          // get values from json
-         RtcDateTime tmp = RtcDateTime( rootsetclock["year"], rootsetclock["month"], rootsetclock["day"], rootsetclock["hour"], rootsetclock["minute"], rootsetclock["second"]);
+         RtcDateTime tmp = RtcDateTime( rootsetclock[F("year")], rootsetclock[F("month")], rootsetclock[F("day")], rootsetclock[F("hour")], rootsetclock[F("minute")], rootsetclock[F("second")]);
          opaq_controller.getCom().setClock(tmp);
        }
      }
@@ -94,7 +94,7 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
      // #########################
      // Get Clock
      // #########################
-     if (root.containsKey("getclock") )
+     if (root.containsKey(FF("getclock")) )
      {
        // let's send the clock values
        JsonObject& tmp_root = jsonBuffer.createObject();
@@ -104,14 +104,14 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
        RtcDateTime date;
        opaq_controller.getCom().getClock(date); // [TODO] this can fail
        
-       conf["second"] = date.Second();
-       conf["minute"] = date.Minute();
-       conf["hour"]   = date.Hour();
-       conf["day"]    = date.Day();
-       conf["month"]  = date.Month();
-       conf["year"]   = date.Year();
+       conf[F("second")] = date.Second();
+       conf[F("minute")] = date.Minute();
+       conf[F("hour")]   = date.Hour();
+       conf[F("day")]    = date.Day();
+       conf[F("month")]  = date.Month();
+       conf[F("year")]   = date.Year();
 
-       String tmp = "";
+       String tmp = F("");
        tmp_root.printTo(tmp);
 
        client->text(tmp);
@@ -122,11 +122,11 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
      // ################
      // Filename getter
      // ################
-     if (root.containsKey("filename") )
+     if (root.containsKey(FF("filename")) )
      {
        String content = "";
        
-       sendFile(SPIFFS, root["filename"], content);
+       sendFile(SPIFFS, root[F("filename")], content);
        
        client->text(content);
      }
@@ -134,19 +134,19 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
      // ################################
      // Light device full dimmer setter
      // ###############################
-     if (root.containsKey("adimid") )
+     if (root.containsKey(FF("adimid")) )
      {
        // let's write the file configuration
       
-       storage.faqdim.save(root["adimid"], data, len);
+       storage.faqdim.save(root[F("adimid")], data, len);
       
-       client->text("{\"success\":\"\"}");
+       client->text(FF("{\"success\":\"\"}"));
      }
 
      // ################################
      // Light device full dimmer getter
      // ################################
-     if (root.containsKey("adim") )
+     if (root.containsKey(FF("adim")) )
      {
        String content = "", dirname = "";
        
@@ -175,28 +175,28 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
     // ##################################
     // Light device full dimmer remover
     // #################################
-    if (root.containsKey("adimremove") )
+    if (root.containsKey(FF("adimremove")) )
     {
-      storage.faqdim.remove(root["adimremove"]);
+      storage.faqdim.remove(root[F("adimremove")]);
      
-      client->text("{\"success\":\"\"}");
+      client->text(FF("{\"success\":\"\"}"));
     }
 
     // ################################
     // Light device full dimmer setter
     // ################################
-    if (root.containsKey("adimadd") )
+    if (root.containsKey(FF("adimadd")) )
     {
       storage.faqdim.add();
 
-      client->text("{\"success\":\"\"}");
+      client->text(FF("{\"success\":\"\"}"));
           
     }
 
     // ####################################
     // Light device full dimmer bind state
     // ####################################
-    if (root.containsKey("adimbind") )
+    if (root.containsKey(FF("adimbind")) )
     {
       //root["adimbind"]
     }
@@ -207,7 +207,7 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
     // ################################
     // Power device getter
     // ################################
-    if (root.containsKey("pdev") )
+    if (root.containsKey(FF("pdev")) )
     {
       String content = "", dirname = "";
        
@@ -236,34 +236,34 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
     // ################################
     // Power device setter
     // ################################
-    if (root.containsKey("pdevid") )
+    if (root.containsKey(FF("pdevid")) )
     {
       // let's write the file configuration
       
-      storage.pwdevice.save(root["pdevid"], data, len);
+      storage.pwdevice.save(root[F("pdevid")], data, len);
       
-      client->text("{\"success\":\"\"}");
+      client->text(FF("{\"success\":\"\"}"));
     }
 
     // ################################
     // Power device add setter
     // ################################
-    if (root.containsKey("pdevadd") )
+    if (root.containsKey(FF("pdevadd")) )
     {
       storage.pwdevice.add();
 
-      client->text("{\"success\":\"\"}");
+      client->text(FF("{\"success\":\"\"}"));
           
     }
 
     // ##################################
     // Power device remover
     // #################################
-    if (root.containsKey("pdevremove") )
+    if (root.containsKey(FF("pdevremove")) )
     {
-      storage.pwdevice.remove(root["pdevremove"]);
+      storage.pwdevice.remove(root[F("pdevremove")]);
      
-      client->text("{\"success\":\"\"}");
+      client->text(FF("{\"success\":\"\"}"));
     }
 
 
@@ -271,17 +271,17 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
     // ################################
     // Update filesystem
     // ###############################
-    if (root.containsKey("updatefilesystem") )
+    if (root.containsKey(FF("updatefilesystem")) )
     {
       // let's write the file configuration
       
       storage.setUpdate(true);
       
-      client->text("{\"success\":\"\"}");
+      client->text(FF("{\"success\":\"\"}"));
     }
      
   }
-  else if( strcmp((char*)data, "GET_OPAQ_WIFISETTINGS") == 0 )
+  else if( strcmp((char*)data, FF("GET_OPAQ_WIFISETTINGS")) == 0 )
   {
     // let's send the wifisettings
     JsonObject& root = jsonBuffer.createObject();
@@ -295,44 +295,44 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
     storage.wifisett.getClientPwd(wclientpwd);
     storage.wifisett.getMode(wmode);
     
-    conf["wssid"] = wssid.c_str();
-    conf["wpwd"] = wpwd.c_str();
-    conf["wchan"] = 6; // [TODO]
+    conf[F("wssid")] = wssid.c_str();
+    conf[F("wpwd")] = wpwd.c_str();
+    conf[F("wchan")] = 6; // [TODO]
     
-    conf["wssidsta"] = wclientssid.c_str();
-    conf["wpwdsta"] = wclientpwd.c_str();
-    conf["wmode"] = wmode.c_str();
+    conf[F("wssidsta")] = wclientssid.c_str();
+    conf[F("wpwdsta")] = wclientpwd.c_str();
+    conf[F("wmode")] = wmode.c_str();
 
-    String tmp = "";
+    String tmp = F("");
     root.printTo(tmp);
 
     client->text(tmp);
   }
-  else if( strcmp((char*)data, "GET_OPAQ_SUMMARY") == 0 )
+  else if( strcmp((char*)data, FF("GET_OPAQ_SUMMARY")) == 0 )
   {  
     String wssid;
     storage.wifisett.getSSID(wssid);
     
     JsonObject& root = jsonBuffer.createObject();
-    root["version"] = OPAQ_VERSION;
-    root["id"]      = ESP.getFlashChipId();
-    root["status"]  = "Running without errors"; // [TODO]
-    root["wstatus"] = "Radio is On"; // [TODO]
-    root["wmode"]   = (storage.wifisett.getModeOperation())? "softAP" : "client";
-    root["wssid"]   = wssid.c_str();
-    root["wchan"]   = WiFi.channel();
-    root["wdhcp"]   = "Enabled"; // [TODO]
-    root["wmac"]    = WiFi.softAPmacAddress();
-    root["wip"]     = (storage.wifisett.getModeOperation())? WiFi.softAPIP().toString() : WiFi.localIP().toString();
+    root[F("version")] = OPAQ_VERSION;
+    root[F("id")]      = ESP.getFlashChipId();
+    root[F("status")]  = "Running without errors"; // [TODO]
+    root[F("wstatus")] = "Radio is On"; // [TODO]
+    root[F("wmode")]   = (storage.wifisett.getModeOperation())? "softAP" : "client";
+    root[F("wssid")]   = wssid.c_str();
+    root[F("wchan")]   = WiFi.channel();
+    root[F("wdhcp")]   = "Enabled"; // [TODO]
+    root[F("wmac")]    = WiFi.softAPmacAddress();
+    root[F("wip")]     = (storage.wifisett.getModeOperation())? WiFi.softAPIP().toString() : WiFi.localIP().toString();
 
-    String tmp = "";
+    String tmp = F("");
     root.printTo(tmp);
 
     client->text(tmp);
   }
   else
   {
-    client->text("{\"msg\":\"I got your text message\"}");
+    client->text(FF("{\"msg\":\"I got your text message\"}"));
   }
   
 }

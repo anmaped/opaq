@@ -26,6 +26,7 @@
 #include <pgmspace.h>
 #include <FS.h>
 #include <ESP8266httpUpdate.h>
+#include <Scheduler.h>
 
 #include "Opaq_c1.h"
 #include "opaq.h"
@@ -59,14 +60,15 @@ LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // until here...
 #endif
 
-
+unsigned int count = 0;
+unsigned int count2 = 0;
 OpenAq_Controller opaq_controller;
 
 // non-class functions begin
 
-bool run1hz_flag = false;
-bool enableTartExtract = false;
-
+//bool run1hz_flag = false;
+//bool enableTartExtract = false;
+/*
 static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
 {
   run1hz_flag = true;
@@ -90,7 +92,7 @@ static void _10hzLoop_timmingEvent()
 {
   system_os_post ( _10hzLoopTaskPrio, 0, 0 );
 }
-
+*/
 // non-class functions end
 
 
@@ -106,7 +108,7 @@ OpenAq_Controller::OpenAq_Controller() :
   str ( String() ),
   clockIsReady( false )
 {
-  str.reserve ( 2048 );
+  //str.reserve ( 2048 );
 }
 
 
@@ -129,7 +131,7 @@ void OpenAq_Controller::setup_controller()
   delay(1000);
   if(Serial.readBytes(&_c,1))
   {
-    Serial.println("recovery mode!");
+    Serial.println(F("recovery mode!"));
     return;
   }
 
@@ -213,7 +215,7 @@ void OpenAq_Controller::setup_controller()
 #endif
 
     WiFi.mode(WIFI_STA);
-    delay(4000);
+    //delay(4000);
 
 #ifdef OPAQ_C1_SCREEN
     wscreen.setExecutionBar(45);
@@ -226,65 +228,19 @@ void OpenAq_Controller::setup_controller()
     wscreen.msg( (String(F("Connecting to ")) + ssid ).c_str() );
 #endif
 
-    WiFi.begin ( ssid.c_str(), pwd.c_str() );
-
-    WiFi.printDiag(Serial);
     
-    int count_tries = 0;
-
-    while ( WiFi.status() != WL_CONNECTED )
-    {
-      delay ( 500 );
-      Serial.print ( "." );
-      count_tries++;
-
-      if (count_tries > 100)
-      {
-        Serial.println ( F("returning to AP mode. Reboot.") );
-
-#ifdef OPAQ_C1_SCREEN
-        wscreen.msg( String(F("Returning to AP mode")).c_str() );
-#endif
-
-        delay(1000);
-        storage.wifisett.enableSoftAP();
-        ESP.reset();
-      }
-    }
 
 #ifdef OPAQ_C1_SCREEN
     wscreen.msg( String(F("Connected")).c_str() );
 #endif
 
-    Serial.println ( F("WiFi connected") );
+    Serial.println ( F("\nWiFi connected") );
     Serial.println ( F("IP address: ") );
     Serial.println ( WiFi.localIP() );
   }
 
 #ifdef OPAQ_C1_SCREEN
   wscreen.setExecutionBar(55);
-#endif
-
-#if OPAQ_OTA_ARDUINO
-  // OTA server
-  ota_server.setup();
-#endif
-
-#if OPAQ_MDNS_RESPONDER
-
-#ifdef OPAQ_C1_SCREEN
-  wscreen.msg( String(F("mDNS responder")).c_str() );
-#endif
-
-  // mDNS responder
-  if (!MDNS.begin("opaq")) {
-    Serial.println(F("Error setting up MDNS responder!"));
-    while (1) {
-      delay(1000);
-    }
-  }
-  Serial.println(F("mDNS responder started"));
-  MDNS.addService("http", "tcp", 80);
 #endif
 
   //  BEGINS the LOADING OF FILES FROM SPIFFS
@@ -294,7 +250,7 @@ void OpenAq_Controller::setup_controller()
 #endif
 
 
-  server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
+  server.on(FF("/upload"), HTTP_POST, [](AsyncWebServerRequest *request){
     request->send(200);
   }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
 
@@ -317,10 +273,10 @@ void OpenAq_Controller::setup_controller()
 
         if(!f)
         {
-          f = SPIFFS.open(String(String(F("/tmp/")) + filename).c_str(), "w");
+          f = SPIFFS.open(String(String(F("/tmp/")) + filename).c_str(), FF("w"));
         }
 
-        Serial.printf("UploadStart: %s\n", filename.c_str());
+        Serial.printf(FF("UploadStart: %s\n"), filename.c_str());
       }
 
       for(size_t i=0; i<len; i++){
@@ -346,7 +302,7 @@ void OpenAq_Controller::setup_controller()
           String target = F("/");
           target += caps[0].ptr;
           target.setCharAt(caps[0].len + 1, '\0');
-          Serial.printf("Path: %s\n", target.c_str());
+          Serial.printf(FF("Path: %s\n"), target.c_str());
 
           oq_cmd c;
           c.exec = [](LinkedList<String>& args) { storage.tarextract(args.pop().c_str(), args.pop().c_str()); };
@@ -358,7 +314,7 @@ void OpenAq_Controller::setup_controller()
 
           command.send(c);
 
-          request->redirect("/rcv?success=true");
+          request->redirect(FF("/rcv?success=true"));
         }
         else
           if (slre_match(lre_bin.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
@@ -367,7 +323,7 @@ void OpenAq_Controller::setup_controller()
             String md5 = "";
             md5 += caps[1].ptr;
             md5.setCharAt(caps[1].len, '\0');
-            Serial.printf("MD5: %s\n", md5.c_str());
+            Serial.printf(FF("MD5: %s\n"), md5.c_str());
 
             oq_cmd c;
             c.exec = [](LinkedList<String> args) { storage.fwupdate(args.pop().c_str(), args.pop().c_str()); };
@@ -379,7 +335,7 @@ void OpenAq_Controller::setup_controller()
 
             command.send(c);
 
-            request->redirect("/rcv?success=true&fw=true");
+            request->redirect(FF("/rcv?success=true&fw=true"));
           }
           else
             if(slre_match(lre_avr_bin.c_str(), filename.c_str(), filename.length(), caps, 5, 0) > 0)
@@ -389,22 +345,22 @@ void OpenAq_Controller::setup_controller()
             else
             {
               //request->send(200, "text/html", "SUCCESS.");
-              request->redirect("/rcv?success=false");
+              request->redirect(FF("/rcv?success=false"));
             }
 
-        Serial.printf("UploadEnd: %s, %u B\n", filename.c_str(), index+len);
+        Serial.printf(FF("UploadEnd: %s, %u B\n"), filename.c_str(), index+len);
 
       }
     }
   );
 
   // Simple Firmware Update Form
-  server.on("/rcv", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on(FF("/rcv"), HTTP_GET, [](AsyncWebServerRequest *request){
     opaq_recovery(request);
     //request->send(200, "text/html","<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='upload'></form><a href='format'>Format</a>");
   });
 
-  server.on("/formatspiffs", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on(FF("/formatspiffs"), HTTP_GET, [](AsyncWebServerRequest *request){
     
     oq_cmd c;
     c.exec = [](LinkedList<String> args) { SPIFFS.format(); };
@@ -419,27 +375,16 @@ void OpenAq_Controller::setup_controller()
 
 
   // setup webserver
-  server.serveStatic("/", SPIFFS, "/www/").setDefaultFile("opaqc1.html");
+  server.serveStatic(FF("/"), SPIFFS, FF("/www/")).setDefaultFile(FF("opaqc1.html"));
 
   server.onNotFound ( [ = ](AsyncWebServerRequest *request)
   {
-    request->send ( 404, "  text/plain", String ( "    " ) );
+    request->send ( 404, FF("text/plain"), FF(" ") );
   } );
 
   // attach AsyncWebSocket
   ws.onEvent(onEvent);
   server.addHandler(&ws);
-  
-
-  // start server
-  server.begin();
-
-  // start avrprog
-  storage.avrprog.begin();
-
-  // RTC setup
-  //rtc.Begin();
-  //Wire.begin ( 4, 5 );
 
 #ifdef OPAQ_C1_SCREEN
   wscreen.setExecutionBar(75);
@@ -478,6 +423,7 @@ void OpenAq_Controller::setup_controller()
 
   communicate.nrf24.init();
 
+  /*
   // registers deviceTask in the OS control structures
   system_os_task ( _deviceTaskLoop, deviceTaskPrio, deviceTaskQueue,
                    deviceTaskQueueLen );
@@ -488,7 +434,7 @@ void OpenAq_Controller::setup_controller()
   // Attach deviceTask event trigger function for periodic releases
   timming_events.attach_ms ( 1000, _devicesTask_timmingEvent );
 
-  t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );
+  t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );*/
 
 #ifdef OPAQ_C1_SCREEN
   run_tft();
@@ -496,24 +442,118 @@ void OpenAq_Controller::setup_controller()
 
   Serial.print(F("opaq>"));
 
+  //Scheduler.begin(4096);
+  Scheduler.start([](){
+    String ssid, pwd;
+
+    if ( storage.wifisett.getModeOperation() )
+      return;
+    
+    storage.wifisett.getClientSSID(ssid);
+    storage.wifisett.getClientPwd(pwd);
+
+    WiFi.begin ( ssid.c_str(), pwd.c_str() );
+
+    //WiFi.printDiag(Serial);
+    
+    int count_tries = 0;
+
+    while ( WiFi.status() != WL_CONNECTED )
+    {
+      delay ( 500 );
+      Serial.print ( "." );
+      count_tries++;
+
+      if (count_tries > 100)
+      {
+        Serial.println ( F("returning to AP mode. Reboot.") );
+
+#ifdef OPAQ_C1_SCREEN
+        wscreen.msg( String(F("Returning to AP mode")).c_str() );
+#endif
+
+        delay(1000);
+        storage.wifisett.enableSoftAP();
+        ESP.reset();
+      }
+    }
+
+    #if OPAQ_OTA_ARDUINO
+  // OTA server
+  ota_server.setup();
+#endif
+
+#if OPAQ_MDNS_RESPONDER
+
+#ifdef OPAQ_C1_SCREEN
+  wscreen.msg( String(F("mDNS responder")).c_str() );
+#endif
+
+  // mDNS responder
+  if (!MDNS.begin(FF("opaq"))) {
+    Serial.println(F("Error setting up MDNS responder!"));
+    while (1) {
+      delay(1000);
+    }
+  }
+  Serial.println(F("mDNS responder started"));
+  MDNS.addService(FF("http"), FF("tcp"), 80);
+#endif
+
+
+  // start server
+  opaq_controller.getServer().begin();
+
+  // start avrprog
+  storage.avrprog.begin();
+
+
+  }, [](){
+    static uint32_t clock = get_clock();
+    command.handler();
+    //delay(100);
+    clock += 100*1000;
+    delay_until(clock);
+  }, 2048);
+
+  Scheduler.start(NULL, [](){
+#ifdef OPAQ_C1_SCREEN
+  opaq_controller.run_touch();
+#endif
+  yield(); count++; }, 1024);
+
+  Scheduler.start(NULL, [](){
+  yield(); delay(10); count2++; }, 1024);
+
+  //Scheduler.start([](){}, [](){ Serial.println("Continuation 3"); yield(); Serial.println("Continuation 3 end"); });
+  //Scheduler.start([](){}, [](){ Serial.println("Continuation 4"); yield(); Serial.println("Continuation 4 end"); });
+
 }
 
 void OpenAq_Controller::run_controller()
 {
+  Serial.println(count);
+  Serial.println(count2);
+
+  count = 0;
+  count2 = 0;
+
+  //delay(20000);
+  //panic();
   // program handler
   run_programmer();
 
-  if (storage.getUpdate())
+  /*if (storage.getUpdate())
   {
     // initialize opaq services
     storage.initOpaqC1Service();
     storage.setUpdate(false);
   }
 
-  command.handler();
+  move this to a triggered action   [TODO]
+  */
 
-  // run that at 1hz
-  if(run1hz_flag)
+  // run that task at 1hz
   {
     run_task_ds3231();
     setClockReady();
@@ -524,7 +564,7 @@ void OpenAq_Controller::run_controller()
 
     storage.faqdim.run();
 
-    run1hz_flag = false;
+    delay(1000);
   }
 
 }
@@ -644,16 +684,16 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
 
- Serial.println("Starting UDP");
+ Serial.println(F("Starting UDP"));
   udp.begin(localPort);
-  Serial.print("Local port: ");
+  Serial.print(F("Local port: "));
 Serial.println(udp.localPort());
 
   //get a random server from the pool
   WiFi.hostByName(ntpServerName, timeServerIP); 
 
   //sendNTPpacket(timeServerIP); // send an NTP packet to a time server
-  Serial.println("sending NTP packet...");
+  Serial.println(F("sending NTP packet..."));
   // set all bytes in the buffer to 0
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
   // Initialize values needed to form NTP request
@@ -678,10 +718,10 @@ Serial.println(udp.localPort());
   
   int cb = udp.parsePacket();
   if (!cb) {
-    Serial.println("no packet yet");
+    Serial.println(F("no packet yet"));
   }
   else {
-    Serial.print("packet received, length=");
+    Serial.print(F("packet received, length="));
     Serial.println(cb);
     // We've received a packet, read the data from it
     udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
@@ -694,11 +734,11 @@ Serial.println(udp.localPort());
     // combine the four bytes (two words) into a long integer
     // this is NTP time (seconds since Jan 1 1900):
     unsigned long secsSince1900 = highWord << 16 | lowWord;
-    Serial.print("Seconds since Jan 1 1900 = " );
+    Serial.print(F("Seconds since Jan 1 1900 = ") );
     Serial.println(secsSince1900);
 
     // now convert NTP time into everyday time:
-    Serial.print("Unix time = ");
+    Serial.print(F("Unix time = "));
     // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
     const unsigned long seventyYears = 2208988800UL;
     // subtract seventy years:
@@ -708,7 +748,7 @@ Serial.println(udp.localPort());
 
 
     // print the hour, minute and second:
-    Serial.print("The UTC time is ");       // UTC is the time at Greenwich Meridian (GMT)
+    Serial.print(F("The UTC time is "));       // UTC is the time at Greenwich Meridian (GMT)
     Serial.print((epoch  % 86400L) / 3600); // print the hour (86400 equals secs per day)
     Serial.print(':');
     if ( ((epoch % 3600) / 60) < 10 ) {

@@ -329,7 +329,8 @@
         console.log("add.");
         setTimeout(
             function () {
- $.mobile.pageContainer.pagecontainer("change", "#pagesummary");
+$.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
+$.mobile.pageContainer.pagecontainer("change", "#pagesummary");
              }, 500);
 
       }
@@ -344,7 +345,6 @@
     $(document).ready(function()
     {
       $.mobile.pageContainer.pagecontainer("load", "opaqc1_index.html");
-      $.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
     });
 
 

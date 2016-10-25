@@ -110,6 +110,8 @@ public:
 
   void syncClock();
 
+  AsyncWebServer& getServer() { return server; };
+
 };
 
 extern OpenAq_Controller opaq_controller;

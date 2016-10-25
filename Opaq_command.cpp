@@ -2,6 +2,8 @@
 // opaq command
 #include <cstdint>
 #include <Fs.h>
+#include <ESPAsyncTCP.h>
+
 
 #include "Opaq_command.h"
 #include "Opaq_storage.h"
@@ -100,6 +102,7 @@ void Opaq_command::handler()
 void Opaq_command::terminal()
 {
 	struct slre_cap caps[5];
+	memset(caps, 0, 5);
 
 	static String line = "";
     String lre = String(F("^([a-z0-9]+)(\\s[a-zA-Z0-9./-]*)*\\r|\\n$"));
@@ -137,8 +140,8 @@ void Opaq_command::terminal()
 
     auto alert = [read_line]()
     {
-    	String in = "";
-    	Serial.println("Are you sure? ([Y]es/No):");
+    	String in = F("");
+    	Serial.println(F("Are you sure? ([Y]es/No):"));
 
     	while(!read_line(in)) { optimistic_yield(10000); }
 
@@ -159,8 +162,8 @@ void Opaq_command::terminal()
     	while ( d.next() )
     	{
     		String filename = d.fileName();
-    		Serial.printf("%s %d  ", filename.c_str(), d.fileSize() );
-    		Serial.println("");
+    		Serial.printf(FF("%s %d  "), filename.c_str(), d.fileSize() );
+    		Serial.println(F(""));
     	}
     };
 
@@ -200,7 +203,7 @@ void Opaq_command::terminal()
 		// echo
 		//Serial.println(line);
 
-		String command = "";
+		String command = F("");
         command += caps[0].ptr;
         command.setCharAt(caps[0].len, '\0');
         DEBUG_MSG_COMMAND(FF("command=%s\r\n"), command.c_str());
@@ -209,6 +212,8 @@ void Opaq_command::terminal()
         String arg[2];
         arg[0] = "";
         arg[1] = "";
+
+        static AsyncClient client = AsyncClient();
 
 		switch (fnv1a_64::hash(command.c_str()))
 		{
@@ -234,12 +239,12 @@ void Opaq_command::terminal()
 
 							        if(SPIFFS.exists(args.c_str()))
 							        {
-							        	Serial.println("Removed.");
+							        	Serial.println(F("Removed."));
 							        	SPIFFS.remove(args.c_str());
 							        }
 							        else
 							        {
-							        	Serial.println("Not found!");
+							        	Serial.println(F("Not found!"));
 							        }
 									break;
 
@@ -257,7 +262,7 @@ void Opaq_command::terminal()
 									Serial.println(arg[1]);
 
 									SPIFFS.rename(arg[0].c_str(), arg[1].c_str());
-									Serial.println("File renamed");
+									Serial.println(F("File renamed"));
 									break;
 
 			case "update"_hash 	:	/*storage.fwupdate("noname.bin", "");*/
@@ -272,7 +277,7 @@ void Opaq_command::terminal()
 									Serial.println(arg[0]);
 									Serial.println(arg[1]);
 
-									if(arg[0] == "avr")
+									if(arg[0] == FF("avr"))
 									{
 										if(SPIFFS.exists(arg[1].c_str()))
 										{
@@ -284,17 +289,17 @@ void Opaq_command::terminal()
 										}
 										else
 										{
-											Serial.println("File does not found.");
+											Serial.println(F("File does not found."));
 										}
 									}
 									else
-										if(arg[0] == "esp")
+										if(arg[0] == FF("esp"))
 										{
 
 										}
 										else
 										{
-											Serial.println(String() + "update of " + arg[0] + " is not allowed.");
+											Serial.println(String() + FF("update of ") + arg[0] + FF(" is not allowed."));
 										}
 
 									break;
@@ -315,11 +320,11 @@ void Opaq_command::terminal()
 									if(SPIFFS.exists(arg[0]))
 									{
 										storage.tarextract(arg[0].c_str(), arg[1].c_str());
-										Serial.println("tar successful");
+										Serial.println(F("tar successful"));
 									}
 									else
 									{
-										Serial.println("tar unsuccessful");
+										Serial.println(F("tar unsuccessful"));
 									}
 
 									break;
@@ -364,10 +369,10 @@ void Opaq_command::terminal()
 									ESP.restart();
 									break;
 
-			case "fscls"_hash 	:	
+			case "defrag"_hash 	:	
 									for(int i=0; i<100; i++)
 									SPIFFS.garbage();
-									Serial.println("Filesystem cleanup.");
+									Serial.println(F("Filesystem cleanup."));
 									break;
 
 			case "dim"_hash		:
@@ -380,15 +385,56 @@ void Opaq_command::terminal()
 									communicate.tft_dimmer(atoi(args.c_str()));
 									break;
 
-			case "esp"_hash		:	
-									Serial.print("Heap: ");
+			case "free"_hash		:	
+									Serial.print(F("Heap: "));
 									Serial.println(ESP.getFreeHeap());
 									break;
 
 			case "help"_hash 	:
 									// show available commands
-									Serial.println(F("Available commands: \r\nformat \r\nupdate \r\ntar \r\nls \r\nrm \r\nwifi \r\nnrf24 \r\nrz \r\nfscls \r\nesp \r\nhelp"));
+									Serial.println(F("Available commands: \r\nupdate - Update Firmware/Filesystem \r\nformat - Remove everithing from filesystem \r\nmount \r\ndefrag - Restore delected sectors \r\ntar - Extract tar archives \r\nls - List files \r\nmv - Move files \r\nrm - Remove files \r\nwifi - Set/Get wifi settings \r\nnrf24 - Set/Get nrf24 settings \r\nrz - ZModem File Receiver \r\nfree - Show free memory \r\nreboot \r\nhelp"));
 									break;
+
+			case "aws"_hash     :
+								    // lets try to connect with ssl to aws iot
+									client.onSslFileRequest([](void * arg, const char *filename, uint8_t **buf) -> int {
+									    Serial.printf("SSL File: %s\n", filename);
+									    File file = SPIFFS.open(filename, "r");
+									    if(file){
+									      	size_t size = file.size();
+									      	uint8_t * nbuf = (uint8_t*)malloc(size);
+									      	if(nbuf){
+									        	size = file.read(nbuf, size);
+									        	file.close();
+									        	*buf = nbuf;
+									        	return size;
+									      	}
+									      	file.close();
+									    }
+									    *buf = 0;
+									    return 0;
+									}, NULL);
+
+									client.onData([](void*arg, AsyncClient* c, void *data, size_t len){
+									    Serial.println("Data available.");
+									    Serial.println(len);
+									},NULL);
+
+									client.onConnect([](void* args, AsyncClient*client){
+									    Serial.println("SSL connected.");
+									    
+									    client->write("GET /hello.htm HTTP/1.1\r\n");
+									    client->write("User-Agent: Mozilla/4.0 (compatible; MSIE5.01; Windows NT)\r\n");
+									    client->write("Host: www.google.com\r\n");
+									    client->write("Accept-Language: en-us\r\n");
+									    client->write("Accept-Encoding: gzip, deflate\r\n");
+									    client->write("Connection: Keep-Alive\r\n");
+									    client->write("\r\n");
+									}, NULL);
+
+
+								    client.connect(FF("a3ha84sug66yhm.iot.eu-central-1.amazonaws.com"), 8883, true);
+								    break;
 			default 			:
 									Serial.println(F("Unknown command."));
 									break;

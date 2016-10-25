@@ -235,7 +235,7 @@ auto download_file = [](const char * filename)
   //SPIFFS.format();
 
   // download file to get the lastest firmware and system files for opaq
-  download_file("opaqc1.json");
+  download_file(FF("opaqc1.json"));
 
   //parseConfiguration()
 
@@ -243,10 +243,10 @@ auto download_file = [](const char * filename)
   String md5 = "";
   Opaq_st_plugin_dummy dummy;
 
-  if(SPIFFS.exists("/tmp/opaqc1.json"))
+  if(SPIFFS.exists(FF("/tmp/opaqc1.json")))
   {
-    dummy.parse("/tmp/opaqc1.json", "fw", filename);
-    dummy.parse("/tmp/opaqc1.json", "md5", md5);
+    dummy.parse(FF("/tmp/opaqc1.json"), FF("fw"), filename);
+    dummy.parse(FF("/tmp/opaqc1.json"), FF("md5"), md5);
 
     download_file(filename.c_str());
 
@@ -296,13 +296,13 @@ void Opaq_storage::fwupdate(const char * filename, const char * md5)
 
   if(!Update.begin(size, U_FLASH))
   {
-    Serial.println("Update failed!");
+    Serial.println(F("Update failed!"));
     return;
   }
 
   if(strlen(md5)) {
     if(!Update.setMD5(md5)) {
-      Serial.println("MD5 failed!");
+      Serial.println(F("MD5 failed!"));
     }
   }
 
@@ -325,7 +325,7 @@ void Opaq_storage::fwupdate(const char * filename, const char * md5)
 
   if(!Update.end())
   {
-    Serial.println("Update end failed!");
+    Serial.println(F("Update end failed!"));
   }
   else
   {
@@ -338,7 +338,7 @@ const uint8_t Opaq_storage::getSignature()
 {
   byte sig;
 
-  File fl = SPIFFS.open("/sett/sig", "r");
+  File fl = SPIFFS.open(FF("/sett/sig"), "r");
 
   if(fl)
   {
@@ -351,7 +351,7 @@ const uint8_t Opaq_storage::getSignature()
 
 void Opaq_storage::writeSignature(byte sig)
 {
-  File fl = SPIFFS.open("/sett/sig", "w");
+  File fl = SPIFFS.open(FF("/sett/sig"), "w");
 
   if(fl)
   {
@@ -446,7 +446,7 @@ void Opaq_st_plugin::parse(const char *filename, const char * param, String& out
 
 void Opaq_st_plugin_wifisett::parseConfiguration(const char * param, String& out)
 {
-  parse("/sett/wifi/conf.json", param, out);
+  parse(FF("/sett/wifi/conf.json"), param, out);
 }
 
 void Opaq_st_plugin_wifisett::changeConfiguration(const char * param, const char * value)
@@ -467,10 +467,10 @@ void Opaq_st_plugin_wifisett::changeConfiguration(const char * param, const char
 void Opaq_st_plugin_wifisett::defaults()
 {
   char tmp[30];
-  sprintf(tmp, "opaq-%08x", ESP.getChipId());
+  sprintf(tmp, FF("opaq-%08x"), ESP.getChipId());
   
   setSSID(tmp);
-  setPwd("opaqopaq");
+  setPwd(FF("opaqopaq"));
 
   enableSoftAP();
   
@@ -478,65 +478,65 @@ void Opaq_st_plugin_wifisett::defaults()
 
 void Opaq_st_plugin_wifisett::getSSID(String& ssid)
 {
-  parseConfiguration("wssid", ssid);
+  parseConfiguration(FF("wssid"), ssid);
 }
 
 void Opaq_st_plugin_wifisett::getPwd(String& pwd)
 {
-  parseConfiguration("wpwd", pwd);
+  parseConfiguration(FF("wpwd"), pwd);
 }
 
 void Opaq_st_plugin_wifisett::getClientSSID(String& ssid)
 {
-  parseConfiguration("wclientssid", ssid);
+  parseConfiguration(FF("wclientssid"), ssid);
 }
 
 void Opaq_st_plugin_wifisett::getClientPwd(String& pwd)
 {
-  parseConfiguration("wclientpwd", pwd);
+  parseConfiguration(FF("wclientpwd"), pwd);
 }
 
 void Opaq_st_plugin_wifisett::getMode(String& mode)
 {
-  parseConfiguration("wmode", mode);
+  parseConfiguration(FF("wmode"), mode);
 }
 
 void Opaq_st_plugin_wifisett::setSSID( String ssid )
 {
-  changeConfiguration("wssid", ssid.c_str());
+  changeConfiguration(FF("wssid"), ssid.c_str());
 }
 
 void Opaq_st_plugin_wifisett::setPwd( String pwd )
 {
-  changeConfiguration("wpwd", pwd.c_str());
+  changeConfiguration(FF("wpwd"), pwd.c_str());
 }
 
 void Opaq_st_plugin_wifisett::setClientSSID( String ssid )
 {
-  changeConfiguration("wclientssid", ssid.c_str());
+  changeConfiguration(FF("wclientssid"), ssid.c_str());
 }
 
 void Opaq_st_plugin_wifisett::setClientPwd( String pwd )
 {
-  changeConfiguration("wclientpwd", pwd.c_str());
+  changeConfiguration(FF("wclientpwd"), pwd.c_str());
 }
 
 uint8_t Opaq_st_plugin_wifisett::getModeOperation()
 {
   String tmp;
-  parseConfiguration("wmode", tmp);
+  parseConfiguration(FF("wmode"), tmp);
   
-  return tmp == "softAP";
+  return tmp == FF("softAP");
 }
 
 void Opaq_st_plugin_wifisett::enableSoftAP()
 {
-  changeConfiguration("wmode", "softAP"); 
+  changeConfiguration(FF("wmode"), FF("softAP")); 
 }
 
 void Opaq_st_plugin_wifisett::enableClient()
 {
-  changeConfiguration("wmode", "client");
+  changeConfiguration(FF("wmode"), FF("client"));
 }
 
 
@@ -579,11 +579,11 @@ void Opaq_st_plugin_faqdim::add()
   // light device properties
   // (codeID, type, description, state)
   JsonObject& root = jsonBuffer.createObject();
-  root["adimid"] = code;
-  root["type"] = (unsigned int)OPENAQV1;
-  root["description"] = code;
-  root["state"] = "on";
-  root["cursor"] = 4; // the size of the default data
+  root[F("adimid")] = code;
+  root[F("type")] = (unsigned int)OPENAQV1;
+  root[F("description")] = code;
+  root[F("state")] = "on";
+  root[F("cursor")] = 4; // the size of the default data
 
   // [['00:00',1],['01:00',1] ...]
   JsonArray& data = root.createNestedArray("data");
@@ -603,7 +603,7 @@ void Opaq_st_plugin_faqdim::add()
   
   }
 
-  root["size"] = jsonBuffer.size();
+  root[F("size")] = jsonBuffer.size();
   
   root.printTo(file);
 }
@@ -614,7 +614,7 @@ void Opaq_st_plugin_faqdim::save(const char * code, const uint8_t * content, siz
   
   getFilename(filename, code);
 
-  Serial.println("FILE SAVE:");
+  Serial.println(F("FILE SAVE:"));
   Serial.println(filename);
   
   // file to save
@@ -644,13 +644,13 @@ void Opaq_st_plugin_faqdim::remove(const char* code)
   getFilename(filename, code);
   
   // for each file in /sett/adim directory do
-  Dir directory = SPIFFS.openDir("/sett/adim");
+  Dir directory = SPIFFS.openDir(FF("/sett/adim"));
   
   while ( directory.next() )
   {
     if( directory.fileName() == filename )
     {
-      Serial.println("ADIM FILE REMOVED");
+      Serial.println(F("ADIM FILE REMOVED"));
       SPIFFS.remove(directory.fileName());
     }
   }
@@ -669,7 +669,7 @@ void Opaq_st_plugin_faqdim::run()
   auto getState = [](JsonObject& obj, unsigned long clk, LinkedList<byte>& signal)
   {
     // get array
-    JsonArray& arr = obj["data"];
+    JsonArray& arr = obj[F("data")];
     
     // create linked list for each elements
     for(int i=0; arr[i].is<JsonArray&>(); i++)
@@ -705,7 +705,7 @@ void Opaq_st_plugin_faqdim::run()
 
   // for each aquarium dimmer device
   // probably is not safe at all (files can be removed... concurrent accesses)
-  Directory dr = Directory("/sett/adim");
+  Directory dr = Directory(FF("/sett/adim"));
   for ( File fl : dr )
   {
     if(fl == NULL)
@@ -724,9 +724,9 @@ void Opaq_st_plugin_faqdim::run()
       break;
 
     // convert code to integer
-    unsigned long code = strtol((const char *)adimfile["adimid"], NULL, 16);
-    String state       = String((const char *)adimfile["state"]);
-    String type        = String((const char *)adimfile["type"]); // [TODO] restrict that by type
+    unsigned long code = strtol((const char *)adimfile[F("adimid")], NULL, 16);
+    String state       = String((const char *)adimfile[F("state")]);
+    String type        = String((const char *)adimfile[F("type")]); // [TODO] restrict that by type
 
     DEBUG_MSG_STORAGE ( FF("ac:: adim %d %s %lu\r\n"), code, state.c_str(), clock_value);
 
@@ -734,38 +734,38 @@ void Opaq_st_plugin_faqdim::run()
     LinkedList<byte> signalstate_list;
 
     // for zetlancia case
-    if( type == "zetlancia")
+    if( type == FF("zetlancia"))
     {
       tmp_type = ZETLIGHT_LANCIA_2CH;
     }
     
 
     // check if some device is binding...
-    if ( state == "bind" )
+    if ( state == FF("bind") )
     {
       send(code, NRF24_BINDING);
     }
 
-    if ( state == "unbind" )
+    if ( state == FF("unbind") )
     {
       send(code, NRF24_UNBINDING);
     }
 
-    if ( state == "listen" )
+    if ( state == FF("listen") )
     {
       send(code, NRF24_LISTENING);
     }
 
-    if ( state == "auto" )
+    if ( state == FF("auto") )
     { 
       getState(adimfile, clock_value, signalstate_list);
       send(code, signalstate_list);
     }
-    else if ( state == "on" )
+    else if ( state == FF("on") )
     {
       send(code, NRF24_ON);
     }
-    else if ( state == "off" )
+    else if ( state == FF("off") )
     {
       send(code, NRF24_OFF);
     }
@@ -851,7 +851,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, nrf24state state)
       //radio.setChannel(100);
       uint8_t buf[32];
       bool a = true;
-      String x = String("{\"nrf24M\" :[");
+      String x = F("{\"nrf24M\" :[");
       
       if ( radio.available() )
       {
@@ -864,10 +864,10 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, nrf24state state)
           
           for (int ib = 0; ib < 32; ib++)
           {
-            sprintf(tmp, "\"%02x\"%c ", buf[ib], ib < 31 ? ',' : ' ' );
+            sprintf(tmp, FF("\"%02x\"%c "), buf[ib], ib < 31 ? ',' : ' ' );
             x += tmp;
           }
-          x += "]}";
+          x += F("]}");
         }
         a=false;
       }
@@ -925,7 +925,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, LinkedList<byte>& state)
 
 
 
-    Serial.println("SIGNAL");
+    Serial.println(F("SIGNAL"));
     Serial.println(signal1);
     Serial.println(signal2);
 
@@ -1015,11 +1015,11 @@ void Opaq_st_plugin_pwdevice::add()
   // power device properties
   // (codeID, type, description, state)
   JsonObject& root = jsonBuffer.createObject();
-  root["pdevid"] = code;
-  root["type"] = (unsigned int)CHACON_DIO;
-  root["description"] = code;
-  root["state"] = "auto";
-  root["cursor"] = nchan; // the size of the default data
+  root[F("pdevid")] = code;
+  root[F("type")] = (unsigned int)CHACON_DIO;
+  root[F("description")] = code;
+  root[F("state")] = "auto";
+  root[F("cursor")] = nchan; // the size of the default data
 
   // [['00:00',1],['01:00',1] ...]
   JsonArray& data = root.createNestedArray("data");
@@ -1041,7 +1041,7 @@ void Opaq_st_plugin_pwdevice::add()
   
   }
 
-  root["size"] = jsonBuffer.size();
+  root[F("size")] = jsonBuffer.size();
   
   root.printTo(file);
 
@@ -1053,7 +1053,7 @@ void Opaq_st_plugin_pwdevice::save(const char * code, const uint8_t * content, s
   
   getFilename(filename, code);
 
-  Serial.println("FILE SAVE:");
+  Serial.println(F("FILE SAVE:"));
   Serial.println(filename);
   
   // file to save
@@ -1083,13 +1083,13 @@ void Opaq_st_plugin_pwdevice::remove(const char* code)
   getFilename(filename, code);
   
   // for each file in /sett/adim directory do
-  Dir directory = SPIFFS.openDir("/sett/pdev");
+  Dir directory = SPIFFS.openDir(FF("/sett/pdev"));
   
   while ( directory.next() )
   {
     if( directory.fileName() == filename )
     {
-      Serial.println("PDEV FILE REMOVED");
+      Serial.println(F("PDEV FILE REMOVED"));
       SPIFFS.remove(directory.fileName());
     }
   }
@@ -1103,7 +1103,7 @@ void Opaq_st_plugin_pwdevice::run()
   auto getState = [](JsonObject& obj, unsigned long clk)
   {
     // get array
-    JsonArray& arr = obj["data"];
+    JsonArray& arr = obj[F("data")];
     
     // create linked list for each elements
     for(int i=0; arr[i].is<JsonArray&>(); i++)
@@ -1145,7 +1145,7 @@ void Opaq_st_plugin_pwdevice::run()
 
   
   // probably is not safe at all (files can be removed... concurrent accesses)
-  Directory dr = Directory("/sett/pdev");
+  Directory dr = Directory(FF("/sett/pdev"));
   for ( File fl : dr )
   {
     if(fl == NULL)
@@ -1164,36 +1164,36 @@ void Opaq_st_plugin_pwdevice::run()
       break;
 
     // convert code to integer
-    long code = strtol((const char *)pwdevfile["pdevid"], NULL, 16);
-    String state =  String((const char *)pwdevfile["state"]);
-    String type = String((const char *)pwdevfile["type"]); // [TODO] restrict that by type
+    long code = strtol((const char *)pwdevfile[F("pdevid")], NULL, 16);
+    String state =  String((const char *)pwdevfile[F("state")]);
+    String type = String((const char *)pwdevfile[F("type")]); // [TODO] restrict that by type
 
     DEBUG_MSG_STORAGE ( FF("ac:: pdev %d %s %lu\r\n"), code, state.c_str(), clock_value);
 
     // for chacon dio case
-    if( type != "chacondio")
+    if( type != FF("chacondio"))
       break;
       
     // check if some device is binding...
-    if ( state == "bind" )
+    if ( state == FF("bind") )
     {
       send(code, RF433_BINDING);
     }
 
-    if ( state == "unbind" )
+    if ( state == FF("unbind") )
     {
       send(code, RF433_UNBINDING);
     }
 
-    if ( state == "auto" )
+    if ( state == FF("auto") )
     { 
       send(code, getState(pwdevfile, clock_value));
     }
-    else if ( state == "on" )
+    else if ( state == FF("on") )
     {
       send(code, RF433_ON);
     }
-    else if ( state == "off" )
+    else if ( state == FF("off") )
     {
       send(code, RF433_OFF);  
     }
@@ -1250,7 +1250,7 @@ void Opaq_st_plugin_pwdevice::send(unsigned int code, short unsigned int state)
   communicate.disconnect();
 
   for(byte i=0; i < idx; i++)
-    Serial.println("r: " + String(tmp[i]));
+    Serial.println(String(F("r: ")) + String(tmp[i]));
 
   Serial.println(F("AVR ASKED!"));
 }
@@ -1267,7 +1267,7 @@ void Opaq_st_plugin_touchsett::defaults()
 
 bool Opaq_st_plugin_touchsett::isTouchMatrixAvailable()
 {
-  return SPIFFS.exists("/sett/touch.json");
+  return SPIFFS.exists(FF("/sett/touch.json"));
 }
 
 CAL_MATRIX& Opaq_st_plugin_touchsett::getTouchMatrixRef()
@@ -1283,7 +1283,7 @@ CAL_MATRIX Opaq_st_plugin_touchsett::getTouchMatrix()
   int len, global_len;
   
   // refresh settings from the file system
-  File touch_settings_file = SPIFFS.open("/sett/touch.json", "r+");
+  File touch_settings_file = SPIFFS.open(FF("/sett/touch.json"), "r+");
   //touch_settings_file.read();
   touch_settings_file.seek (0, SeekEnd );
   global_len = touch_settings_file.position();
@@ -1304,17 +1304,17 @@ CAL_MATRIX Opaq_st_plugin_touchsett::getTouchMatrix()
 
   JsonObject& root = jsonBuffer.parseObject(toParse);
 
-  touch_cal_matrix.a = root["a"];
-  touch_cal_matrix.b = root["b"];
-  touch_cal_matrix.c = root["c"];
-  touch_cal_matrix.d = root["d"];
-  touch_cal_matrix.e = root["e"];
-  touch_cal_matrix.f = root["f"];
-  touch_cal_matrix.div = root["div"];
-  touch_cal_matrix.endpoints[MIN_ENDPOINT].x = root["mix"];
-  touch_cal_matrix.endpoints[MAX_ENDPOINT].x = root["max"];
-  touch_cal_matrix.endpoints[MIN_ENDPOINT].y = root["miy"];
-  touch_cal_matrix.endpoints[MAX_ENDPOINT].y = root["may"];
+  touch_cal_matrix.a = root[F("a")];
+  touch_cal_matrix.b = root[F("b")];
+  touch_cal_matrix.c = root[F("c")];
+  touch_cal_matrix.d = root[F("d")];
+  touch_cal_matrix.e = root[F("e")];
+  touch_cal_matrix.f = root[F("f")];
+  touch_cal_matrix.div = root[F("div")];
+  touch_cal_matrix.endpoints[MIN_ENDPOINT].x = root[F("mix")];
+  touch_cal_matrix.endpoints[MAX_ENDPOINT].x = root[F("max")];
+  touch_cal_matrix.endpoints[MIN_ENDPOINT].y = root[F("miy")];
+  touch_cal_matrix.endpoints[MAX_ENDPOINT].y = root[F("may")];
   
   return touch_cal_matrix;
 }
@@ -1322,20 +1322,20 @@ CAL_MATRIX Opaq_st_plugin_touchsett::getTouchMatrix()
 void Opaq_st_plugin_touchsett::commitTouchSettings()
 {
   StaticJsonBuffer<200> jsonBuffer;
-  PrintFile file = PrintFile("/sett/touch.json");
+  PrintFile file = PrintFile(FF("/sett/touch.json"));
 
   JsonObject& root = jsonBuffer.createObject();
-  root["a"] = touch_cal_matrix.a;
-  root["b"] = touch_cal_matrix.b;
-  root["c"] = touch_cal_matrix.c;
-  root["d"] = touch_cal_matrix.d;
-  root["e"] = touch_cal_matrix.e;
-  root["f"] = touch_cal_matrix.f;
-  root["div"] = touch_cal_matrix.div;
-  root["mix"] = touch_cal_matrix.endpoints[MIN_ENDPOINT].x;
-  root["max"] = touch_cal_matrix.endpoints[MAX_ENDPOINT].x;
-  root["miy"] = touch_cal_matrix.endpoints[MIN_ENDPOINT].y;
-  root["may"] = touch_cal_matrix.endpoints[MAX_ENDPOINT].y;
+  root[F("a")] = touch_cal_matrix.a;
+  root[F("b")] = touch_cal_matrix.b;
+  root[F("c")] = touch_cal_matrix.c;
+  root[F("d")] = touch_cal_matrix.d;
+  root[F("e")] = touch_cal_matrix.e;
+  root[F("f")] = touch_cal_matrix.f;
+  root[F("div")] = touch_cal_matrix.div;
+  root[F("mix")] = touch_cal_matrix.endpoints[MIN_ENDPOINT].x;
+  root[F("max")] = touch_cal_matrix.endpoints[MAX_ENDPOINT].x;
+  root[F("miy")] = touch_cal_matrix.endpoints[MIN_ENDPOINT].y;
+  root[F("may")] = touch_cal_matrix.endpoints[MAX_ENDPOINT].y;
 
   root.printTo(file);
   
