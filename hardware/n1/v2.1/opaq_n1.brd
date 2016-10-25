@@ -3809,11 +3809,11 @@ design rules under a new name.</description>
 <attribute name="VERSION" value="v01" x="-19.5072" y="-10.1214" size="1.778" layer="27" display="off"/>
 <attribute name="DESIGNER" value="Nobody" x="-19.5072" y="-10.1214" size="1.778" layer="27" display="off"/>
 </element>
-<element name="R1" library="resistor" package="0805" value="" x="26.9" y="8.5" smashed="yes" rot="R180">
+<element name="R1" library="resistor" package="0805" value="1.62k" x="26.9" y="8.5" smashed="yes" rot="R180">
 <attribute name="NAME" x="25.635078125" y="8.7413" size="0.6096" layer="25" ratio="14" rot="R180"/>
 <attribute name="VALUE" x="27.916" y="9.897" size="0.4064" layer="27" rot="R180"/>
 </element>
-<element name="R5" library="resistor" package="0805" value="" x="26.9" y="11.2" smashed="yes" rot="R180">
+<element name="R5" library="resistor" package="0805" value="28k" x="26.9" y="11.2" smashed="yes" rot="R180">
 <attribute name="NAME" x="25.599521875" y="11.4413" size="0.6096" layer="25" ratio="14" rot="R180"/>
 <attribute name="VALUE" x="27.916" y="12.597" size="0.4064" layer="27" rot="R180"/>
 </element>

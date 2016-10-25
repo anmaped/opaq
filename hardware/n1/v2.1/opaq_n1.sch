@@ -14588,8 +14588,8 @@ Created 2014-06-03, Karrer Zheng&lt;br&gt;
 <part name="IC7" library="LowPowerLab" deviceset="AT25F512B" device="WIDE_5.3MM" value="AT25F512BWIDE_5.3MM"/>
 <part name="C7" library="SparkFun-Passives" deviceset="CAP" device="0402-CAP" value="100pf"/>
 <part name="FRAME2" library="SparkFun-Aesthetics" deviceset="FRAME-LETTER" device="NO_PACKAGE"/>
-<part name="R1" library="resistor" deviceset="R-EU_" device="R0805"/>
-<part name="R5" library="resistor" deviceset="R-EU_" device="R0805"/>
+<part name="R1" library="resistor" deviceset="R-EU_" device="R0805" value="1.62k"/>
+<part name="R5" library="resistor" deviceset="R-EU_" device="R0805" value="28k"/>
 <part name="GND13" library="supply1" deviceset="GND" device=""/>
 <part name="D1" library="SparkFun" deviceset="DIODE" device="SMA" value="SS36"/>
 <part name="L1" library="apedro_lib" deviceset="NR6045" device=""/>

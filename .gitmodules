@@ -13,3 +13,15 @@
 [submodule "avr/n1/libs/rf24"]
 	path = avr/n1/libs/rf24
 	url = https://github.com/TMRh20/RF24.git
+[submodule "avr/n1/libs/spiflash"]
+	path = avr/n1/libs/spiflash
+	url = https://github.com/LowPowerLab/SPIFlash.git
+[submodule "avr/n1/libs/scheduler"]
+	path = avr/n1/libs/scheduler
+	url = https://github.com/mikaelpatel/Arduino-Scheduler.git
+[submodule "avr/n1/libs/onewire"]
+	path = avr/n1/libs/onewire
+	url = https://github.com/PaulStoffregen/OneWire.git
+[submodule "avr/n1/libs/dallastemperature"]
+	path = avr/n1/libs/dallastemperature
+	url = https://github.com/milesburton/Arduino-Temperature-Control-Library.git
