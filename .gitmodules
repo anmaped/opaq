@@ -25,3 +25,6 @@
 [submodule "avr/n1/libs/dallastemperature"]
 	path = avr/n1/libs/dallastemperature
 	url = https://github.com/milesburton/Arduino-Temperature-Control-Library.git
+[submodule "libs/scheduler"]
+	path = libs/scheduler
+	url = https://github.com/anmaped/Arduino-Scheduler.git
