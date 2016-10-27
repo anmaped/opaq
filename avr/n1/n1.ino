@@ -14,6 +14,7 @@
 
 #include <SHA204.h>
 #include <SHA204Definitions.h>
+#include "SHA204ReturnCodes.h"
 #include <SHA204I2C.h>
 
 // ADS1100 I2C address is 0x48(72)
@@ -28,7 +29,7 @@ RF24Mesh mesh(radio, network);
 
 SPIFlash flash(FLASH_SS, 0x1F65);
 
-SHA204I2C sha204dev;
+SHA204I2C sha204dev(0x64);
 
 #define ONE_WIRE_BUS 18
 OneWire oneWire(ONE_WIRE_BUS);
@@ -54,6 +55,9 @@ void setup() {
   digitalWrite(ONE_WIRE_BUS, LOW);
 
   Scheduler.begin(256);
+
+  // to give oportunity to i2c comunication
+  oneWire.skip();
 
   // NRF24 initialization
   printf_begin();
@@ -105,12 +109,15 @@ void setup() {
   }
 
   delay(1000);
+
+  digitalWrite(18,LOW);
+  delay(1000);
   
   // crypto chip
   Wire.begin();
   //Wire.setClock(400000L);
   //Wire.setClock(100000L);
-  sha204dev.init();
+  //sha204dev.init();
   
   auto wakeupExample = []()
   {
@@ -142,11 +149,12 @@ void setup() {
     return returnValue;
   };
   
-  wakeupExample(); // dummy
+  //wakeupExample(); // dummy
  // for(int i=0; i<100; i++)
   {
     //delay(1000);
-  serialNumberExample(); // dummy
+    //for(int i=0; i<5; i++)
+  //serialNumberExample(); // dummy
   }
 
   auto macChallengeExample = []()
@@ -176,6 +184,51 @@ void setup() {
 };
 
   //macChallengeExample();
+
+
+  auto dump_configuration = []()
+  {
+    uint8_t readCommand[READ_COUNT];
+    uint8_t readResponse[READ_4_RSP_SIZE];
+  
+    // list all configurations
+    for(int i=0; i<= 0x15; i++)
+    {
+      uint8_t returnCode = sha204dev.read(readCommand, readResponse, SHA204_ZONE_CONFIG, i*4);
+      printf("%02X ", readResponse[SHA204_BUFFER_POS_DATA], HEX);
+      printf("%02X ", readResponse[SHA204_BUFFER_POS_DATA+1], HEX);
+      printf("%02X ", readResponse[SHA204_BUFFER_POS_DATA+2], HEX);
+      printf("%02X\n", readResponse[SHA204_BUFFER_POS_DATA+3], HEX);
+    }
+  };
+
+  auto isLocked = []()
+  {
+    uint8_t tx_buffer[READ_COUNT];
+    uint8_t rx_buffer[READ_4_RSP_SIZE];
+    uint8_t ret_code;
+    uint8_t lockConfig = 0;
+    uint8_t lockValue = 0;
+    
+    // Read out lock config bits to determine if locking is possible
+    ret_code = sha204dev.read(tx_buffer, rx_buffer, SHA204_ZONE_CONFIG, 0x15<<2);
+    if (ret_code != SHA204_SUCCESS)
+    {
+      Serial.print(F("Failed to determine device lock status. Response: ")); Serial.println(ret_code, HEX);
+      return ret_code;
+    }
+    else
+    {
+      lockConfig = rx_buffer[SHA204_BUFFER_POS_DATA+3];
+      lockValue = rx_buffer[SHA204_BUFFER_POS_DATA+2];
+    }
+
+    return ret_code;
+    
+  };
+
+  dump_configuration();
+  isLocked();
 
   Scheduler.start(setup_status, loop_status);
   Scheduler.start(setup_i2c, loop_i2c);
@@ -247,7 +300,7 @@ void loop_i2c()
 
   Wire.end();
   
-  delay(1000);
+  //delay(100);
   
   sensors.begin();
 
@@ -257,7 +310,10 @@ void loop_i2c()
   Serial.print("Temperature for the device 1 (index 0) is: ");
   Serial.println(sensors.getTempCByIndex(0));
 
+  oneWire.skip();
   Wire.begin();
+
+  delay(1000);
 
 }
 
