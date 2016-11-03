@@ -60,10 +60,11 @@ void setup() {
   pinMode(6, OUTPUT); // red
   pinMode(9, OUTPUT); // blue
 
-  pinMode(7, OUTPUT); // pin NRF24_CSN
-  pinMode(8, OUTPUT); // pin NRF24_CE
+  pinMode(PIN_NRF24_CSN, OUTPUT); // pin NRF24_CSN
+  pinMode(PIN_NRF24_CE, OUTPUT); // pin NRF24_CE
   pinMode(PIN_TOUCH_CS, OUTPUT); // pin TOUCH_CS
-  digitalWrite(7, HIGH);
+  digitalWrite(PIN_NRF24_CSN, HIGH);
+  digitalWrite(PIN_NRF24_CE, HIGH);
   digitalWrite(PIN_TOUCH_CS, HIGH);
 
   pinMode(3, OUTPUT);
