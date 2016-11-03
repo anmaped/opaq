@@ -35,6 +35,7 @@ SHA204I2C sha204dev(0x64);
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
+float temp;
 
 void setup() {
   
@@ -61,18 +62,10 @@ void setup() {
 
   // NRF24 initialization
   printf_begin();
-  mesh.setNodeID(0x01);
+  mesh.setNodeID(0x02);
   // Connect to the mesh
   Serial.println(F("Connecting to the mesh..."));
   mesh.begin();
-
-  /*radio.begin();
-  radio.setChannel(1);
-  radio.setDataRate(RF24_1MBPS);
-  radio.setAutoAck(false);
-  //radio.disableCRC();
-  radio.openWritingPipe( 0x5544332211LL ); // set address for outcoming messages
-  radio.openReadingPipe( 1, 0x5544332211LL ); // set address for incoming messages*/
   
   radio.printDetails();
 
@@ -102,11 +95,12 @@ void setup() {
 */
 
   // read test
-  for(int i=0; i < 100; i++)
+  /*for(int i=0; i < 100; i++)
   {
     Serial.print(flash.readByte(i), HEX);
     Serial.print(" ");
   }
+  */
 
   delay(1000);
 
@@ -308,7 +302,8 @@ void loop_i2c()
   sensors.requestTemperatures(); // Send the command to get temperatures
   Serial.println("DONE");
   Serial.print("Temperature for the device 1 (index 0) is: ");
-  Serial.println(sensors.getTempCByIndex(0));
+  temp = sensors.getTempCByIndex(0);
+  Serial.println();
 
   oneWire.skip();
   Wire.begin();
@@ -317,28 +312,37 @@ void loop_i2c()
 
 }
 
-uint32_t displayTimer = 0;
+struct payload_t {                  // Structure of our payload
+  unsigned long ms;
+  unsigned long counter;
+};
+
 void loop() {
+
+  static uint32_t displayTimer = 0;
 
   mesh.update();
 
-  displayTimer = millis();
+  if (millis() - displayTimer >= 1000)
+  {
+    displayTimer = millis();
 
-  // Send an 'M' type message containing the current millis()
-  if (!mesh.write(&displayTimer, 'M', sizeof(displayTimer))) {
-
-    // If a write fails, check connectivity to the mesh network
-    if ( ! mesh.checkConnection() ) {
-      //refresh the network address
-      Serial.println("Renewing Address");
-      mesh.renewAddress();
+    // Send an 'M' type message containing the current millis()
+    if (!mesh.write(&temp, 'M', sizeof(temp))) {
+  
+      // If a write fails, check connectivity to the mesh network
+      if ( ! mesh.checkConnection() ) {
+        //refresh the network address
+        Serial.println("Renewing Address");
+        mesh.renewAddress();
+      } else {
+        Serial.println("Send fail, Test OK");
+      }
     } else {
-      Serial.println("Send fail, Test OK");
+      Serial.print("Send OK: "); Serial.println(displayTimer);
     }
-  } else {
-    Serial.print("Send OK: "); Serial.println(displayTimer);
   }
-
-  delay(1000);
+  
+  yield();
 
 }
