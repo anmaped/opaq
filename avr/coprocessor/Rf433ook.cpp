@@ -40,6 +40,7 @@ void Rf433ook::set_pin(int pinout)
 {
   // configure pin
   pinMode(pinout,OUTPUT);
+  digitalWriteFast(pinout, HIGH);
   
   pin = pinout;
 }

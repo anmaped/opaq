@@ -110,7 +110,10 @@ public:
 
   void syncClock();
 
-  AsyncWebServer& getServer() { return server; };
+  AsyncWebServer& getServer() { return server; }
+  AsyncWebSocket& getWs() { return ws; }
+
+  void reconnect();
 
 };
 

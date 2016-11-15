@@ -19,9 +19,9 @@
 #include <pwd.h>
 #include <grp.h>
 
-#ifdef STDC_HEADERS
+/*#ifdef STDC_HEADERS
 # include <string.h>
-#endif
+#endif*/
 
 
 /* determine full path name */

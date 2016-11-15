@@ -10,6 +10,9 @@
 #include <functional>
 #include <atomic>
 #include <LinkedList.h>
+#include <Scheduler.h>
+#include <Scheduler/Semaphore.h>
+
 
 #include "opaq.h"
 
@@ -34,9 +37,10 @@ class Opaq_command
 private:
 	static std::atomic<bool> ll;
 	LinkedList<oq_cmd> queue;
+	Semaphore cmd_lock;
 
 public:
-	Opaq_command() : queue (LinkedList<oq_cmd>()) { };
+	Opaq_command() : queue ( LinkedList<oq_cmd>() ), cmd_lock( Semaphore() ) { };
 
 	void begin();
 	void end();
@@ -45,6 +49,9 @@ public:
 	void exec();
 	void handler();
 	void terminal();
+
+	void lock() { cmd_lock.wait(); }
+	void unlock() {	cmd_lock.signal(); }
 	
 };
 

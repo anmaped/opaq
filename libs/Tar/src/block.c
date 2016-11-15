@@ -14,11 +14,11 @@
 
 #include <errno.h>
 
-#ifdef STDC_HEADERS
+/*#ifdef STDC_HEADERS
 # include <string.h>
 # include <stdlib.h>
 #endif
-
+*/
 
 #define BIT_ISSET(bitmask, bit) ((bitmask) & (bit))
 

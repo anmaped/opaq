@@ -20,7 +20,7 @@
 
 //#include <libtar_listhash.h>
 
-#define DEBUG 1
+//#define DEBUG 1
 
 #include <Arduino.h>
 

@@ -1,6 +1,7 @@
 
 #include "Opaq_websockets.h"
 #include "Opaq_storage.h"
+#include "Opaq_command.h"
 #include "Opaq_c1.h"
 
 #include "AsyncJson.h"
@@ -13,7 +14,7 @@ void sendFile( fs::FS fs, const char * name, String& content)
   // open file
   File tmp = fs.open(name, "r");
   
-  if(tmp != NULL)
+  if(!(!tmp))
   {
     // get content to memory
     for(int i=0; i < tmp.size(); i+=32)
@@ -24,6 +25,10 @@ void sendFile( fs::FS fs, const char * name, String& content)
     }
     
     tmp.close();
+  }
+  else
+  {
+    content = F("{\"unsuccessful\":\"\"}");
   }
 
 }
@@ -278,6 +283,88 @@ void parseTextMessage(AsyncWebSocketClient * client, uint8_t * data, size_t len)
       storage.setUpdate(true);
       
       client->text(FF("{\"success\":\"\"}"));
+    }
+
+
+    // ################################
+    // Scan Wifi Networks
+    // ###############################
+    if( root.containsKey(FF("scanwifi")) )
+    {
+
+      oq_cmd c;
+      c.exec = [](LinkedList<String> args) {
+
+        opaq_controller.getWs().closeAll();
+
+        WiFi.mode(WIFI_STA);
+        WiFi.disconnect();
+
+        delay(100);
+
+        WiFi.scanNetworksAsync([](int arg){
+
+          String tmp = "";
+
+          int n = arg;
+
+          if (n == 0)
+          {
+            tmp = F("{\"found\":\"0\"}");
+          }
+          else
+          {
+            tmp = F("{\"found\":\"");
+            tmp += n;
+            tmp += F("\",\"wifiscan\":[{}");
+
+            for (int i = 0; i < n; ++i)
+            {
+              tmp += F(",{\"ssid\":\"");
+              tmp += WiFi.SSID(i);
+              tmp += F("\",");
+
+              tmp += F("\"rssi\":\"");
+              tmp += WiFi.RSSI(i);
+              tmp += F("\",");
+
+              tmp += F("\"enc\":\"");
+              tmp += (WiFi.encryptionType(i) == ENC_TYPE_NONE)? F(" ") : F("*");
+              tmp += F("\"}");
+            }
+            tmp += F("]}");
+          }
+
+          // store found 
+          File fl = SPIFFS.open(FF("/info/wifiscan.json"),FF("w"));
+          if(!(!fl))
+          {
+            fl.write((uint8_t *)tmp.c_str(), tmp.length());
+            fl.close();
+          }
+
+
+          // send a command to reconnect automatically
+          oq_cmd c;
+          c.exec = [](LinkedList<String> args) {
+            opaq_controller.reconnect();
+          };
+
+          c.args = LinkedList<String>();
+          command.send(c);
+
+        }, true);
+
+      };
+
+      c.args = LinkedList<String>();
+      command.send(c);
+      
+      String content = "";
+      sendFile(SPIFFS, FF("/info/wifiscan.json"), content);
+      client->text(content);
+
+      //client->text(FF("{\"success\":\"\"}"));
     }
      
   }

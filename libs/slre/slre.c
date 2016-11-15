@@ -17,11 +17,14 @@
  * license, as set out in <http://cesanta.com/products.html>.
  */
 
-#include <Arduino.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+
 #include "slre.h"
 
-#define MAX_BRANCHES 100
-#define MAX_BRACKETS 100
+#define MAX_BRANCHES 10
+#define MAX_BRACKETS 10
 #define FAIL_IF(condition, error_code) if (condition) return (error_code)
 
 #ifndef ARRAY_SIZE
@@ -163,7 +166,7 @@ static int match_set(const char *re, int re_len, const char *s,
     /* Support character range */
     if (re[len] != '-' && re[len + 1] == '-' && re[len + 2] != ']' &&
         re[len + 2] != '\0') {
-      result = info->flags &  SLRE_IGNORE_CASE ?
+      result = info->flags &&  SLRE_IGNORE_CASE ?
         tolower(*s) >= tolower(re[len]) && tolower(*s) <= tolower(re[len + 2]) :
         *s >= re[len] && *s <= re[len + 2];
       len += 3;

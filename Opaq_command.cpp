@@ -1,6 +1,6 @@
 
 // opaq command
-#include <cstdint>
+//#include <cstdint>
 #include <Fs.h>
 #include <ESPAsyncTCP.h>
 
@@ -65,15 +65,12 @@ void Opaq_command::end()
 
 void Opaq_command::send(oq_cmd& cmd)
 {
-	// atomicity to aovid concurrent adds
-	bool b = false;
-	if( std::atomic_compare_exchange_strong<bool>(&ll, &b, true) )
-	{
-		// enqueue command
-		queue.add(cmd);
+	// lock to avoid concurrent adds
 
-		ll = false;
-	}
+	lock();
+	// enqueue command
+	queue.add(cmd);
+	unlock();
 }
 
 void Opaq_command::exec()
@@ -81,7 +78,11 @@ void Opaq_command::exec()
 	if(queue.size() != 0)
 	{
 		oq_cmd c;
+
+		lock();
 		c = queue.pop();
+		unlock();
+		
 		c.exec(c.args);
 	}
 
@@ -213,7 +214,7 @@ void Opaq_command::terminal()
         arg[0] = "";
         arg[1] = "";
 
-        static AsyncClient client = AsyncClient();
+        //static AsyncClient client = AsyncClient();
 
 		switch (fnv1a_64::hash(command.c_str()))
 		{
@@ -281,7 +282,7 @@ void Opaq_command::terminal()
 									{
 										if(SPIFFS.exists(arg[1].c_str()))
 										{
-											communicate.spinlock();
+											communicate.lock();
 
 											storage.avrprog.program(arg[1].c_str());
 
@@ -397,7 +398,7 @@ void Opaq_command::terminal()
 
 			case "aws"_hash     :
 								    // lets try to connect with ssl to aws iot
-									client.onSslFileRequest([](void * arg, const char *filename, uint8_t **buf) -> int {
+									/*client.onSslFileRequest([](void * arg, const char *filename, uint8_t **buf) -> int {
 									    Serial.printf("SSL File: %s\n", filename);
 									    File file = SPIFFS.open(filename, "r");
 									    if(file){
@@ -433,8 +434,14 @@ void Opaq_command::terminal()
 									}, NULL);
 
 
-								    client.connect(FF("a3ha84sug66yhm.iot.eu-central-1.amazonaws.com"), 8883, true);
+								    client.connect(FF("a3ha84sug66yhm.iot.eu-central-1.amazonaws.com"), 8883, true);*/
 								    break;
+
+			case "testavr"_hash :
+									digitalWrite(18, LOW);
+									Serial.println("send.");
+									break;
+
 			default 			:
 									Serial.println(F("Unknown command."));
 									break;

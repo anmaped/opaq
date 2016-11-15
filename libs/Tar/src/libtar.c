@@ -95,7 +95,9 @@ libtar_list(const char *tarfile)
 		     (verbose ? TAR_VERBOSE : 0)
 		     | (use_gnu ? TAR_GNU : 0)) == -1)
 	{
+#ifdef DEBUG
         fprintf(stderr, "tar_open(): %s\n", strerror(errno));
+#endif
 		return -1;
 	}
 
@@ -107,8 +109,10 @@ libtar_list(const char *tarfile)
 #endif
 		if (TH_ISREG(t) && tar_skip_regfile(t) != 0)
 		{
+#ifdef DEBUG
             fprintf(stderr, "tar_skip_regfile(): %s\n",
                 strerror(errno));
+#endif
 			return -1;
 		}
 	}
@@ -122,7 +126,9 @@ libtar_list(const char *tarfile)
 
 	if (tar_close(t) != 0)
 	{
+#ifdef DEBUG
         fprintf(stderr, "tar_close(): %s\n", strerror(errno));
+#endif
 		return -1;
 	}
 
@@ -144,7 +150,9 @@ libtar_extract(const char *tarfile, const char *rootdir)
 		     (verbose ? TAR_VERBOSE : 0)
 		     | (use_gnu ? TAR_GNU : 0)) == -1)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "tar_open(): %s\n", strerror(errno));
+#endif
 		return -1;
 	}
 
@@ -153,7 +161,9 @@ libtar_extract(const char *tarfile, const char *rootdir)
 #endif
 	if (tar_extract_all(t, rootdir) != 0)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "tar_extract_all(): %s\n", strerror(errno));
+#endif
 		tar_close(t);
 		return -1;
 	}
@@ -163,7 +173,9 @@ libtar_extract(const char *tarfile, const char *rootdir)
 #endif
 	if (tar_close(t) != 0)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "tar_close(): %s\n", strerror(errno));
+#endif
 		return -1;
 	}
 

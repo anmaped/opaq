@@ -165,14 +165,12 @@ function waitForSocketConnection(socket, callback){
 $(document).on("pageshow", "#pagesummary", function()
 {
 
-$.mobile.loading().show();
+  $.mobile.loading().show();
 
-// Wait until the state of the socket is not ready and send the message when it is...
-    waitForSocketConnection(ws, function(){
+  // Wait until the state of the socket is not ready and send the message when it is...
+  waitForSocketConnection(ws, function(){
     ws.send("GET_OPAQ_SUMMARY");
-
-    });
-
+  });
 
 });
 

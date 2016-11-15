@@ -6,35 +6,70 @@
 #include <Arduino.h>
 
 Opaq_com communicate;
-  
 
-Opaq_com::Opaq_com() : nrf24 (Opaq_com_nrf24()), atsha204(Opaq_com_atsha204(communicate)), touch(Opaq_com_tsc2046(communicate))
-{
-  spi_lock = false;
+extern "C" void ICACHE_RAM_ATTR __digitalWrite(uint8_t, uint8_t);
+extern "C" void ICACHE_RAM_ATTR digitalWrite(uint8_t pin, uint8_t val) {
+
+  yield();
+
+  if(pin <= 16)
+    __digitalWrite(pin, val);
+
+  if(pin > 16)
+  {
+    SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+    digitalWrite(5, LOW);
+    delayMicroseconds(20);
+
+    switch (pin)
+    {
+      case 17:  // pin NRF24CSN
+                SPI.transfer (ID_NRF24_CSN);
+                break;
+
+      case 18:  // pin NRF24CE
+                SPI.transfer (ID_NRF24_CE);
+                break;
+
+      case 19:  break;
+      // add other pins
+    }
+
+    delayMicroseconds(25);
+    SPI.transfer (val);
+
+    delayMicroseconds(20);
+    digitalWrite(5, HIGH);
+    delayMicroseconds(15);
+
+    SPI.endTransaction();
+
+  }
+
 }
 
-bool Opaq_com::lock()
+Opaq_com::Opaq_com() :
+  nrf24 (Opaq_com_nrf24()),
+  atsha204(Opaq_com_atsha204(communicate)),
+  touch(Opaq_com_tsc2046(communicate)),
+  spi(Semaphore())
 {
-  if(!cas((uint8_t*)&spi_lock, false, true))
-    return true;
 
-  return false;
 }
 
-void Opaq_com::spinlock()
+void Opaq_com::lock()
 {
-  while(!cas((uint8_t*)&spi_lock, false, true)) { yield(); }
+  spi.wait();
 }
 
 void Opaq_com::unlock()
 {
-  if (spi_lock)
-    spi_lock = false;
+  spi.signal();
 }
 
 bool Opaq_com::connect()
 {
-  spinlock();
+  lock();
 
   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
 
@@ -60,7 +95,7 @@ void Opaq_com_nrf24::init()
   radio.begin();
   radio.setChannel(1);
   radio.setDataRate(RF24_1MBPS);
-  radio.setAutoAck(false);
+  radio.setAutoAck(true);
   //radio.disableCRC();
   radio.openWritingPipe( 0x5544332211LL ); // set address for outcoming messages
   radio.openReadingPipe( 1, 0x5544332211LL ); // set address for incoming messages
@@ -112,8 +147,7 @@ void Opaq_com_atsha204::getCiferKey()
 
 void Opaq_com_tsc2046::service()
 {
-  if(com.lock())
-    return;
+  com.lock();
   
   touch.service();
 /*
@@ -131,21 +165,21 @@ void Opaq_com_tsc2046::service()
 
 void Opaq_com_tsc2046::begin()
 {
-  com.spinlock();
+  com.lock();
   touch.begin();
   com.unlock();
 }
 
 void Opaq_com_tsc2046::doCalibration(LCD_HAL_Interface& lcd)
 {
-  com.spinlock();
+  com.lock();
   touch.doCalibration(&lcd);
   com.unlock();
 }
 
 void Opaq_com_tsc2046::setCalibration(CAL_MATRIX matrix)
 {
-  com.spinlock();
+  com.lock();
   touch.setCalibration(matrix);
   com.unlock();
 }
@@ -153,8 +187,7 @@ void Opaq_com_tsc2046::setCalibration(CAL_MATRIX matrix)
 touch_t Opaq_com_tsc2046::get()
 {
   touch_t data = {0};
-  if(com.lock())
-    return data;
+  com.lock();
 
   data.x = touch.getX();
   data.y = touch.getY();
@@ -166,7 +199,7 @@ touch_t Opaq_com_tsc2046::get()
 
 bool Opaq_com_tsc2046::getCalibrationMatrix(CAL_MATRIX& matrix)
 {
-  com.spinlock();
+  com.lock();
   bool result = touch.getCalibrationMatrix(matrix);
   com.unlock();
 

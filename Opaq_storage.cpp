@@ -796,7 +796,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, nrf24state state)
   {
     uint8_t * codepointer = (uint8_t *) &code;
 
-    communicate.spinlock();
+    communicate.lock();
 
     if ( state == NRF24_BINDING )
     {
@@ -837,7 +837,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, nrf24state state)
       binding_data[28] = 0x7B;
       binding_data[29] = 0x15;
 
-      radio.startWrite ( binding_data, 32 );
+      radio.startWrite ( binding_data, 32, true );
 
       delayMicroseconds(10000);
       radio.setChannel(1);
@@ -855,20 +855,17 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, nrf24state state)
       
       if ( radio.available() )
       {
-        bool done = false;
-        //while (!done)
-        {
-          done = radio.read( buf, 32 );
+        radio.read( buf, 32 );
 
-          char tmp[10];
-          
-          for (int ib = 0; ib < 32; ib++)
-          {
-            sprintf(tmp, FF("\"%02x\"%c "), buf[ib], ib < 31 ? ',' : ' ' );
-            x += tmp;
-          }
-          x += F("]}");
+        char tmp[10];
+        
+        for (int ib = 0; ib < 32; ib++)
+        {
+          sprintf(tmp, FF("\"%02x\"%c "), buf[ib], ib < 31 ? ',' : ' ' );
+          x += tmp;
         }
+        x += F("]}");
+
         a=false;
       }
 
@@ -908,7 +905,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, LinkedList<byte>& state)
 
   if (tmp_type == ZETLIGHT_LANCIA_2CH)
   {
-    communicate.spinlock();
+    communicate.lock();
 
 
     uint8_t * codepointer = (uint8_t *) &code;
@@ -968,7 +965,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, LinkedList<byte>& state)
 
     memcpy(&buf[19], &codepointer[0], 4);
 
-    radio.startWrite ( buf, 32 );
+    radio.startWrite ( buf, 32, true );
 
     communicate.unlock();
   }

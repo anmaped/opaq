@@ -654,7 +654,7 @@ int putsec(char *buf,int n)
       putc( *p++, fout);*/
       //Serial.print("Size: ");
       //Serial.println(n);
-      //yield();
+      yield();
       //Serial.println("BEGIN STORAGE!");
       fout->write((uint8_t *)buf, n);
       //Serial.println("END STORAGE!");

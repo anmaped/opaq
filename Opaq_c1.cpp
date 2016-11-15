@@ -64,6 +64,8 @@ unsigned int count = 0;
 unsigned int count2 = 0;
 OpenAq_Controller opaq_controller;
 
+#define RECV 1
+
 // non-class functions begin
 
 //bool run1hz_flag = false;
@@ -111,7 +113,10 @@ OpenAq_Controller::OpenAq_Controller() :
   //str.reserve ( 2048 );
 }
 
-
+struct payload_t {                  // Structure of our payload
+  unsigned long ms;
+  unsigned long counter;
+};
 void OpenAq_Controller::setup_controller()
 {
   delay ( 100 );
@@ -125,6 +130,9 @@ void OpenAq_Controller::setup_controller()
 
   pinMode(5,OUTPUT); // AVR_CS OUT MODE
   digitalWrite(5, HIGH); // AVR_CS
+
+  pinMode(16, OUTPUT);
+  digitalWrite(16, HIGH);
 
   // reovery mode
   byte _c;
@@ -170,74 +178,7 @@ void OpenAq_Controller::setup_controller()
   Serial.println(F("SIG Accepted"));
 
 
-  if ( storage.wifisett.getModeOperation() )
-  {
-    Serial.println(F("softAP"));
-    
-    String ssid, pwd;
-    storage.wifisett.getSSID(ssid);
-    storage.wifisett.getPwd(pwd);
-
-    Serial.print ( F("SSID: ") );
-    Serial.println ( ssid );
-
-#ifdef OPAQ_C1_SCREEN
-    wscreen.setExecutionBar(20);
-    wscreen.msg( String(F("Initializing AP mode")).c_str() );
-#endif
-
-    WiFi.mode(WIFI_AP);
-    delay(4000);
-
-#ifdef OPAQ_C1_SCREEN
-    wscreen.setExecutionBar(45);
-#endif
-
-    // setup the access point
-    WiFi.softAP ( ssid.c_str() , pwd.c_str(), 6 ); // with password and fixed ssid
-
-    Serial.print(F("IP address: "));
-    Serial.println(WiFi.softAPIP());
-  }
-  else
-  {
-    Serial.println(F("client"));
-    
-    // or setup the station
-    String ssid, pwd;
-    
-    storage.wifisett.getClientSSID(ssid);
-    storage.wifisett.getClientPwd(pwd);
-
-#ifdef OPAQ_C1_SCREEN
-    wscreen.setExecutionBar(20);
-    wscreen.msg( String(F("Initializing WIFI station")).c_str() );
-#endif
-
-    WiFi.mode(WIFI_STA);
-    //delay(4000);
-
-#ifdef OPAQ_C1_SCREEN
-    wscreen.setExecutionBar(45);
-#endif
-
-    Serial.print ( F("Connecting to ") );
-    Serial.println ( ssid );
-
-#ifdef OPAQ_C1_SCREEN
-    wscreen.msg( (String(F("Connecting to ")) + ssid ).c_str() );
-#endif
-
-    
-
-#ifdef OPAQ_C1_SCREEN
-    wscreen.msg( String(F("Connected")).c_str() );
-#endif
-
-    Serial.println ( F("\nWiFi connected") );
-    Serial.println ( F("IP address: ") );
-    Serial.println ( WiFi.localIP() );
-  }
+  //reconnect();
 
 #ifdef OPAQ_C1_SCREEN
   wscreen.setExecutionBar(55);
@@ -444,17 +385,272 @@ void OpenAq_Controller::setup_controller()
 
   //Scheduler.begin(4096);
   Scheduler.start([](){
-    String ssid, pwd;
+    opaq_controller.reconnect();
 
-    if ( storage.wifisett.getModeOperation() )
-      return;
+#if OPAQ_OTA_ARDUINO
+
+    // OTA server
+    ota_server.setup();
+
+#endif
+
+#if OPAQ_MDNS_RESPONDER
+
+#ifdef OPAQ_C1_SCREEN
+
+    wscreen.msg( String(F("mDNS responder")).c_str() );
+
+#endif
+
+    // mDNS responder
+    if (!MDNS.begin(FF("opaq"))) {
+      Serial.println(F("Error setting up MDNS responder!"));
+      while (1) {
+        delay(1000);
+      }
+    }
+
+    Serial.println(F("mDNS responder started"));
+    MDNS.addService(FF("http"), FF("tcp"), 80);
+
+#endif
+
+
+    // start server
+    opaq_controller.getServer().begin();
+
+    // start avrprog
+    storage.avrprog.begin();
+
+
+  }, [](){
+    static uint32_t clock = get_clock();
+    
+    //Serial.println(count);
+    //Serial.println(count2);
+
+    count = 0;
+    count2 = 0;
+
+    opaq_controller.run_task_ds3231();
+    opaq_controller.setClockReady();
+    communicate.atsha204.getCiferKey();
+    storage.pwdevice.run();
+    storage.faqdim.run();
+
+    // run that task at 1hz
+    clock += 1000*1000;
+    delay_until(clock);
+  }, 2048);
+
+  /*Scheduler.start(NULL, [](){
+#ifdef OPAQ_C1_SCREEN
+  opaq_controller.run_touch();
+#endif
+  yield(); count++; }, 1024);*/
+
+  const bool isReceiver = false;
+
+  return;
+
+  Scheduler.start([]()
+  {
+      
+      RF24Mesh& mesh = communicate.nrf24.getRF24Mesh();
+      
+      communicate.lock();
+
+      if(isReceiver)
+      {
+        mesh.setNodeID(0x01);
+      }
+      else
+      {
+        mesh.setNodeID(0x00);
+      }
+
+      // Connect to the mesh
+      Serial.println(F("Connecting to the mesh..."));
+      mesh.begin(MESH_DEFAULT_CHANNEL,RF24_250KBPS);
+
+      communicate.unlock();
+
+  }, [](){
+
+    RF24Mesh& mesh = communicate.nrf24.getRF24Mesh();
+    RF24Network& network = communicate.nrf24.getRF24Network();
+
+    communicate.lock();
+
+    mesh.update();
+
+    if(!isReceiver)
+    {
+      mesh.DHCP();
+
+      if(network.available())
+      {
+        RF24NetworkHeader header;
+        network.peek(header);
+        
+        float dat=0;
+        /*static AsyncClient client = AsyncClient();
+
+        client.onConnect([&dat](void* args, AsyncClient*client){
+          String apiKey = "N71A4E8LAQ1N7RWF";
+          String postStr = apiKey;
+          postStr +="&field1=";
+          postStr += String(dat);
+          postStr += "\r\n\r\n";
+
+          String tmp = "";
+          tmp += F("POST /update HTTP/1.1\n");
+          tmp += F("Host: api.thingspeak.com\n");
+          tmp += F("Connection: close\n");
+          tmp += F("X-THINGSPEAKAPIKEY: ");
+          tmp += apiKey;
+          tmp += F("\n");
+          tmp += F("Content-Type: application/x-www-form-urlencoded\n");
+          tmp += F("Content-Length: ");
+          tmp += postStr.length();
+          tmp += F("\n\n");
+          tmp += postStr;
+
+          client->write(tmp.c_str(), tmp.length());
+
+          Serial.println("sent.");
+        }, NULL);*/
+
+        
+        switch(header.type)
+        {
+          // Display the incoming millis() values from the sensor nodes
+          case 'M':
+                    network.read(header,&dat,sizeof(dat));
+                    Serial.println(dat);
+                    opaq_controller.getWs().printfAll_P(PSTR("{\"temp1\": \"%f\"}"), dat);
+
+                    //client.connect("api.thingspeak.com",80);
+
+                    break;
+
+          default:
+                    network.read(header,0,0);
+                    Serial.println(header.type);
+                    break;
+        }
+      }
+
+      static uint32_t displayTimer = 0;
+
+      if(millis() - displayTimer > 5000)
+      {
+        displayTimer = millis();
+
+        Serial.println(" ");
+        Serial.println(F("********Assigned Addresses********"));
+
+        for(int i=0; i<mesh.addrListTop; i++){
+          Serial.print("NodeID: ");
+          Serial.print(mesh.addrList[i].nodeID);
+          Serial.print(" RF24Network Address: 0");
+          Serial.println(mesh.addrList[i].address,OCT);
+        }
+
+        Serial.println(F("**********************************"));
+      }
+    }
+    else
+    {
+      uint32_t tt = 0xAA;
+      // Send an 'M' type message containing the current millis()
+      if (!mesh.write(&tt, 'M', sizeof(tt))) {
+
+        // If a write fails, check connectivity to the mesh network
+        if ( ! mesh.checkConnection() ) {
+          //refresh the network address
+          Serial.println("Renewing Address");
+          mesh.renewAddress();
+        } else {
+          Serial.println("Send fail, Test OK");
+        }
+      } else {
+        Serial.print("Send OK: ");
+      }
+    }
+
+    communicate.unlock();
+
+    delay(100);
+
+    //yield();
+    count2++;
+  }, 1024+512);
+
+
+}
+
+void OpenAq_Controller::reconnect()
+{
+if ( storage.wifisett.getModeOperation() )
+  {
+    Serial.println(F("softAP"));
+    
+    String ssid, pwd;
+    storage.wifisett.getSSID(ssid);
+    storage.wifisett.getPwd(pwd);
+
+    Serial.print ( F("SSID: ") );
+    Serial.println ( ssid );
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(20);
+    wscreen.msg( String(F("Initializing AP mode")).c_str() );
+#endif
+
+    WiFi.mode(WIFI_AP);
+    delay(500);
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(45);
+#endif
+
+    // setup the access point
+    WiFi.softAP ( ssid.c_str() , pwd.c_str(), 6 ); // with password and fixed ssid
+
+    Serial.print(F("IP address: "));
+    Serial.println(WiFi.softAPIP());
+  }
+  else
+  {
+    Serial.println(F("client"));
+    
+    // or setup the station
+    String ssid, pwd;
     
     storage.wifisett.getClientSSID(ssid);
     storage.wifisett.getClientPwd(pwd);
 
-    WiFi.begin ( ssid.c_str(), pwd.c_str() );
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(20);
+    wscreen.msg( String(F("Initializing WIFI station")).c_str() );
+#endif
 
-    //WiFi.printDiag(Serial);
+    WiFi.mode(WIFI_STA);
+    delay(500);
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.setExecutionBar(45);
+#endif
+
+    Serial.print ( F("Connecting to ") );
+    Serial.println ( ssid );
+
+#ifdef OPAQ_C1_SCREEN
+    wscreen.msg( (String(F("Connecting to ")) + ssid ).c_str() );
+#endif
+
+    WiFi.begin ( ssid.c_str(), pwd.c_str() );
     
     int count_tries = 0;
 
@@ -478,69 +674,23 @@ void OpenAq_Controller::setup_controller()
       }
     }
 
-    #if OPAQ_OTA_ARDUINO
-  // OTA server
-  ota_server.setup();
-#endif
-
-#if OPAQ_MDNS_RESPONDER
+    
 
 #ifdef OPAQ_C1_SCREEN
-  wscreen.msg( String(F("mDNS responder")).c_str() );
+    wscreen.msg( String(F("Connected")).c_str() );
 #endif
 
-  // mDNS responder
-  if (!MDNS.begin(FF("opaq"))) {
-    Serial.println(F("Error setting up MDNS responder!"));
-    while (1) {
-      delay(1000);
-    }
+    Serial.println ( F("\nWiFi connected") );
+    Serial.println ( F("IP address: ") );
+    Serial.println ( WiFi.localIP() );
   }
-  Serial.println(F("mDNS responder started"));
-  MDNS.addService(FF("http"), FF("tcp"), 80);
-#endif
-
-
-  // start server
-  opaq_controller.getServer().begin();
-
-  // start avrprog
-  storage.avrprog.begin();
-
-
-  }, [](){
-    static uint32_t clock = get_clock();
-    command.handler();
-    //delay(100);
-    clock += 100*1000;
-    delay_until(clock);
-  }, 2048);
-
-  Scheduler.start(NULL, [](){
-#ifdef OPAQ_C1_SCREEN
-  opaq_controller.run_touch();
-#endif
-  yield(); count++; }, 1024);
-
-  Scheduler.start(NULL, [](){
-  yield(); delay(10); count2++; }, 1024);
-
-  //Scheduler.start([](){}, [](){ Serial.println("Continuation 3"); yield(); Serial.println("Continuation 3 end"); });
-  //Scheduler.start([](){}, [](){ Serial.println("Continuation 4"); yield(); Serial.println("Continuation 4 end"); });
-
 }
 
 void OpenAq_Controller::run_controller()
 {
-  Serial.println(count);
-  Serial.println(count2);
+  command.handler();
 
-  count = 0;
-  count2 = 0;
-
-  //delay(20000);
-  //panic();
-  // program handler
+  // programmer handler
   run_programmer();
 
   /*if (storage.getUpdate())
@@ -553,20 +703,7 @@ void OpenAq_Controller::run_controller()
   move this to a triggered action   [TODO]
   */
 
-  // run that task at 1hz
-  {
-    run_task_ds3231();
-    setClockReady();
-
-    communicate.atsha204.getCiferKey();
-
-    storage.pwdevice.run();
-
-    storage.faqdim.run();
-
-    delay(1000);
-  }
-
+  delay(100);
 }
 
 void OpenAq_Controller::run_programmer()
@@ -576,6 +713,8 @@ void OpenAq_Controller::run_programmer()
 
   while(lock)
   {
+    yield();
+
     AVRISPState_t new_state = storage.avrprog.update();
     if (last_state != new_state) {
         switch (new_state) {
@@ -593,7 +732,7 @@ void OpenAq_Controller::run_programmer()
             case AVRISP_STATE_ACTIVE: {
                 Serial.println(F("[AVRISP] programming mode"));
                 // Stand by for completion
-                communicate.spinlock();
+                communicate.lock();
                 lock = true;
                 break;
             }
@@ -614,7 +753,6 @@ void OpenAq_Controller::run_programmer()
       storage.avrprog.serve();
     }
 
-    optimistic_yield(10000);
   }
 }
 
@@ -639,8 +777,7 @@ void OpenAq_Controller::run_touch()
   communicate.touch.service();
   touch_t data = communicate.touch.get();
 
-  if( communicate.lock() )
-    return;
+  communicate.lock();
 
   iaqua.service(data.x, data.y, data.pressure);
 
@@ -653,7 +790,7 @@ void OpenAq_Controller::run_tft()
 {
   //Serial.println(F("ASK ILI9341"));
 
-  communicate.spinlock();
+  communicate.lock();
   
   tft.fillScreen(ILI9341_BLACK);
   iaqua.screenHome();

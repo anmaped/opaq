@@ -13,20 +13,20 @@
 #include <internal.h>
 
 #include <stdio.h>
-#include <string.h>
+//#include <string.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <utime.h>
 
-#ifdef STDC_HEADERS
+/*#ifdef STDC_HEADERS
 # include <stdlib.h>
 #endif
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
-#endif
+#endif*/
 
 
 static int

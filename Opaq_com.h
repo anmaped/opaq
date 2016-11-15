@@ -5,10 +5,19 @@
 #include <RtcDateTime.h>
 #include <SPI.h>
 
-#include "src/RF24/nRF24L01.h"
-#include "src/RF24/RF24.h"
+//#include "src/RF24/nRF24L01.h"
+//#include "src/RF24/RF24.h"
+
 #include "src/ADS7846/ADS7846.h"
 #include "gfx.h"
+
+#include "nRF24L01.h"
+#include "RF24.h"
+#include "RF24Network.h"
+#include "RF24Mesh.h"
+
+#include <Scheduler.h>
+#include <Scheduler/Semaphore.h>
 
 class Opaq_com;
 
@@ -17,10 +26,14 @@ class Opaq_com_nrf24
 private:
   // Set up nRF24L01 radio on SPI bus plus pins CE=16 & CS=15
   RF24 radio;
+  RF24Network network;
+  RF24Mesh mesh;
 public:
-  Opaq_com_nrf24() : radio ( RF24 ( 0, 0 ) ) {}
+  Opaq_com_nrf24() : radio ( RF24 ( 18, 17 ) ), network( RF24Network(radio) ), mesh( RF24Mesh(radio, network) ) {}
   void init();
   RF24& getRF24() { return radio; };
+  RF24Network& getRF24Network() { return network; };
+  RF24Mesh& getRF24Mesh() { return mesh; };
   void printstate() { radio.printDetails(); };
 };
 
@@ -56,14 +69,13 @@ public:
 
 class Opaq_com
 {
-  bool spi_lock;
+  Semaphore spi;
   
   public:
   
   Opaq_com();
 
-  bool lock();
-  void spinlock();
+  void lock();
   void unlock();
 
   bool connect();

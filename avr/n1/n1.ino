@@ -65,7 +65,7 @@ void setup() {
   mesh.setNodeID(0x02);
   // Connect to the mesh
   Serial.println(F("Connecting to the mesh..."));
-  mesh.begin();
+  mesh.begin(MESH_DEFAULT_CHANNEL,RF24_250KBPS);
   
   radio.printDetails();
 
