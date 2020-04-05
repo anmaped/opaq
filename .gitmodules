@@ -28,3 +28,9 @@
 [submodule "libs/scheduler"]
 	path = libraries/scheduler
 	url = https://github.com/anmaped/Arduino-Scheduler.git
+[submodule "avr/n1/libs/RF24Mesh"]
+	path = avr/n1/libs/RF24Mesh
+	url = https://github.com/nRF24/RF24Mesh.git
+[submodule "avr/n1/libs/RF24Network"]
+	path = avr/n1/libs/RF24Network
+	url = https://github.com/nRF24/RF24Network.git
