@@ -1,14 +1,14 @@
 [submodule "libs/ESPAsyncTCP"]
-	path = libs/ESPAsyncTCP
+	path = libraries/ESPAsyncTCP
 	url = https://github.com/me-no-dev/ESPAsyncTCP.git
 [submodule "libs/ESPAsyncWebServer"]
-	path = libs/ESPAsyncWebServer
+	path = libraries/ESPAsyncWebServer
 	url = https://github.com/me-no-dev/ESPAsyncWebServer.git
 [submodule "libs/ArduinoJson"]
-	path = libs/ArduinoJson
+	path = libraries/ArduinoJson
 	url = https://github.com/bblanchon/ArduinoJson.git
 [submodule "libs/LinkedList"]
-	path = libs/LinkedList
+	path = libraries/LinkedList
 	url = https://github.com/anmaped/LinkedList.git
 [submodule "avr/n1/libs/rf24"]
 	path = avr/n1/libs/rf24
@@ -26,5 +26,5 @@
 	path = avr/n1/libs/dallastemperature
 	url = https://github.com/milesburton/Arduino-Temperature-Control-Library.git
 [submodule "libs/scheduler"]
-	path = libs/scheduler
+	path = libraries/scheduler
 	url = https://github.com/anmaped/Arduino-Scheduler.git
