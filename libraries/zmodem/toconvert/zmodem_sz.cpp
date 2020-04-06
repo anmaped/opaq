@@ -186,8 +186,7 @@ _PROTOTYPE(int zsendcmd , (char *buf , int blen ));
 #ifndef ARDUINO
 FILE *fout;
 #else
-#include <SdFat.h>
-sdfat::SdFile fout;
+extern SdFile fout;
 #endif
 
 int wcs(const char *oname)

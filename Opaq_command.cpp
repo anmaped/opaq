@@ -1,7 +1,7 @@
 
 // opaq command
 //#include <cstdint>
-#include <Fs.h>
+#include <FS.h>
 #include <ESPAsyncTCP.h>
 
 
@@ -372,7 +372,7 @@ void Opaq_command::terminal()
 
 			case "defrag"_hash 	:	
 									for(int i=0; i<100; i++)
-									SPIFFS.garbage();
+									//SPIFFS.garbage();
 									Serial.println(F("Filesystem cleanup."));
 									break;
 

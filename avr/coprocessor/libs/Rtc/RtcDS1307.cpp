@@ -151,7 +151,7 @@ uint8_t RtcDS1307::GetMemory(uint8_t memoryAddress, uint8_t* pValue, uint8_t cou
     uint8_t countRead = 0;
     if (address <= DS1307_REG_RAMEND)
     {
-        countBytes = min(countBytes, DS1307_REG_RAMEND - DS1307_REG_RAMSTART);
+        countBytes = min(static_cast<int>(countBytes), DS1307_REG_RAMEND - DS1307_REG_RAMSTART);
         Wire.beginTransmission(DS1307_ADDRESS);
         Wire.Write(address);
         Wire.endTransmission();

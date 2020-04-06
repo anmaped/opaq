@@ -24,7 +24,7 @@
  */
 
 #ifdef ARDUINO
-//#include "zmodem_fixes.h"
+#include "zmodem_fixes.h"
 #include "zmodem.h"
 #include "zmodem_crc16.cpp"
 #include "zmodem_zm.h"
