@@ -34,18 +34,19 @@
 
 #include <RtcDateTime.h>
 
-#include <Wire.h>
 #include <Ticker.h>
+#include <Wire.h>
 
 #include <atomic>
 
 // ESP8266 specific headers
 extern "C" {
-#include "user_interface.h"
 #include "os_type.h"
+#include "user_interface.h"
 }
 
-// permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
+// permanent storage settings signature (if value is changed then permanent
+// settings will be overwritten by factory default settings)
 #define SIG 0x07
 #define OPAQ_VERSION "1.0.7"
 
@@ -53,17 +54,13 @@ extern "C" {
 #define OPAQ_MDNS_RESPONDER 1
 #define OPAQ_OTA_ARDUINO 0
 
+#define deviceTaskPrio 2
+#define deviceTaskQueueLen 1
+#define _10hzLoopTaskPrio 1
+#define _10hzLoopTaskQueueLen 1
 
-#define deviceTaskPrio           2
-#define deviceTaskQueueLen       1
-#define _10hzLoopTaskPrio        1
-#define _10hzLoopTaskQueueLen    1
-
-
-class OpenAq_Controller
-{
+class OpenAq_Controller {
 private:
-
   AsyncWebServer server;
   AsyncWebSocket ws;
 
@@ -75,7 +72,7 @@ private:
   bool clockIsReady;
 
   // manages flash memory block for permanent settings
-  //Opaq_storage storage;
+  // Opaq_storage storage;
 
   // temporary string container
   String str;
@@ -92,7 +89,6 @@ private:
   void run_programmer();
 
 public:
-
   OpenAq_Controller();
 
   void setup_controller();
@@ -106,15 +102,14 @@ public:
   void run_touch();
   void run_tft();
 
-  Opaq_com& getCom() { return communicate; };
+  Opaq_com &getCom() { return communicate; };
 
   void syncClock();
 
-  AsyncWebServer& getServer() { return server; }
-  AsyncWebSocket& getWs() { return ws; }
+  AsyncWebServer &getServer() { return server; }
+  AsyncWebSocket &getWs() { return ws; }
 
   void reconnect();
-
 };
 
 extern OpenAq_Controller opaq_controller;

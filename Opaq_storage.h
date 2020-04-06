@@ -22,7 +22,7 @@
  *  along with opaq firmware.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
- 
+
 #ifndef ACSTORAGE_H
 #define ACSTORAGE_H
 
@@ -30,226 +30,194 @@
 #include <FS.h>
 #include <LinkedList.h>
 
-#include "src/ADS7846/ADS7846.h"
-#include "opaq.h"
 #include "Opaq_coprogrammer.h"
-
+#include "opaq.h"
+#include "src/ADS7846/ADS7846.h"
 
 #ifdef DEBUG_ESP_OPAQSTORAGE
-#define DEBUG_MSG_STORAGE(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#define DEBUG_MSG_STORAGE(...) DEBUG_ESP_PORT.printf(__VA_ARGS__)
 #else
-#define DEBUG_MSG_STORAGE(...) 
+#define DEBUG_MSG_STORAGE(...)
 #endif
 
-
 // enumerations for light and power devices settings
-enum pdevtype {CHACON_DIO = 1, OTHERS};
-enum nrf24state {NRF24_OFF = 0, NRF24_ON, NRF24_BINDING, NRF24_UNBINDING, NRF24_LISTENING};
-
+enum pdevtype { CHACON_DIO = 1, OTHERS };
+enum nrf24state {
+  NRF24_OFF = 0,
+  NRF24_ON,
+  NRF24_BINDING,
+  NRF24_UNBINDING,
+  NRF24_LISTENING
+};
 
 // forward-declaration to allow use in Iter
 class Directory;
- 
-class FileIterator
-{
-    public:
-    FileIterator (const Directory* p_vec) :
-        _p_vec( p_vec ),
-        go_on(true)
-    {
-    }
 
-    ~FileIterator()
-    {
-      if (last_file != NULL)
-      {
-        last_file.close();
-      }
-    }
- 
-    bool
-    operator!= (const FileIterator& other) const
-    {
-        return go_on && _p_vec != NULL;
-    }
- 
-    File& operator* ();
-    const FileIterator& operator++ ();
- 
-    private:
-    const Directory *_p_vec;
-    File last_file;
-    bool go_on;
-};
-
-class Directory
-{
-    public:
-    Directory (const char * filename)
-    {
-      dir = SPIFFS.openDir(filename);
-      can_run = dir.next();
-    }
-
-    FileIterator begin () const
-    {
-        return FileIterator( (can_run)? this : NULL );
-    }
- 
-    FileIterator end () const
-    {
-        return FileIterator( NULL );
-    }
-
-    Dir& dirlist() const
-    {
-      return dir_ref;
-    }
- 
-    private:
-    Dir dir;
-    Dir& dir_ref = dir;
-    bool can_run;
-};
-
-
-class PrintFile : public Print
-{
-  File stream;
-  
+class FileIterator {
 public:
-  PrintFile(const char* filename, const char * fo = "r+") { stream = SPIFFS.open(filename, fo); };
+  FileIterator(const Directory *p_vec) : _p_vec(p_vec), go_on(true) {}
+
+  ~FileIterator() {
+    if (last_file != NULL) {
+      last_file.close();
+    }
+  }
+
+  bool operator!=(const FileIterator &other) const {
+    return go_on && _p_vec != NULL;
+  }
+
+  File &operator*();
+  const FileIterator &operator++();
+
+private:
+  const Directory *_p_vec;
+  File last_file;
+  bool go_on;
+};
+
+class Directory {
+public:
+  Directory(const char *filename) {
+    dir = SPIFFS.openDir(filename);
+    can_run = dir.next();
+  }
+
+  FileIterator begin() const { return FileIterator((can_run) ? this : NULL); }
+
+  FileIterator end() const { return FileIterator(NULL); }
+
+  Dir &dirlist() const { return dir_ref; }
+
+private:
+  Dir dir;
+  Dir &dir_ref = dir;
+  bool can_run;
+};
+
+class PrintFile : public Print {
+  File stream;
+
+public:
+  PrintFile(const char *filename, const char *fo = "r+") {
+    stream = SPIFFS.open(filename, fo);
+  };
   ~PrintFile() { stream.close(); };
   size_t write(uint8_t b) { stream.write(b); };
-  File& getStream() { return stream; };
+  File &getStream() { return stream; };
 };
 
-class Opaq_st_plugin
-{
+class Opaq_st_plugin {
 public:
   virtual void defaults() = 0;
-  bool load(const char * filename, String& toParse);
-  void load(File& fl, String& toParse);
-  void parse(const char * filename, const char * param, String& out);
+  bool load(const char *filename, String &toParse);
+  void load(File &fl, String &toParse);
+  void parse(const char *filename, const char *param, String &out);
 };
 
-class Opaq_st_plugin_dummy : public Opaq_st_plugin
-{
-  void defaults() {};
+class Opaq_st_plugin_dummy : public Opaq_st_plugin {
+  void defaults(){};
 };
 
-class Opaq_st_plugin_faqdim : public Opaq_st_plugin
-{
-  enum adimtype {OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH, UNKNOWN};
+class Opaq_st_plugin_faqdim : public Opaq_st_plugin {
+  enum adimtype { OPENAQV1 = 1, ZETLIGHT_LANCIA_2CH, UNKNOWN };
   adimtype tmp_type;
-public:
 
+public:
   void defaults();
-  
+
   void add();
-  void save(const char * code, const uint8_t * content, size_t len);
-  void getDir(String& filename);
-  void getFilename(String& filename, const char * code);
-  void remove(const char* code);  
+  void save(const char *code, const uint8_t *content, size_t len);
+  void getDir(String &filename);
+  void getFilename(String &filename, const char *code);
+  void remove(const char *code);
 
   void run();
   void send(unsigned int code, nrf24state state);
-  void send(unsigned int code, LinkedList<byte>& state);
+  void send(unsigned int code, LinkedList<byte> &state);
 };
 
-
-class Opaq_st_plugin_pwdevice : public Opaq_st_plugin
-{
+class Opaq_st_plugin_pwdevice : public Opaq_st_plugin {
 public:
-
   void defaults();
-  
+
   void add();
-  void save(const char * code, const uint8_t * content, size_t len);
-  void getDir(String& filename);
-  void getFilename(String& filename, const char * code);
-  void remove(const char* code);
+  void save(const char *code, const uint8_t *content, size_t len);
+  void getDir(String &filename);
+  void getFilename(String &filename, const char *code);
+  void remove(const char *code);
 
   void run();
   void send(unsigned int code, short unsigned int state);
 };
 
-class Opaq_st_plugin_wifisett : public Opaq_st_plugin
-{
-  void parseConfiguration(const char * param, String& out);
-  void changeConfiguration(const char * param, const char * value);
-public:
+class Opaq_st_plugin_wifisett : public Opaq_st_plugin {
+  void parseConfiguration(const char *param, String &out);
+  void changeConfiguration(const char *param, const char *value);
 
+public:
   void defaults();
-  
+
   /* request SSID for acess point operation */
-  void getSSID(String& ssid);
-  void getPwd(String& pwd);
-  void getClientSSID(String& ssid);
-  void getClientPwd(String& pwd);
-  void getMode(String& mode);
-  void setSSID( String ssid );
-  void setPwd( String pwd );
-  void setClientSSID( String ssid );
-  void setClientPwd( String pwd );
+  void getSSID(String &ssid);
+  void getPwd(String &pwd);
+  void getClientSSID(String &ssid);
+  void getClientPwd(String &pwd);
+  void getMode(String &mode);
+  void setSSID(String ssid);
+  void setPwd(String pwd);
+  void setClientSSID(String ssid);
+  void setClientPwd(String pwd);
 
   /* get settings for operating as access point or client */
   uint8_t getModeOperation();
   void enableSoftAP();
   void enableClient();
-
-  
 };
 
-class Opaq_st_plugin_touchsett : public Opaq_st_plugin
-{
+class Opaq_st_plugin_touchsett : public Opaq_st_plugin {
 private:
-
   // state variables for touch matrix calibration
   CAL_MATRIX touch_cal_matrix;
-  CAL_MATRIX& touch_cal_matrix_ref = touch_cal_matrix;
-  
-public:
+  CAL_MATRIX &touch_cal_matrix_ref = touch_cal_matrix;
 
+public:
   void defaults();
-  
+
   // touch screen settings
-  CAL_MATRIX& getTouchMatrixRef();
+  CAL_MATRIX &getTouchMatrixRef();
   CAL_MATRIX getTouchMatrix();
   void commitTouchSettings();
   bool isTouchMatrixAvailable();
 };
 
-class Opaq_storage
-{
+class Opaq_storage {
 private:
   bool update;
+
 public:
+  Opaq_storage();
 
-    Opaq_storage();
+  /* restore default settings */
+  void defaults(uint8_t sig);
 
-    /* restore default settings */
-    void defaults ( uint8_t sig );
+  void initOpaqC1Service();
+  void tarextract(const char *filename, const char *target);
+  void fwupdate(const char *filename, const char *md5);
+  bool getUpdate() { return update; };
+  void setUpdate(bool state) { update = state; };
 
-    void initOpaqC1Service();
-    void tarextract(const char * filename, const char * target);
-    void fwupdate(const char * filename, const char * md5);
-    bool getUpdate() { return update; };
-    void setUpdate(bool state) { update = state; };
+  /* sig symbol for eeprom verification */
+  const uint8_t getSignature();
+  void writeSignature(byte sig);
 
-    /* sig symbol for eeprom verification */
-    const uint8_t getSignature();
-    void writeSignature(byte sig);
+  // static initialized for all plugins
+  Opaq_st_plugin_faqdim faqdim;
+  Opaq_st_plugin_pwdevice pwdevice;
+  Opaq_st_plugin_wifisett wifisett;
+  Opaq_st_plugin_touchsett touchsett;
 
-
-    // static initialized for all plugins
-    Opaq_st_plugin_faqdim     faqdim;
-    Opaq_st_plugin_pwdevice   pwdevice;
-    Opaq_st_plugin_wifisett   wifisett;
-    Opaq_st_plugin_touchsett  touchsett;
-
-    Opaq_coprogrammer avrprog;
-
+  Opaq_coprogrammer avrprog;
 };
 
 extern Opaq_storage storage;

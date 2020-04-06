@@ -4,7 +4,6 @@
 
 #include <ESPAsyncWebServer.h>
 
-
 const char index_html[] PROGMEM = R"(
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -228,7 +227,6 @@ function validate(){
 </html>
 )";
 
-void opaq_recovery(AsyncWebServerRequest * request)
-{
-	request->send_P(200, "text/html", index_html);
+void opaq_recovery(AsyncWebServerRequest *request) {
+  request->send_P(200, "text/html", index_html);
 }
