@@ -142,7 +142,7 @@ void Opaq_command::terminal()
     auto alert = [read_line]()
     {
     	String in = F("");
-    	Serial.println(F("Are you sure? ([Y]es/No):"));
+    	Serial.println(F("Are you sure? ([y]es/No):"));
 
     	while(!read_line(in)) { optimistic_yield(10000); }
 
@@ -385,8 +385,16 @@ void Opaq_command::terminal()
 
 									communicate.tft_dimmer(atoi(args.c_str()));
 									break;
-
-			case "free"_hash		:	
+			case "df"_hash		:	
+									Serial.print(F("Disk Free: (bytes)\n"));
+									FSInfo fs_info;
+									SPIFFS.info(fs_info);
+									Serial.print(F("Used -> "));
+									Serial.println(fs_info.usedBytes);
+									Serial.print(F("Total -> "));
+									Serial.println(fs_info.totalBytes);
+									break;
+			case "free"_hash	:	
 									Serial.print(F("Heap: "));
 									Serial.println(ESP.getFreeHeap());
 									break;

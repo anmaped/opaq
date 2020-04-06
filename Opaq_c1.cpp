@@ -66,6 +66,10 @@ OpenAq_Controller opaq_controller;
 
 #define RECV 1
 
+#ifdef OPAQ_C1_SCREEN
+Opaq_iaqua_page_welcome wscreen = Opaq_iaqua_page_welcome();
+#endif
+
 // non-class functions begin
 
 //bool run1hz_flag = false;
@@ -151,13 +155,13 @@ void OpenAq_Controller::setup_controller()
   }
 
   Serial.println(String(F("Opaq Version ")) + OPAQ_VERSION);
-  Serial.println(F("Copyright (c) 2015 Andre Pedro. All rights reserved."));
+  Serial.println(F("Copyright (c) 2015-2020 Andre Pedro. All rights reserved."));
   
   #ifdef OPAQ_C1_SCREEN
   // display welcome screen tft
   tft.begin();
 
-  Opaq_iaqua_page_welcome wscreen = Opaq_iaqua_page_welcome();
+
   wscreen.draw();
   wscreen.setExecutionBar(5);
   #endif

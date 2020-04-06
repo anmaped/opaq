@@ -187,7 +187,7 @@ _PROTOTYPE(int zsendcmd , (char *buf , int blen ));
 FILE *fout;
 #else
 #include <SdFat.h>
-sdfat::SdFile fout;
+extern sdfat::SdFile fout;
 #endif
 
 int wcs(const char *oname)

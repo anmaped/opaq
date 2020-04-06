@@ -46,8 +46,8 @@ extern "C" {
 }
 
 // permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x06
-#define OPAQ_VERSION "1.0.6"
+#define SIG 0x07
+#define OPAQ_VERSION "1.0.7"
 
 // configuration parameters
 #define OPAQ_MDNS_RESPONDER 1

@@ -6,7 +6,7 @@
 #define DEBUG_ESP_PORT Serial
 
 
-//#define OPAQ_C1_SCREEN
+#define OPAQ_C1_SCREEN
 
 #define FF(x) String(F(x)).c_str()
 
