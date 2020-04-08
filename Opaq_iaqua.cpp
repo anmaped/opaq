@@ -64,7 +64,7 @@ void Opaq_iaqua::service(unsigned x, unsigned y, unsigned z) {
   // Serial.println(touch_state);
   // Serial.println(n_touch);
 
-  switch (dispScreen) {
+  /*switch (dispScreen) {
   case 1: // home screen
     homescreen_e(x, y, touch_state);
     break;
@@ -80,12 +80,24 @@ void Opaq_iaqua::service(unsigned x, unsigned y, unsigned z) {
   case 4: // settings screen
     settings_screen_e(x, y, touch_state);
     break;
+  }*/
+
+  // store detected event
+  if (touch_state == TOUCH_CLICK && eventlist.size() < 10) {
+    auto p = std::make_pair(std::make_pair(x,y), TOUCH_CLICK); // check it
+    eventlist.add(p);
   }
+  
 
   if (touch_state == TOUCH_CLICK) {
     n_touch = 0;
     touch_state = TOUCH_UP;
   }
+}
+
+void Opaq_iaqua::update()
+{
+  
 }
 
 void Opaq_iaqua::homescreen_e(unsigned x, unsigned y, touch_evt_type id) {

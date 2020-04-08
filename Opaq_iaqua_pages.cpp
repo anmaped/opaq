@@ -12,7 +12,8 @@ void Opaq_iaqua_page_welcome::draw() {
 }
 
 void Opaq_iaqua_page_welcome::setExecutionBar(byte range) {
-  tft.fillRoundRect(20, 250, (2 * range), 10, 5, RGB(80, 80, 80));
+  if (range > 5 && range <= 100)
+    tft.fillRoundRect(20, 250, (2 * range), 10, 5, RGB(80, 80, 80));
 }
 
 void Opaq_iaqua_page_welcome::msg(const char *msg) {
@@ -20,4 +21,8 @@ void Opaq_iaqua_page_welcome::msg(const char *msg) {
   myGLCD.setFont(NULL); // TODO
   myGLCD.setColor(55, 55, 55);
   myGLCD.print(msg, 60, 270);
+}
+
+void Opaq_iaqua_page_welcome::clear() {
+  tft.fillScreen(ILI9341_BLACK);
 }

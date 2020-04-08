@@ -17,6 +17,8 @@
 #include "zmodem_config.h"
 #include "zmodem_zm.h"
 
+#define MAX_NUMBER_COMMAND_ARGS 6
+
 std::atomic<bool> Opaq_command::ll;
 
 Opaq_command command = Opaq_command();
@@ -157,6 +159,10 @@ void Opaq_command::terminal() {
         lastIndex = i + 1;
         // Increase the position in the array that we store into
         counter++;
+        if (counter >= MAX_NUMBER_COMMAND_ARGS) {
+          Serial.println("no more space.");
+          break;
+        }
       }
 
       // If we're at the end of the string (no more commas to stop us)
@@ -184,9 +190,7 @@ void Opaq_command::terminal() {
     DEBUG_MSG_COMMAND(FF("command=%s\r\n"), command.c_str());
 
     String args = "";
-    String arg[2];
-    arg[0] = "";
-    arg[1] = "";
+    String arg[MAX_NUMBER_COMMAND_ARGS] = {""};
 
     // static AsyncClient client = AsyncClient();
 
@@ -288,12 +292,43 @@ void Opaq_command::terminal() {
     case "ls"_hash:
       list_files();
       break;
-    case "wifi"_hash:
-      WiFi.printDiag(Serial);
-      break;
 
-    case "nrf24"_hash:
-      communicate.nrf24.printstate();
+    case "setup"_hash:
+      args = caps[1].ptr;
+      // Serial.println(caps[1].len);
+      args = args.substring(1);
+      args.setCharAt(caps[1].len, '\0');
+      // Serial.println(args.c_str());
+      split(args, arg);
+
+      // Serial.println(arg[0]);
+      // Serial.println(arg[1]);
+
+      if (arg[1] == F("wifi")) {
+        if (arg[0] == F("get")) {
+          WiFi.printDiag(Serial);
+          break;
+        }
+        if (arg[0] == F("set")) {
+          if (args.length() > 5) {
+            Serial.printf("mode:%s ssid:%s pwd:%s channel:%s \n",
+                          arg[2].c_str(), arg[3].c_str(), arg[4].c_str(),
+                          arg[5].c_str());
+            // [TODO]
+            break;
+          }
+        }
+      }
+      if (arg[1] == F("nrf24")) {
+        if (arg[0] == F("get")) {
+          communicate.nrf24.printstate();
+          break;
+        }
+      }
+
+      Serial.println(F("Usage: setup [get/set] [wifi/nrf24]\r\n       "
+                       "setup get wifi [example]"));
+
       break;
 
     case "mount"_hash:
@@ -338,7 +373,7 @@ void Opaq_command::terminal() {
       communicate.tft_dimmer(atoi(args.c_str()));
       break;
     case "df"_hash:
-      Serial.print(F("Disk Free: (bytes)\n"));
+      Serial.print(F("Disk Free: (bytes)\r\n"));
       FSInfo fs_info;
       SPIFFS.info(fs_info);
       Serial.print(F("Used -> "));
@@ -350,17 +385,57 @@ void Opaq_command::terminal() {
       Serial.print(F("Heap: "));
       Serial.println(ESP.getFreeHeap());
       break;
+    case "stack"_hash:
+      for (uint8_t i = 0; i < NUM_TASKS - 1; i++) {
+        Serial.print(F("Task "));
+        Serial.print(i);
+        Serial.print(F(": "));
+        Serial.print((uint32_t)stack_task[i]);
+        Serial.print(F(" size: "));
+        Serial.println(((uint32_t)stack_task[i]) -
+                       ((uint32_t)stack_task[i + 1]));
+      }
+
+      break;
+
+#ifdef OPAQ_C1_SCREEN
+    case "testscreen"_hash:
+      communicate.lock();
+      wscreen.draw();
+      wscreen.msg(String(F("This is a testscreen")).c_str());
+      communicate.unlock();
+
+      for (uint8_t i = 0; i < 100; i++) {
+        delay(100);
+        communicate.lock();
+        wscreen.setExecutionBar(i);
+        communicate.unlock();
+      }
+
+      communicate.lock();
+      wscreen.clear();
+      communicate.unlock();
+      break;
+#endif
 
     case "help"_hash:
       // show available commands
-      Serial.println(
-          F("Available commands: \r\nupdate - Update Firmware/Filesystem "
-            "\r\nformat - Remove everithing from filesystem \r\nmount "
-            "\r\ndefrag - Restore delected sectors \r\ntar - Extract tar "
-            "archives \r\nls - List files \r\nmv - Move files \r\nrm - Remove "
-            "files \r\nwifi - Set/Get wifi settings \r\nnrf24 - Set/Get nrf24 "
-            "settings \r\nrz - ZModem File Receiver \r\nfree - Show free "
-            "memory \r\nreboot \r\nhelp"));
+      Serial.println(F("Available commands: \r\n \
+            update [avr/esp]- Update internal firmwares \r\n \
+            format - Erase everything from SPIFFS filesystem \r\n \
+            mount - mount SPIFFS filesystem \r\n \
+            defrag - Restore delected and fragmented sectors \r\n \
+            tar <file> - Extract tar archives \r\n \
+            ls - List files \r\n \
+            mv <file> <newfile> - Move files \r\n \
+            rm <file> - Remove files \r\n \
+            setup [set/get] [wifi/nrf24] - Explore and customize settings \r\n \
+            dim <intensity> - Dim lcd 0-255 \r\n \
+            testscreen - Do a test screen \r\n \
+            rz - ZModem File Receiver \r\n \
+            free - Show free memory \r\n \
+            reboot - Soft reboot opaq \r\n \
+            help"));
       break;
 
     case "aws"_hash:

@@ -61,10 +61,19 @@
 
 #define DEBUG
 
+char *stack_start;
+char *stack_task[NUM_TASKS] = {NULL};
+
 void setup() {
+  char stack;
+  stack_start = &stack;
+
   opaq_controller.setup_controller();
 }
 
 void loop() {
+  char stack;
+  stack_task[3] = &stack;
+  
   opaq_controller.run_controller();
 }

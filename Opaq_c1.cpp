@@ -60,8 +60,6 @@ LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // until here...
 #endif
 
-unsigned int count = 0;
-unsigned int count2 = 0;
 OpenAq_Controller opaq_controller;
 
 #define RECV 1
@@ -171,12 +169,6 @@ void OpenAq_Controller::setup_controller() {
   }
 
   Serial.println(F("SIG Accepted"));
-
-  // reconnect();
-
-#ifdef OPAQ_C1_SCREEN
-  wscreen.setExecutionBar(55);
-#endif
 
   //  BEGINS the LOADING OF FILES FROM SPIFFS
 
@@ -322,7 +314,7 @@ void OpenAq_Controller::setup_controller() {
   server.addHandler(&ws);
 
 #ifdef OPAQ_C1_SCREEN
-  wscreen.setExecutionBar(75);
+  wscreen.msg(String(F("Setup touch sensor")).c_str());
 
   //
   // TOUCH CONTROLLER INITIALIZATION
@@ -348,34 +340,17 @@ void OpenAq_Controller::setup_controller() {
   }
   // END TOUCH CONTROLLER INITIALIZATION
 
-  wscreen.setExecutionBar(100);
 #endif
-
+  wscreen.msg(String(F("nrf24 initializing...")).c_str());
   communicate.nrf24.init();
 
-  /*
-  // registers deviceTask in the OS control structures
-  system_os_task ( _deviceTaskLoop, deviceTaskPrio, deviceTaskQueue,
-                   deviceTaskQueueLen );
+  // Serial.print(F("opaq>"));
 
-  system_os_task ( _10hzLoop, _10hzLoopTaskPrio, _10hzLoopQueue,
-                   _10hzLoopTaskQueueLen );
-
-  // Attach deviceTask event trigger function for periodic releases
-  timming_events.attach_ms ( 1000, _devicesTask_timmingEvent );
-
-  t_evt.attach_ms ( 50, _10hzLoop_timmingEvent );*/
-
-#ifdef OPAQ_C1_SCREEN
-  run_tft();
-#endif
-
-  Serial.print(F("opaq>"));
-
-  // Scheduler.begin(4096);
   Scheduler.start(
       []() {
+        communicate.lock();
         opaq_controller.reconnect();
+        communicate.unlock();
 
 #if OPAQ_OTA_ARDUINO
 
@@ -387,9 +362,9 @@ void OpenAq_Controller::setup_controller() {
 #if OPAQ_MDNS_RESPONDER
 
 #ifdef OPAQ_C1_SCREEN
-
+        communicate.lock();
         wscreen.msg(String(F("mDNS responder")).c_str());
-
+        communicate.unlock();
 #endif
 
         // mDNS responder
@@ -414,11 +389,8 @@ void OpenAq_Controller::setup_controller() {
       []() {
         static uint32_t clock = get_clock();
 
-        // Serial.println(count);
-        // Serial.println(count2);
-
-        count = 0;
-        count2 = 0;
+        char stack;
+        stack_task[0] = &stack;
 
         opaq_controller.run_task_ds3231();
         opaq_controller.setClockReady();
@@ -430,13 +402,46 @@ void OpenAq_Controller::setup_controller() {
         clock += 1000 * 1000;
         delay_until(clock);
       },
-      2048);
+      1024 * 4);
 
-  /*Scheduler.start(NULL, [](){
+  Scheduler.start(NULL,
+                  []() {
+                    static uint32_t clock = get_clock();
+                    char stack;
+                    stack_task[1] = &stack;
+
 #ifdef OPAQ_C1_SCREEN
-  opaq_controller.run_touch();
+                    opaq_controller.run_touch();
 #endif
-  yield(); count++; }, 1024);*/
+
+                    // run that task at 100hz
+                    clock += 10 * 1000;
+                    delay_until(clock);
+                  },
+                  1024 * 2);
+
+#ifdef OPAQ_C1_SCREEN
+  Scheduler.start(NULL,
+                  []() {
+                    static uint32_t clock = get_clock();
+                    char stack;
+                    stack_task[2] = &stack;
+
+                    communicate.lock();
+                    iaqua.update();
+                    communicate.unlock();
+
+                    // run that task at 10hz
+                    clock += 100 * 1000;
+                    delay_until(clock);
+                  },
+                  1024 * 2);
+#endif
+
+#ifdef OPAQ_C1_SCREEN
+  delay(2000); // [TODO: check ready state instead of constant time]
+  run_tft();
+#endif
 
   const bool isReceiver = false;
 
@@ -560,9 +565,6 @@ void OpenAq_Controller::setup_controller() {
         communicate.unlock();
 
         delay(100);
-
-        // yield();
-        count2++;
       },
       1024 + 512);
 }
@@ -656,6 +658,7 @@ void OpenAq_Controller::reconnect() {
 }
 
 void OpenAq_Controller::run_controller() {
+
   command.handler();
 
   // programmer handler
@@ -734,11 +737,9 @@ void OpenAq_Controller::run_touch() {
   communicate.touch.service();
   touch_t data = communicate.touch.get();
 
-  communicate.lock();
+  // Serial.printf("x: %d y:%d pressure:%d\r\n",data.x, data.y, data.pressure);
 
   iaqua.service(data.x, data.y, data.pressure);
-
-  communicate.unlock();
 }
 
 void OpenAq_Controller::run_tft() {

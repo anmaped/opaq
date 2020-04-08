@@ -160,12 +160,12 @@ void Opaq_com_tsc2046::setCalibration(CAL_MATRIX matrix) {
 
 touch_t Opaq_com_tsc2046::get() {
   touch_t data = {0};
-  com.lock();
+  //com.lock();
 
   data.x = touch.getX();
   data.y = touch.getY();
   data.pressure = touch.getPressure();
-  com.unlock();
+  //com.unlock();
 
   return data;
 }

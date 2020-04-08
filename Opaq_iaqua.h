@@ -34,6 +34,8 @@
 
 #include "src/Time/Time.h"
 #include <Arduino.h>
+#include <LinkedList.h>
+#include <utility> 
 
 #include "FS.h"
 #include "gfx.h"
@@ -81,6 +83,7 @@ protected:
   Files_Hal myFiles;
   Lcd_Hal myGLCD;
   Storage_Hal EEPROM;
+  LinkedList<std::pair<std::pair<unsigned, unsigned>, touch_evt>> eventlist;
 
 private:
   uint8_t *arial_bold = (uint8_t *)0x1; // dummy variable
@@ -383,6 +386,7 @@ public:
   void power_screen_e(unsigned x, unsigned y, touch_evt_type id);
   void settings_screen_e(unsigned x, unsigned y, touch_evt_type id);
   void service(unsigned x, unsigned y, unsigned z);
+  void update();
 
   // alarm functions
   void AlarmPwrLight1_On();

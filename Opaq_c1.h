@@ -39,6 +39,8 @@
 
 #include <atomic>
 
+#include "opaq.h"
+
 // ESP8266 specific headers
 extern "C" {
 #include "os_type.h"
@@ -58,6 +60,17 @@ extern "C" {
 #define deviceTaskQueueLen 1
 #define _10hzLoopTaskPrio 1
 #define _10hzLoopTaskQueueLen 1
+
+#define NUM_TASKS 6
+
+extern char *stack_start;
+extern char *stack_task[NUM_TASKS];
+
+#ifdef OPAQ_C1_SCREEN
+#include "Opaq_iaqua_pages.h"
+
+extern Opaq_iaqua_page_welcome wscreen;
+#endif
 
 class OpenAq_Controller {
 private:
