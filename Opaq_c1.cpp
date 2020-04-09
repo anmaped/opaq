@@ -68,36 +68,6 @@ OpenAq_Controller opaq_controller;
 Opaq_iaqua_page_welcome wscreen = Opaq_iaqua_page_welcome();
 #endif
 
-// non-class functions begin
-
-// bool run1hz_flag = false;
-// bool enableTartExtract = false;
-/*
-static void ICACHE_FLASH_ATTR _deviceTaskLoop ( os_event_t* events )
-{
-  run1hz_flag = true;
-}
-
-static void ICACHE_FLASH_ATTR _10hzLoop ( os_event_t* events )
-{
-
-#ifdef OPAQ_C1_SCREEN
-  opaq_controller.run_touch();
-#endif
-
-}
-
-static void _devicesTask_timmingEvent()
-{
-  system_os_post ( deviceTaskPrio, 0, 0 );
-}
-
-static void _10hzLoop_timmingEvent()
-{
-  system_os_post ( _10hzLoopTaskPrio, 0, 0 );
-}
-*/
-// non-class functions end
 
 /*=============================================================================
 =                              Opaq public methods                            =

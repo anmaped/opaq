@@ -11,26 +11,26 @@
 	path = libraries/LinkedList
 	url = https://github.com/anmaped/LinkedList.git
 [submodule "avr/n1/libs/rf24"]
-	path = avr/n1/libs/rf24
+	path = avr/n1/libraries/rf24
 	url = https://github.com/TMRh20/RF24.git
 [submodule "avr/n1/libs/spiflash"]
-	path = avr/n1/libs/spiflash
+	path = avr/n1/libraries/spiflash
 	url = https://github.com/LowPowerLab/SPIFlash.git
 [submodule "avr/n1/libs/scheduler"]
-	path = avr/n1/libs/scheduler
+	path = avr/n1/libraries/scheduler
 	url = https://github.com/mikaelpatel/Arduino-Scheduler.git
 [submodule "avr/n1/libs/onewire"]
-	path = avr/n1/libs/onewire
+	path = avr/n1/libraries/onewire
 	url = https://github.com/PaulStoffregen/OneWire.git
 [submodule "avr/n1/libs/dallastemperature"]
-	path = avr/n1/libs/dallastemperature
+	path = avr/n1/libraries/dallastemperature
 	url = https://github.com/milesburton/Arduino-Temperature-Control-Library.git
 [submodule "libs/scheduler"]
 	path = libraries/scheduler
 	url = https://github.com/anmaped/Arduino-Scheduler.git
 [submodule "avr/n1/libs/RF24Mesh"]
-	path = avr/n1/libs/RF24Mesh
+	path = avr/n1/libraries/RF24Mesh
 	url = https://github.com/nRF24/RF24Mesh.git
 [submodule "avr/n1/libs/RF24Network"]
-	path = avr/n1/libs/RF24Network
+	path = avr/n1/libraries/RF24Network
 	url = https://github.com/nRF24/RF24Network.git

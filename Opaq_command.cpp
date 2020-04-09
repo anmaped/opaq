@@ -399,22 +399,35 @@ void Opaq_command::terminal() {
       break;
 
 #ifdef OPAQ_C1_SCREEN
-    case "testscreen"_hash:
-      communicate.lock();
-      wscreen.draw();
-      wscreen.msg(String(F("This is a testscreen")).c_str());
-      communicate.unlock();
+    case "test"_hash:
+      args = caps[1].ptr;
+      // Serial.println(caps[1].len);
+      args = args.substring(1);
+      args.setCharAt(caps[1].len, '\0');
+      // Serial.println(args.c_str());
+      split(args, arg);
 
-      for (uint8_t i = 0; i < 100; i++) {
-        delay(100);
+      if (arg[0] == F("screen")) {
         communicate.lock();
-        wscreen.setExecutionBar(i);
+        wscreen.draw();
+        wscreen.msg(String(F("This is a testscreen")).c_str());
         communicate.unlock();
+
+        for (uint8_t i = 0; i < 100; i++) {
+          delay(100);
+          communicate.lock();
+          wscreen.setExecutionBar(i);
+          communicate.unlock();
+        }
+
+        communicate.lock();
+        wscreen.clear();
+        communicate.unlock();
+
+        break;
       }
 
-      communicate.lock();
-      wscreen.clear();
-      communicate.unlock();
+      Serial.println("Usage: test [screen]");
       break;
 #endif
 
@@ -476,9 +489,35 @@ void Opaq_command::terminal() {
   true);*/
       break;
 
-    case "testavr"_hash:
-      digitalWrite(18, LOW);
-      Serial.println("send.");
+    case "coprocessor"_hash:
+      args = caps[1].ptr;
+      // Serial.println(caps[1].len);
+      args = args.substring(1);
+      args.setCharAt(caps[1].len, '\0');
+      // Serial.println(args.c_str());
+      split(args, arg);
+
+      if (arg[0] == F("status")) {
+
+        byte x[10];
+
+        if (communicate.connect())
+          return;
+
+        SPI.transfer(ID_STATUS);
+        delayMicroseconds(30);
+
+        for (byte i = 0; i <= 9; i++) {
+          x[i] = SPI.transfer(0);
+          delayMicroseconds(30);
+        }
+
+        communicate.disconnect();
+
+        break;
+      }
+
+      Serial.println("Usage: coprocessor [status]");
       break;
 
     default:
