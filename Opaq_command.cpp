@@ -445,6 +445,7 @@ void Opaq_command::terminal() {
             setup [set/get] [wifi/nrf24] - Explore and customize settings \r\n \
             dim <intensity> - Dim lcd 0-255 \r\n \
             testscreen - Do a test screen \r\n \
+            coprocessor [status] - Get a coproc status \r\n \
             rz - ZModem File Receiver \r\n \
             free - Show free memory \r\n \
             reboot - Soft reboot opaq \r\n \
@@ -507,12 +508,16 @@ void Opaq_command::terminal() {
         SPI.transfer(ID_STATUS);
         delayMicroseconds(30);
 
-        for (byte i = 0; i <= 9; i++) {
+        for (byte i = 0; i < 8; i++) {
           x[i] = SPI.transfer(0);
           delayMicroseconds(30);
         }
 
         communicate.disconnect();
+
+        for (byte i = 0; i < 8; i++) {
+          Serial.println((uint8_t)x[i]);
+        }
 
         break;
       }

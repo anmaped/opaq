@@ -11,9 +11,10 @@ enum ID {ID_DS1307_GETDATA=0x16, ID_DS1307_SETDATA, ID_NRF24_CSN, ID_NRF24_CE, I
 
 enum rf433state {RF433_OFF=0, RF433_ON, RF433_BINDING, RF433_UNBINDING};
 
-struct {
-  uint8_t version;
+struct status {
+  uint8_t version[3];
+  uint8_t uniqueid[4];
   uint8_t mode;
-} status;
+} ;
 
 #endif // PROTOCOL_H
