@@ -12,6 +12,7 @@
 #include "Opaq_command.h"
 #include "Opaq_storage.h"
 #include "slre.h"
+#include "version.h"
 
 #include "zmodem.h"
 #include "zmodem_config.h"
@@ -449,6 +450,7 @@ void Opaq_command::terminal() {
             rz - ZModem File Receiver \r\n \
             free - Show free memory \r\n \
             reboot - Soft reboot opaq \r\n \
+            uname - Get version \r\n \
             help"));
       break;
 
@@ -490,6 +492,10 @@ void Opaq_command::terminal() {
   true);*/
       break;
 
+    case "uname"_hash:
+      Serial.println(tag);
+      break;
+
     case "coprocessor"_hash:
       args = caps[1].ptr;
       // Serial.println(caps[1].len);
@@ -500,7 +506,7 @@ void Opaq_command::terminal() {
 
       if (arg[0] == F("status")) {
 
-        byte x[10];
+        byte x[25];
 
         if (communicate.connect())
           return;
@@ -508,16 +514,24 @@ void Opaq_command::terminal() {
         SPI.transfer(ID_STATUS);
         delayMicroseconds(30);
 
-        for (byte i = 0; i < 8; i++) {
+        for (byte i = 0; i < 25; i++) {
           x[i] = SPI.transfer(0);
           delayMicroseconds(30);
         }
 
         communicate.disconnect();
 
-        for (byte i = 0; i < 8; i++) {
-          Serial.println((uint8_t)x[i]);
+        Serial.print("version: ");
+        for (byte i = 1; i < 4; i++) {
+          Serial.print((char)x[i]);
         }
+        Serial.println("");
+
+        Serial.print("id: ");
+        for (byte i = 4; i < 25; i++) {
+          Serial.print((char)x[i]);
+        }
+        Serial.println("");
 
         break;
       }

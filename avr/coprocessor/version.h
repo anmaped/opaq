@@ -1,9 +1,0 @@
-
-#ifndef VERSION_H
-#define VERSION_H
-
-#include "protocol.h"
-
-struct status st = {0x01, 0x03, 0x05, 0x07, 0x11, 0x00, 0x00, 0x00};
-
-#endif // VERSION_H

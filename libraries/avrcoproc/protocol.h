@@ -13,7 +13,7 @@ enum rf433state {RF433_OFF=0, RF433_ON, RF433_BINDING, RF433_UNBINDING};
 
 struct status {
   uint8_t version[3];
-  uint8_t uniqueid[4];
+  uint8_t uniqueid[21];
   uint8_t mode;
 } ;
 
