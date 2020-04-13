@@ -48,7 +48,8 @@ echo -e "
 #ifndef VERSION_H
 #define VERSION_H
 
-static char tag[25] = {$tagstream $idstream '\0'};
+static char id[25] = { $idstream '\0'};
+static char version[4] = { $tagstream '\0'};
 
 #endif // VERSION_H
 " > version.h

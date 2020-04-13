@@ -34,6 +34,7 @@
 
 #include "src/Time/Time.h"
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <LinkedList.h>
 #include <utility> 
 
@@ -83,7 +84,7 @@ protected:
   Files_Hal myFiles;
   Lcd_Hal myGLCD;
   Storage_Hal EEPROM;
-  LinkedList<std::pair<std::pair<unsigned, unsigned>, touch_evt>> eventlist;
+  LinkedList<StaticJsonDocument<128>> eventlist;
 
 private:
   uint8_t *arial_bold = (uint8_t *)0x1; // dummy variable
@@ -425,6 +426,10 @@ public:
   const char* dayShortStr(int);
   time_t makeTime(tmElements_t);*/
   // end functions to treat
+
+  LinkedList<StaticJsonDocument<128>>* get_eventlist() { return &eventlist; };
 };
+
+extern Opaq_iaqua iaqua;
 
 #endif // OPAQ_IAQUA_H

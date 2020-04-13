@@ -11,6 +11,11 @@
 #include "Opaq_c1.h"
 #include "Opaq_command.h"
 #include "Opaq_storage.h"
+
+#ifdef OPAQ_C1_SCREEN
+#include "Opaq_iaqua.h"
+#endif
+
 #include "slre.h"
 #include "version.h"
 
@@ -446,7 +451,7 @@ void Opaq_command::terminal() {
             setup [set/get] [wifi/nrf24] - Explore and customize settings \r\n \
             dim <intensity> - Dim lcd 0-255 \r\n \
             testscreen - Do a test screen \r\n \
-            coprocessor [status] - Get a coproc status \r\n \
+            coprocessor [version] - Get a coproc status \r\n \
             rz - ZModem File Receiver \r\n \
             free - Show free memory \r\n \
             reboot - Soft reboot opaq \r\n \
@@ -493,7 +498,10 @@ void Opaq_command::terminal() {
       break;
 
     case "uname"_hash:
-      Serial.println(tag);
+      Serial.print(F("version: "));
+      Serial.println(version);
+      Serial.print(F("id: "));
+      Serial.println(id);
       break;
 
     case "coprocessor"_hash:
@@ -504,7 +512,7 @@ void Opaq_command::terminal() {
       // Serial.println(args.c_str());
       split(args, arg);
 
-      if (arg[0] == F("status")) {
+      if (arg[0] == F("version")) {
 
         byte x[25];
 
@@ -536,8 +544,51 @@ void Opaq_command::terminal() {
         break;
       }
 
-      Serial.println("Usage: coprocessor [status]");
+      Serial.println("Usage: coprocessor [version]");
       break;
+
+#ifdef OPAQ_C1_SCREEN
+    case "ui"_hash:
+      args = caps[1].ptr;
+      // Serial.println(caps[1].len);
+      args = args.substring(1);
+      args.setCharAt(caps[1].len, '\0');
+      // Serial.println(args.c_str());
+      split(args, arg);
+
+      {
+        auto eventlist = iaqua.get_eventlist();
+        if (arg[0] == F("pop")) {
+          if (eventlist->size() > 0) {
+            auto el = eventlist->pop();
+            Serial.print(F("UI event ("));
+            Serial.print(eventlist->size());
+            Serial.println(F("): "));
+            serializeJson(el, Serial);
+            Serial.println(F(""));
+            break;
+          } else {
+            Serial.println(F("No events!"));
+            break;
+          }
+        }
+
+        if (arg[0] == F("push")) {
+
+          StaticJsonDocument<128> doc;
+          if (deserializeJson(doc, arg[1]) != DeserializationError::Ok) {
+            Serial.println(F("Json parsing error."));
+            break;
+          }
+
+          eventlist->add(doc);
+          break;
+        }
+      }
+
+      Serial.println("Usage: 'ui pop' or 'ui push <json_string>'");
+      break;
+#endif
 
     default:
       Serial.println(F("Unknown command."));

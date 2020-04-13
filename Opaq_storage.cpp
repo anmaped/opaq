@@ -381,14 +381,14 @@ bool Opaq_st_plugin::load(const char *filename, String &toParse) {
 void Opaq_st_plugin::parse(const char *filename, const char *param,
                            String &out) {
   String toParse;
-  StaticJsonBuffer<512> jsonBuffer;
+  StaticJsonDocument<512> doc;
 
   DEBUG_MSG_STORAGE(FF("%d\n"), param);
 
   if (!load(filename, toParse)) {
-    JsonObject &root = jsonBuffer.parseObject(toParse);
+    deserializeJson(doc, toParse);
 
-    out = (const char *)root[param];
+    out = (const char *)doc[param];
 
     DEBUG_MSG_STORAGE(FF("out: %s\n"), out);
   }
@@ -402,18 +402,16 @@ void Opaq_st_plugin_wifisett::parseConfiguration(const char *param,
 void Opaq_st_plugin_wifisett::changeConfiguration(const char *param,
                                                   const char *value) {
   String toParse, tmp = F("/sett/wifi/conf.json");
-  StaticJsonBuffer<512> jsonBuffer;
+  StaticJsonDocument<512> doc;
 
-  JsonObject &root = (load(tmp.c_str(), toParse))
-                         ? jsonBuffer.createObject()
-                         : jsonBuffer.parseObject(toParse);
+  if (!load(tmp.c_str(), toParse))
+    deserializeJson(doc, toParse);
 
-  root[param] = value;
+  doc[param] = value;
 
   // save file
   PrintFile file = PrintFile(tmp.c_str(), "w");
-
-  root.printTo(file);
+  serializeJson(doc, file);
 }
 
 void Opaq_st_plugin_wifisett::defaults() {
@@ -480,7 +478,7 @@ void Opaq_st_plugin_wifisett::enableClient() {
 void Opaq_st_plugin_faqdim::defaults() {}
 
 void Opaq_st_plugin_faqdim::add() {
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument doc(2048);
   char code[5 * 2 + 1];
   String filename;
 
@@ -504,31 +502,29 @@ void Opaq_st_plugin_faqdim::add() {
 
   // light device properties
   // (codeID, type, description, state)
-  JsonObject &root = jsonBuffer.createObject();
-  root[F("adimid")] = code;
-  root[F("type")] = (unsigned int)OPENAQV1;
-  root[F("description")] = code;
-  root[F("state")] = "on";
-  root[F("cursor")] = 4; // the size of the default data
+  doc[F("adimid")] = code;
+  doc[F("type")] = (unsigned int)OPENAQV1;
+  doc[F("description")] = code;
+  doc[F("state")] = "on";
+  doc[F("cursor")] = 4; // the size of the default data
 
   // [['00:00',1],['01:00',1] ...]
-  JsonArray &data = root.createNestedArray("data");
+  JsonArray data = doc.createNestedArray("data");
 
   // number of channels
   for (byte j = 0; j < 4; j++) {
-    JsonArray &subdata = data.createNestedArray();
+    JsonArray subdata = data.createNestedArray();
 
     for (byte i = 0; i < 24; i++) {
-      JsonArray &subsubdata = subdata.createNestedArray();
+      JsonArray subsubdata = subdata.createNestedArray();
 
       subsubdata.add(i * 60 * 60 * 1000);
       subsubdata.add(j * 10 + i);
     }
   }
 
-  root[F("size")] = jsonBuffer.size();
-
-  root.printTo(file);
+  doc[F("size")] = doc.size();
+  serializeJson(doc, file);
 }
 
 void Opaq_st_plugin_faqdim::save(const char *code, const uint8_t *content,
@@ -575,7 +571,7 @@ void Opaq_st_plugin_faqdim::remove(const char *code) {
 }
 
 void Opaq_st_plugin_faqdim::run() {
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument doc(2048);
   String tmp;
 
   // get clock
@@ -584,19 +580,19 @@ void Opaq_st_plugin_faqdim::run() {
   unsigned long clock_value =
       (date.Second() + date.Minute() * 60 + date.Hour() * 60 * 60) * 1000;
 
-  auto getState = [](JsonObject &obj, unsigned long clk,
+  auto getState = [](DynamicJsonDocument &obj, unsigned long clk,
                      LinkedList<byte> &signal) {
     // get array
-    JsonArray &arr = obj[F("data")];
+    JsonArray arr = obj[F("data")];
 
     // create linked list for each elements
-    for (int i = 0; arr[i].is<JsonArray &>(); i++) {
+    for (int i = 0; arr[i].is<JsonArray>(); i++) {
       LinkedList<std::pair<unsigned long, byte>> signallist;
 
-      JsonArray &subarr = arr[i];
+      JsonArray subarr = arr[i];
 
-      for (int j = 0; subarr[j].is<JsonArray &>(); j++) {
-        JsonArray &subsubarr = subarr[j];
+      for (int j = 0; subarr[j].is<JsonArray>(); j++) {
+        JsonArray subsubarr = subarr[j];
 
         unsigned long time_ms = subsubarr[0];
         byte value = subsubarr[1];
@@ -630,16 +626,16 @@ void Opaq_st_plugin_faqdim::run() {
 
     load(fl, tmp);
 
-    JsonObject &adimfile = jsonBuffer.parseObject(tmp);
+    
 
-    if (!adimfile.success())
+    if (deserializeJson(doc, tmp) != DeserializationError::Ok)
       break;
 
     // convert code to integer
-    unsigned long code = strtol((const char *)adimfile[F("adimid")], NULL, 16);
-    String state = String((const char *)adimfile[F("state")]);
+    unsigned long code = strtol((const char *)doc[F("adimid")], NULL, 16);
+    String state = String((const char *)doc[F("state")]);
     String type = String(
-        (const char *)adimfile[F("type")]); // [TODO] restrict that by type
+        (const char *)doc[F("type")]); // [TODO] restrict that by type
 
     DEBUG_MSG_STORAGE(FF("ac:: adim %d %s %lu\r\n"), code, state.c_str(),
                       clock_value);
@@ -666,7 +662,7 @@ void Opaq_st_plugin_faqdim::run() {
     }
 
     if (state == FF("auto")) {
-      getState(adimfile, clock_value, signalstate_list);
+      getState(doc, clock_value, signalstate_list);
       send(code, signalstate_list);
     } else if (state == FF("on")) {
       send(code, NRF24_ON);
@@ -857,7 +853,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, LinkedList<byte> &state) {
 
 void Opaq_st_plugin_pwdevice::defaults() {}
 void Opaq_st_plugin_pwdevice::add() {
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument doc(2048);
   char code[7 + 1];
   String filename;
 
@@ -881,23 +877,22 @@ void Opaq_st_plugin_pwdevice::add() {
 
   // power device properties
   // (codeID, type, description, state)
-  JsonObject &root = jsonBuffer.createObject();
-  root[F("pdevid")] = code;
-  root[F("type")] = (unsigned int)CHACON_DIO;
-  root[F("description")] = code;
-  root[F("state")] = "auto";
-  root[F("cursor")] = nchan; // the size of the default data
+  doc[F("pdevid")] = code;
+  doc[F("type")] = (unsigned int)CHACON_DIO;
+  doc[F("description")] = code;
+  doc[F("state")] = "auto";
+  doc[F("cursor")] = nchan; // the size of the default data
 
   // [['00:00',1],['01:00',1] ...]
-  JsonArray &data = root.createNestedArray("data");
+  JsonArray data = doc.createNestedArray("data");
 
   // number of channels
   for (byte j = 0; j < nchan; j++) {
-    JsonArray &subdata = data.createNestedArray();
+    JsonArray subdata = data.createNestedArray();
 
     bool inv = false;
     for (byte i = 0; i < 24; i++) {
-      JsonArray &subsubdata = subdata.createNestedArray();
+      JsonArray subsubdata = subdata.createNestedArray();
 
       subsubdata.add(i * 60 * 60 * 1000);
       subsubdata.add(inv);
@@ -905,9 +900,8 @@ void Opaq_st_plugin_pwdevice::add() {
     }
   }
 
-  root[F("size")] = jsonBuffer.size();
-
-  root.printTo(file);
+  doc[F("size")] = doc.size();
+  serializeJson(doc, file);
 }
 
 void Opaq_st_plugin_pwdevice::save(const char *code, const uint8_t *content,
@@ -954,21 +948,21 @@ void Opaq_st_plugin_pwdevice::remove(const char *code) {
 }
 
 void Opaq_st_plugin_pwdevice::run() {
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument doc(2048);
   String tmp;
 
-  auto getState = [](JsonObject &obj, unsigned long clk) {
+  auto getState = [](DynamicJsonDocument &obj, unsigned long clk) {
     // get array
-    JsonArray &arr = obj[F("data")];
+    JsonArray arr = obj[F("data")];
 
     // create linked list for each elements
-    for (int i = 0; arr[i].is<JsonArray &>(); i++) {
+    for (int i = 0; arr[i].is<JsonArray>(); i++) {
       LinkedList<std::pair<unsigned long, byte>> signallist;
 
-      JsonArray &subarr = arr[i];
+      JsonArray subarr = arr[i];
 
-      for (int j = 0; subarr[j].is<JsonArray &>(); j++) {
-        JsonArray &subsubarr = subarr[j];
+      for (int j = 0; subarr[j].is<JsonArray>(); j++) {
+        JsonArray subsubarr = subarr[j];
 
         unsigned long time_ms = subsubarr[0];
         byte value = subsubarr[1];
@@ -1007,16 +1001,14 @@ void Opaq_st_plugin_pwdevice::run() {
 
     load(fl, tmp);
 
-    JsonObject &pwdevfile = jsonBuffer.parseObject(tmp);
-
-    if (!pwdevfile.success())
+    if (deserializeJson(doc, tmp) != DeserializationError::Ok)
       break;
 
     // convert code to integer
-    long code = strtol((const char *)pwdevfile[F("pdevid")], NULL, 16);
-    String state = String((const char *)pwdevfile[F("state")]);
+    long code = strtol((const char *)doc[F("pdevid")], NULL, 16);
+    String state = String((const char *)doc[F("state")]);
     String type = String(
-        (const char *)pwdevfile[F("type")]); // [TODO] restrict that by type
+        (const char *)doc[F("type")]); // [TODO] restrict that by type
 
     DEBUG_MSG_STORAGE(FF("ac:: pdev %d %s %lu\r\n"), code, state.c_str(),
                       clock_value);
@@ -1035,7 +1027,7 @@ void Opaq_st_plugin_pwdevice::run() {
     }
 
     if (state == FF("auto")) {
-      send(code, getState(pwdevfile, clock_value));
+      send(code, getState(doc, clock_value));
     } else if (state == FF("on")) {
       send(code, RF433_ON);
     } else if (state == FF("off")) {
@@ -1107,7 +1099,7 @@ CAL_MATRIX &Opaq_st_plugin_touchsett::getTouchMatrixRef() {
 }
 
 CAL_MATRIX Opaq_st_plugin_touchsett::getTouchMatrix() {
-  StaticJsonBuffer<400> jsonBuffer;
+  StaticJsonDocument<400> doc;
   String toParse;
   uint8_t buf[64];
   int len, global_len;
@@ -1131,39 +1123,38 @@ CAL_MATRIX Opaq_st_plugin_touchsett::getTouchMatrix() {
 
   Serial.println(toParse);
 
-  JsonObject &root = jsonBuffer.parseObject(toParse);
+  deserializeJson(doc, toParse);
 
-  touch_cal_matrix.a = root[F("a")];
-  touch_cal_matrix.b = root[F("b")];
-  touch_cal_matrix.c = root[F("c")];
-  touch_cal_matrix.d = root[F("d")];
-  touch_cal_matrix.e = root[F("e")];
-  touch_cal_matrix.f = root[F("f")];
-  touch_cal_matrix.div = root[F("div")];
-  touch_cal_matrix.endpoints[MIN_ENDPOINT].x = root[F("mix")];
-  touch_cal_matrix.endpoints[MAX_ENDPOINT].x = root[F("max")];
-  touch_cal_matrix.endpoints[MIN_ENDPOINT].y = root[F("miy")];
-  touch_cal_matrix.endpoints[MAX_ENDPOINT].y = root[F("may")];
+  touch_cal_matrix.a = doc[F("a")];
+  touch_cal_matrix.b = doc[F("b")];
+  touch_cal_matrix.c = doc[F("c")];
+  touch_cal_matrix.d = doc[F("d")];
+  touch_cal_matrix.e = doc[F("e")];
+  touch_cal_matrix.f = doc[F("f")];
+  touch_cal_matrix.div = doc[F("div")];
+  touch_cal_matrix.endpoints[MIN_ENDPOINT].x = doc[F("mix")];
+  touch_cal_matrix.endpoints[MAX_ENDPOINT].x = doc[F("max")];
+  touch_cal_matrix.endpoints[MIN_ENDPOINT].y = doc[F("miy")];
+  touch_cal_matrix.endpoints[MAX_ENDPOINT].y = doc[F("may")];
 
   return touch_cal_matrix;
 }
 
 void Opaq_st_plugin_touchsett::commitTouchSettings() {
-  StaticJsonBuffer<200> jsonBuffer;
-  PrintFile file = PrintFile(FF("/sett/touch.json"));
+  StaticJsonDocument<400> doc;
+  PrintFile file = PrintFile(FF("/sett/touch.json"), "w");
 
-  JsonObject &root = jsonBuffer.createObject();
-  root[F("a")] = touch_cal_matrix.a;
-  root[F("b")] = touch_cal_matrix.b;
-  root[F("c")] = touch_cal_matrix.c;
-  root[F("d")] = touch_cal_matrix.d;
-  root[F("e")] = touch_cal_matrix.e;
-  root[F("f")] = touch_cal_matrix.f;
-  root[F("div")] = touch_cal_matrix.div;
-  root[F("mix")] = touch_cal_matrix.endpoints[MIN_ENDPOINT].x;
-  root[F("max")] = touch_cal_matrix.endpoints[MAX_ENDPOINT].x;
-  root[F("miy")] = touch_cal_matrix.endpoints[MIN_ENDPOINT].y;
-  root[F("may")] = touch_cal_matrix.endpoints[MAX_ENDPOINT].y;
+  doc[F("a")] = touch_cal_matrix.a;
+  doc[F("b")] = touch_cal_matrix.b;
+  doc[F("c")] = touch_cal_matrix.c;
+  doc[F("d")] = touch_cal_matrix.d;
+  doc[F("e")] = touch_cal_matrix.e;
+  doc[F("f")] = touch_cal_matrix.f;
+  doc[F("div")] = touch_cal_matrix.div;
+  doc[F("mix")] = touch_cal_matrix.endpoints[MIN_ENDPOINT].x;
+  doc[F("max")] = touch_cal_matrix.endpoints[MAX_ENDPOINT].x;
+  doc[F("miy")] = touch_cal_matrix.endpoints[MIN_ENDPOINT].y;
+  doc[F("may")] = touch_cal_matrix.endpoints[MAX_ENDPOINT].y;
 
-  root.printTo(file);
+  serializeJson(doc, file);
 }

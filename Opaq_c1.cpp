@@ -54,7 +54,7 @@ ArduinoOTA ota_server;
 #define TFT_CS 16
 #define TFT_DC 15
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
-Opaq_iaqua iaqua;
+
 
 LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // until here...

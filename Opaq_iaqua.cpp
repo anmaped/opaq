@@ -32,6 +32,8 @@
 #include "Opaq_iaqua.h"
 #include "Opaq_c1.h"
 
+Opaq_iaqua iaqua;
+
 //#include <Time.h>
 
 // #### EVENTS
@@ -84,8 +86,13 @@ void Opaq_iaqua::service(unsigned x, unsigned y, unsigned z) {
 
   // store detected event
   if (touch_state == TOUCH_CLICK && eventlist.size() < 10) {
-    auto p = std::make_pair(std::make_pair(x,y), TOUCH_CLICK); // check it
-    eventlist.add(p);
+    //auto p = std::make_pair(std::make_pair(x,y), TOUCH_CLICK); // check it
+    StaticJsonDocument<128> object;
+    object["type"] = 1;
+    object["x"] = x;
+    object["y"] = y;
+    object["state"] = TOUCH_CLICK;
+    eventlist.add(object);
   }
   
 
