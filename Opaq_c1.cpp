@@ -55,7 +55,6 @@ ArduinoOTA ota_server;
 #define TFT_DC 15
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
-
 LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
 // until here...
 #endif
@@ -67,7 +66,6 @@ OpenAq_Controller opaq_controller;
 #ifdef OPAQ_C1_SCREEN
 Opaq_iaqua_page_welcome wscreen = Opaq_iaqua_page_welcome();
 #endif
-
 
 /*=============================================================================
 =                              Opaq public methods                            =
@@ -368,6 +366,12 @@ void OpenAq_Controller::setup_controller() {
         storage.pwdevice.run();
         storage.faqdim.run();
 
+#ifdef OPAQ_C1_SCREEN
+        communicate.lock();
+        iaqua.dotick();
+        communicate.unlock();
+#endif
+
         // run that task at 1hz
         clock += 1000 * 1000;
         delay_until(clock);
@@ -405,7 +409,7 @@ void OpenAq_Controller::setup_controller() {
                     clock += 100 * 1000;
                     delay_until(clock);
                   },
-                  1024 * 2);
+                  1024 * 4);
 #endif
 
 #ifdef OPAQ_C1_SCREEN

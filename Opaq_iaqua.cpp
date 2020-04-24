@@ -66,35 +66,15 @@ void Opaq_iaqua::service(unsigned x, unsigned y, unsigned z) {
   // Serial.println(touch_state);
   // Serial.println(n_touch);
 
-  /*switch (dispScreen) {
-  case 1: // home screen
-    homescreen_e(x, y, touch_state);
-    break;
-
-  case 2: // feeding screen
-    feeding_screen_e(x, y, touch_state);
-    break;
-
-  case 3: // power screen
-    power_screen_e(x, y, touch_state);
-    break;
-
-  case 4: // settings screen
-    settings_screen_e(x, y, touch_state);
-    break;
-  }*/
-
   // store detected event
   if (touch_state == TOUCH_CLICK && eventlist.size() < 10) {
-    //auto p = std::make_pair(std::make_pair(x,y), TOUCH_CLICK); // check it
     StaticJsonDocument<128> object;
     object["type"] = 1;
-    object["x"] = x;
-    object["y"] = y;
-    object["state"] = TOUCH_CLICK;
+    object["payload"]["x"] = x;
+    object["payload"]["y"] = y;
+    object["payload"]["state"] = TOUCH_CLICK;
     eventlist.add(object);
   }
-  
 
   if (touch_state == TOUCH_CLICK) {
     n_touch = 0;
@@ -102,14 +82,54 @@ void Opaq_iaqua::service(unsigned x, unsigned y, unsigned z) {
   }
 }
 
-void Opaq_iaqua::update()
-{
-  
+void Opaq_iaqua::update() {
+  // get last element from LinkedList
+  auto doc = eventlist.shift();
+
+  // check inactivity event
+  if (tick > 30) {
+    disabledscreen = true;
+    // disable screen [TODO]
+
+  }
+
+  // if touch then check UI
+  if (doc["type"] == 1) {
+    unsigned x = (unsigned)doc["payload"]["x"];
+    unsigned y = (unsigned)doc["payload"]["y"];
+    unsigned state = (unsigned)doc["payload"]["state"];
+    touch_evt_type touch_state = (touch_evt_type)state;
+
+    // check inactivity
+    // enable timer
+    tick=0;
+    if (disabledscreen) {
+      // wake up screen [TODO]
+
+      disabledscreen = false;
+    }
+
+    switch (dispScreen) {
+    case 1: // home screen
+      homescreen_e(x, y, touch_state);
+      break;
+
+    case 2: // feeding screen
+      feeding_screen_e(x, y, touch_state);
+      break;
+
+    case 3: // power screen
+      power_screen_e(x, y, touch_state);
+      break;
+
+    case 4: // settings screen
+      settings_screen_e(x, y, touch_state);
+      break;
+    }
+  }
 }
 
 void Opaq_iaqua::homescreen_e(unsigned x, unsigned y, touch_evt_type id) {
-  if (id != TOUCH_CLICK)
-    return;
 
   // home screen
 
@@ -158,8 +178,6 @@ void Opaq_iaqua::homescreen_e(unsigned x, unsigned y, touch_evt_type id) {
 }
 
 void Opaq_iaqua::feeding_screen_e(unsigned x, unsigned y, touch_evt_type id) {
-  if (id != TOUCH_CLICK)
-    return;
 
   // feeding screen
 
@@ -215,8 +233,6 @@ void Opaq_iaqua::feedingStop() {
 }
 
 void Opaq_iaqua::power_screen_e(unsigned x, unsigned y, touch_evt_type id) {
-  if (id != TOUCH_CLICK)
-    return;
 
   // power screen
 
@@ -342,8 +358,6 @@ void Opaq_iaqua::power_screen_e(unsigned x, unsigned y, touch_evt_type id) {
 }
 
 void Opaq_iaqua::settings_screen_e(unsigned x, unsigned y, touch_evt_type id) {
-  if (id != TOUCH_CLICK)
-    return;
 
   // settings screen
 

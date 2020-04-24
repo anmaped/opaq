@@ -3,10 +3,10 @@
 # check git, curl
 command -v curl >/dev/null 2>&1 || { echo >&2 "Curl is not installed.  Aborting."; exit 1; }
 
-GITTAG="$(git describe --tags)"
+GITTAG="$(git describe --tags | cut -c 1-5)"
 [ "$GITTAG" = "" ] && { GITTAG=dev; }
 GITID="$(git rev-parse --short HEAD)_$(date +"%Y%m%d_%H%M")"
-echo $GITTAG $GITID
+echo "$GITTAG $GITID"
 
 charvectortag=($(echo "${GITTAG//./}" | grep -o . ))
 for i in ${charvectortag[@]}
@@ -19,6 +19,8 @@ for i in ${charvector[@]}
 do
   idstream="$idstream '$i', "
 done
+
+echo "$tagstream |-| $idstream"
 
 BUILDDIR=$(pwd)/_build
 BUILDBIN=$BUILDDIR/bin
@@ -41,7 +43,7 @@ arduino-cli core update-index --additional-urls $ESP8266URL
 #arduino-cli core search esp8266 --additional-urls $ESP8266URL
 arduino-cli core install esp8266:esp8266 --additional-urls $ESP8266URL
 
-[ "$1" = "c1" ] && {
+[ "$1" = "c1" ] || [ "$1" = "all" ] && {
 
 # build tag
 echo -e "
@@ -60,7 +62,7 @@ ARDUINO_SKETCHBOOK_DIR=. arduino-cli compile -v --build-path "$BUILDTMP/opaqc1" 
 
 arduino-cli core install arduino:avr
 
-[ "$1" = "coproc" ] && {
+[ "$1" = "coproc" ] || [ "$1" = "all" ] && {
 
 # build tag
 echo -e "
@@ -85,14 +87,14 @@ $AVRGCC/bin/avr-objcopy -I ihex "$BUILDFW/opaqc1-coproc-$GITTAG-$GITID.hex" -O b
 
 }
 
-[ "$1" = "n1" ] && {
+[ "$1" = "n1" ] || [ "$1" = "all" ] && {
 # compile n1 node firmware
 ARDUINO_SKETCHBOOK_DIR=./avr/n1 arduino-cli compile -v --build-path "$BUILDTMP/opaqc1-n1" --fqbn arduino:avr:nano:cpu=atmega328 ./avr/n1/n1.ino -o "$BUILDFW/opaqn1-$GITTAG-$GITID" ;
 }
 
-[ "$1" = "" ] && { echo "Use 'build.sh [c1/coproc/n1]' to build acordingly." ; }
+[ "$1" = "" ] && { echo "Use 'build.sh [c1/coproc/n1/all]' to build acordingly." ; }
 
-
+exit 0
 
 
 

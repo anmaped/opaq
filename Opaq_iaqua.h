@@ -86,7 +86,11 @@ protected:
   Storage_Hal EEPROM;
   LinkedList<StaticJsonDocument<128>> eventlist;
 
+  uint32_t tick;
+
 private:
+  bool disabledscreen = false;
+
   uint8_t *arial_bold = (uint8_t *)0x1; // dummy variable
   uint8_t *Sinclair_S = (uint8_t *)0x1; // dummy variable
 
@@ -428,6 +432,7 @@ public:
   // end functions to treat
 
   LinkedList<StaticJsonDocument<128>>* get_eventlist() { return &eventlist; };
+  void dotick() { tick++; } ;
 };
 
 extern Opaq_iaqua iaqua;

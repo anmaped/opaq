@@ -428,8 +428,8 @@ void Opaq_command::terminal() {
 
         communicate.lock();
         wscreen.clear();
+        testFilledRects(10000, 20000);
         communicate.unlock();
-
         break;
       }
 
@@ -450,7 +450,7 @@ void Opaq_command::terminal() {
             rm <file> - Remove files \r\n \
             setup [set/get] [wifi/nrf24] - Explore and customize settings \r\n \
             dim <intensity> - Dim lcd 0-255 \r\n \
-            testscreen - Do a test screen \r\n \
+            test screen - Do a test screen \r\n \
             coprocessor [version] - Get a coproc status \r\n \
             rz - ZModem File Receiver \r\n \
             free - Show free memory \r\n \

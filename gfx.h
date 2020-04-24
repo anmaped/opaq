@@ -25,5 +25,7 @@ public:
 };
 
 unsigned long testFillScreen();
+unsigned long testText();
+unsigned long testFilledRects(uint16_t color1, uint16_t color2);
 
 #endif // GFX_H
