@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # check git, curl
 command -v curl >/dev/null 2>&1 || { echo >&2 "Curl is not installed.  Aborting."; exit 1; }
 
@@ -42,6 +44,13 @@ arduino-cli config init
 arduino-cli core update-index --additional-urls $ESP8266URL
 #arduino-cli core search esp8266 --additional-urls $ESP8266URL
 arduino-cli core install esp8266:esp8266 --additional-urls $ESP8266URL
+
+# apply scheduler patch to esp8266 core
+CURRENT=$(pwd)
+cd ~/.arduino15/packages/esp8266/hardware/esp8266/
+patch -s -p0 --forward < $CURRENT/libraries/scheduler/core_esp8266_2.6.3.patch
+cd $CURRENT
+
 
 [ "$1" = "c1" ] || [ "$1" = "all" ] && {
 
