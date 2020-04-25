@@ -8,7 +8,7 @@
 </head>
 
 <body>
-  <div class="m-app-loading">
+  <div class="m-app-loading" id="loaderref">
 
     <style type="text/css">
       div.m-app-loading {
@@ -80,57 +80,26 @@
   </div>
   <!-- END: App-Loading Screen. -->
 
+  <link rel="stylesheet" type="text/css" href="jquery.mobile.min.css">
 
-  <script type="text/javascript" defer>
+
+  <script type="text/javascript">
     global = {};
-    ws = {};
-
-    function loadScript(url, callback){
-
-    var script = document.createElement("script")
-    script.type = "text/javascript";
-
-    if (script.readyState){  //IE
-        script.onreadystatechange = function(){
-            if (script.readyState == "loaded" ||
-                    script.readyState == "complete"){
-                script.onreadystatechange = null;
-                callback();
-            }
-        };
-    } else {  //Others
-        script.onload = function(){
-            callback();
-        };
-    }
-
-    script.src = url;
-    document.body.appendChild(script);
-    }
-
-    loadScript("jquery.min.js",
-    function(){
-
-      loadScript("jquery.mobile.min.js",
-          function(){
-    
-    $('<link>')
-  .appendTo('head')
-  .attr({
-      type: 'text/css', 
-      rel: 'stylesheet',
-      href: 'jquery.mobile.min.css'
-  });
+    var ws;
 
 
-    if ("WebSocket" in window)
+    function start()
+{
+  if ("WebSocket" in window)
     {
       // window.location.hostname [CHANGE]
-      ws = new WebSocket("ws://" + window.location.hostname + "/ws");
+      //ws = new WebSocket("ws://" + window.location.hostname + "/ws");
+      //var ws = new ReconnectingWebSocket("ws://" + window.location.hostname + "/ws");
+      window.ws = new ReconnectingWebSocket("ws://" + "192.168.1.118" + "/ws");
 
       ws.onopen = function()
       {
-
+        console.log("Connection is open.");
       };
       ws.onmessage = function(evt)
       {
@@ -270,11 +239,17 @@
             global.poweroutletcontroller.toreceive = 1;
           }
         }
+        if("wifiscan" in msg)
+        {
+          global.wifinetworkscan = msg;
+        }
       };
       ws.onclose = function()
       {
         // websocket is closed.
-        //alert("Connection is closed...");
+        console.log("Connection is closed.");
+        //try to reconnect in 5 seconds
+        //setTimeout(function(){ start(); }, 500);
       };
     }
     else
@@ -282,6 +257,53 @@
       // The browser doesn't support WebSocket
       alert("WebSocket NOT supported by your Browser!");
     }
+}
+
+  //start();
+
+
+    function loadScript(url, callback){
+
+    var script = document.createElement("script")
+    script.type = "text/javascript";
+
+    if (script.readyState){  //IE
+        script.onreadystatechange = function(){
+            if (script.readyState == "loaded" ||
+                    script.readyState == "complete"){
+                script.onreadystatechange = null;
+                callback();
+            }
+        };
+    } else {  //Others
+        script.onload = function(){
+            callback();
+        };
+    }
+
+    script.src = url;
+    document.head.appendChild(script);
+    }
+
+    //loadScript("jquery.min.js",
+    //function(){
+
+
+    /*$('<link>')
+    .appendTo('head')
+    .attr({
+        type: 'text/css', 
+        rel: 'stylesheet',
+        href: 'jquery.mobile.min.css'
+    });*/
+
+    /*if ($("link[href='jquery.mobile.min.css']").length == 0)
+        $("<link href='jquery.mobile.min.css' rel='stylesheet'/>").appendTo("head");*/
+    
+      loadScript("opaqc1-all.js",
+          function(){
+
+            start();
 
     $(document).bind("pagebeforechange", function(e, data)
     {
@@ -319,7 +341,7 @@
       }
     });
 
-    $(document).on("pagecontainerload", function(event, ui)
+    /*$(document).on("pagecontainerload", function(event, ui)
     {
       console.log(ui.url+" loaded.");
       
@@ -329,30 +351,51 @@
         console.log("add.");
         setTimeout(
             function () {
- $.mobile.pageContainer.pagecontainer("change", "#pagesummary");
+$.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
+$.mobile.pageContainer.pagecontainer("change", "#pagesummary");
              }, 500);
 
       }
 
       if (ui.url == "opaqc1_settings.html")
       {
-        $.mobile.loading().hide();
+        //$.mobile.loading().hide();
+
+    //$("#loaderref").remove();
+
       }
 
+    });*/
+
+    $(document).on('pagecreate', "#pagesummary", function ()
+    {
+      console.log("added #pagesummary.");
+      //$.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
+      $.mobile.loadPage( "opaqc1_settings.html", { showLoadMsg: true } );
+      $.mobile.pageContainer.pagecontainer("change", "#pagesummary");
+      $.mobile.loading().show();
+
     });
+
+    $(document).on('pagecreate', "#pagesettings", function ()
+    {
+        //start();
+    });
+
+
 
     $(document).ready(function()
     {
-      $.mobile.pageContainer.pagecontainer("load", "opaqc1_index.html");
-      $.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
+      $("#loaderref").remove();
+      $.mobile.loadPage( "opaqc1_index.html", { showLoadMsg: false } );
+      //$.mobile.pageContainer.pagecontainer("load", "opaqc1_index.html");
+
     });
 
 
-    $(".m-app-loading").remove();
-
 
 });
-});
+//});
 
 
 function waitFor(variable, name, callback){

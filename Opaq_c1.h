@@ -32,54 +32,60 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-#include <ESP8266AVRISP.h>
 #include <RtcDateTime.h>
 
-#include <Wire.h>
 #include <Ticker.h>
+#include <Wire.h>
 
 #include <atomic>
 
+#include "opaq.h"
+
 // ESP8266 specific headers
 extern "C" {
-#include "user_interface.h"
 #include "os_type.h"
+#include "user_interface.h"
 }
 
-// permanent storage settings signature (if value is changed then permanent settings will be overwritten by factory default settings)
-#define SIG 0x06
-#define OPAQ_VERSION "1.0.6"
+// permanent storage settings signature (if value is changed then permanent
+// settings will be overwritten by factory default settings)
+#define SIG 0x07
+#define OPAQ_VERSION "1.0.7"
 
 // configuration parameters
 #define OPAQ_MDNS_RESPONDER 1
 #define OPAQ_OTA_ARDUINO 0
 
+#define deviceTaskPrio 2
+#define deviceTaskQueueLen 1
+#define _10hzLoopTaskPrio 1
+#define _10hzLoopTaskQueueLen 1
 
-#define deviceTaskPrio           2
-#define deviceTaskQueueLen       1
-#define _10hzLoopTaskPrio        1
-#define _10hzLoopTaskQueueLen    1
+#define NUM_TASKS 6
 
+extern char *stack_start;
+extern char *stack_task[NUM_TASKS];
 
-class OpenAq_Controller
-{
+#ifdef OPAQ_C1_SCREEN
+#include "Opaq_iaqua_pages.h"
+
+extern Opaq_iaqua_page_welcome wscreen;
+#endif
+
+class OpenAq_Controller {
 private:
-
   AsyncWebServer server;
   AsyncWebSocket ws;
-
-  ESP8266AVRISP avrprog;
 
   // Set up alarms to call periodic tasks
   Ticker timming_events;
   Ticker t_evt;
 
-  
   // real-time clock initialization
   bool clockIsReady;
 
   // manages flash memory block for permanent settings
-  //Opaq_storage storage;
+  // Opaq_storage storage;
 
   // temporary string container
   String str;
@@ -96,7 +102,6 @@ private:
   void run_programmer();
 
 public:
-
   OpenAq_Controller();
 
   void setup_controller();
@@ -110,10 +115,14 @@ public:
   void run_touch();
   void run_tft();
 
-  Opaq_com& getCom() { return communicate; };
+  Opaq_com &getCom() { return communicate; };
 
   void syncClock();
 
+  AsyncWebServer &getServer() { return server; }
+  AsyncWebSocket &getWs() { return ws; }
+
+  void reconnect();
 };
 
 extern OpenAq_Controller opaq_controller;

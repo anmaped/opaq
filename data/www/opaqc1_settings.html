@@ -319,6 +319,16 @@
                 </select>
               </div>
 
+
+              <div class="ui-grid-a">
+                <ul data-role="listview" data-inset="true" id="listwifiscan">
+                  
+                </ul>
+              </div>
+
+              <input value="Scan Wifi" data-icon="eye" data-theme="a" type="button" id="scanwifi">
+
+
               <label for="wssid">SSID:</label>
               <input name="word" pattern="[a-zA-Z0-9-]+" id="wssidsettings" value="" type="text">
 
@@ -326,9 +336,17 @@
               <input name="password" id="wpwdsettings" value="" autocomplete="off" type="password">
 
               <input value="Apply" data-icon="check" data-theme="a" type="button" id="applywifisettings">
+
             </div>
           </li>
         </ul>
+
+ 
+        </style>
+        <div data-role="popup" id="popupBasic">
+            <p></p>
+        </div>
+
 
         <script type="text/javascript" defer>
           var state = function()
@@ -367,6 +385,65 @@
           $(document).on("change", "#wificonf", function()
           {
             state();
+          });
+
+          $(document).on('click', '#scanwifi', function(e)
+          {
+            var wscan = {};
+            wscan.scanwifi = true;
+            //alert(JSON.stringify(wscan));
+            ws.send(JSON.stringify(wscan));
+            waitFor("global", "wifinetworkscan", function()
+            {
+              //alert(global.wifinetworkscan.wifiscan);
+              // construct table of wifi settings
+              $("#listwifiscan").html("");
+              $("#listwifiscan").append(' \
+                <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a"> \
+                    Networks \
+                  </li> \
+                  <li> \
+                    <div class="ui-grid-a"> \
+                      <div class="ui-block-a">SSID</div> \
+                      <div class="ui-block-b">RSSI</div> \
+                    </div> \
+                  </li>').trigger('create');
+
+              $.each(global.wifinetworkscan.wifiscan, function (index, element){
+                if(index == 0)
+                  return;
+
+                icontype = "lock";
+                if (!element.enc)
+                {
+                  icontype = "alert";
+                }
+
+                $('#listwifiscan').append(' \
+                    <li> \
+                      <div class="ui-grid-a"> \
+                        <div class="ui-block-a">' + element.ssid + '<a class="ui-btn ui-btn-icon-left ui-shadow ui-corner-all ui-icon-' + icontype + '" style="width:80px">Connect</a></div> \
+                        <div class="ui-block-b">' + element.rssi + '</div> \
+                      </div> \
+                    </li>').trigger('create');
+              });
+
+
+              ws.refresh();
+
+              $('#listwifiscan').listview("refresh");
+
+              //$("#popupBasic").dialog();
+              $("#popupBasic p").html("Disconnected. Trying to connect...");
+              $("#popupBasic").popup('open');
+              //$.mobile.changePage("#popupBasic", { transition: "pop",role: "dialog" })
+              //$.mobile.pageContainer.pagecontainer("change", "#popupBasic", { transition: 'pop', role: "dialog" });
+
+            });
+
+          $('#scanwifi').blur();
+
+
           });
 
           $(document).on('click', '#applywifisettings', function()
@@ -453,10 +530,22 @@
           </li>
         </ul>
         </div>
-        <link href="jtsage-datebox.jqm.min.css" rel="stylesheet">
-        <script src="jtsage-datebox.jqm.min.js"></script>
 
         <script type="text/javascript" defer>
+
+          /*loadScript("jtsage-datebox.jqm.min.js",
+          function(){*/
+            // load css
+            $('<link>')
+            .appendTo('head')
+            .attr({
+                type: 'text/css', 
+                rel: 'stylesheet',
+                href: 'jtsage-datebox.jqm.min.css'
+            });
+
+          //});
+
           function minTwoDigits(n)
           {
             return (n < 10 ? '0' : '') + n;

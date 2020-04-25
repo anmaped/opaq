@@ -1,5 +1,5 @@
 
-#include <arduino.h>
+#include <Arduino.h>
 #include <RtcDS1307.h>
 
 RtcDS1307 rtc;

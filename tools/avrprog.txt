@@ -5,3 +5,5 @@ avrdude -c arduino  -p atmega328p -P COM10 -U efuse:w:0x5:m
 avrdude -c arduino  -p atmega328p -P COM10 -e -v
 
 avrdude -c arduino  -p atmega328p -P COM10 -U efuse:w:0x5:m -U lfuse:w:0xff:m -U hfuse:w:0xda:m
+
+avr-objcopy.exe -I ihex -O binary coprocessor.ino.hex opaqc1-avr-v.bin

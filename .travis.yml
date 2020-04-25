@@ -1,0 +1,25 @@
+language: bash
+os: linux
+dist: bionic
+stages:
+- deploy
+jobs:
+  include:
+  - name: Package / deploy
+    stage: deploy
+    script: scripts/ci/build.sh all
+    env: BUILD_TYPE=package
+    before_deploy: git submodule update --init
+    deploy:
+    - provider: releases
+      draft: true
+      skip_cleanup: true
+      api_key:
+        secure: yH+YsZl0USBEGxM3fKU4e1T6pJbZSFlsfnKLKIDyErdwBMG3i7w66am2Mwfo9Ca9DZYuQqcXpSwCuWRwfswopE5axFUDM+DF3vf/NzZXUIcGKJ3znrE9Pjj2uArjxhSPH+bBVXutr+WON93mn4SAgisgILvPYh2Bolgs4E6lCSgC0R+OAsBLRVKqTiN1WNpf3hM2fP8dqCTANjc9F65BZCXpjuLqOCEjJljoWjbaQJS8zldGIZYgtgHQxcD5VnEfiMTdR3/RZR/3dLgf/pI/FO++bNRef35SjIJO43K6oBntG1B7IK6x3lEo4dImtk9B2hO2RM+08YdRkF6u700NOom4VcvV84Q8tgJ3JYU1Y6USzh5z8Azt9G8Ug0t7cM9ZP/8cQY7OYY00eDO9kHYJCThRspNlkEpT3mASMd09QqAWEgVKfEWyX7Zh2IIY3ARtTIvjbpxv1J6k7P7UDMZJ9Kxrf3T/IxR7vnUdqcVLnoHGxTl5zHjgMWI+0GUVkJtMHE2X9Rlf/DpOCM4QcJAcp6ZZm0a6DVSMBeQthUdwsZYUqwUk1/qP/cjKPBlANvnc7IbK7BtfCj5LewEQ4IaVkW6M5ClDsaoxML7aDN36tpcqK2WvYA+DTFRLqih3dBBiH9ij5Mxa5XqiVsvaG50O7IByLV8NaNcbihsCQdTX930=
+      file_glob: true
+      file:
+      - _build/fw/*
+      on:
+        repo: anmaped/opaq
+        tags: true
+
