@@ -1,4 +1,7 @@
-# Opaq - IoT aquarium and pond controllers for everyone
+
+![opaq](data/www/images/opaq.png)
+
+# IoT aquarium and pond ecosystem for everyone
 #### Release 1.0.7
 
 [![Join the chat at https://gitter.im/opaqproject/general](https://badges.gitter.im/opaqproject/general.svg)](https://gitter.im/opaqproject/general?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)

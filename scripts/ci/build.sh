@@ -48,7 +48,7 @@ arduino-cli core install esp8266:esp8266 --additional-urls $ESP8266URL
 # apply scheduler patch to esp8266 core
 CURRENT=$(pwd)
 cd ~/.arduino15/packages/esp8266/hardware/esp8266/
-patch -s -p0 --forward < $CURRENT/libraries/scheduler/core_esp8266_2.6.3.patch
+( patch -s -p0 --forward < $CURRENT/libraries/scheduler/core_esp8266_2.6.3.patch || true )
 cd $CURRENT
 
 

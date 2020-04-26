@@ -321,6 +321,23 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
       // client->text(FF("{\"success\":\"\"}"));
     }
 
+    /*
+     * nrf24mesh device list
+     */
+    if (doc.containsKey(FF("nr24query"))) {
+      RF24Mesh &mesh = communicate.nrf24.getRF24Mesh();
+
+      String content = "";
+
+      for (int i = 0; i < mesh.addrListTop; i++) {
+        doc[FF("list")][i][FF("nodeID")] = mesh.addrList[i].nodeID;
+        doc[FF("list")][i][FF("address")] = mesh.addrList[i].address;
+      }
+
+      serializeJson(doc, content);
+      client->text(content);
+    }
+
   } else if (strcmp((char *)data, FF("GET_OPAQ_WIFISETTINGS")) == 0) {
     // let's send the wifisettings
 
@@ -360,8 +377,8 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
     doc[F("wdhcp")] = "Enabled"; // [TODO]
     doc[F("wmac")] = WiFi.softAPmacAddress();
     doc[F("wip")] = (storage.wifisett.getModeOperation())
-                         ? WiFi.softAPIP().toString()
-                         : WiFi.localIP().toString();
+                        ? WiFi.softAPIP().toString()
+                        : WiFi.localIP().toString();
 
     String tmp = F("");
     serializeJson(doc, tmp);
