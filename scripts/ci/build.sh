@@ -68,23 +68,48 @@ static char version[4] = { $tagstream '\0'};
 # add libraries and compile opaq c1 firmware
 ARDUINO_SKETCHBOOK_DIR=. arduino-cli compile -v --build-path "$BUILDTMP/opaqc1" --fqbn esp8266:esp8266:nodemcuv2:eesz=4M3M opaq.ino -o "$BUILDFW/opaqc1-$GITTAG-$GITID" ;
 
-# create tar archives
+# put tools available to the shell environment
 export PATH=$PATH:$(pwd)/tools/
 
+# backup current dir location
 CURRENTDIR=$(pwd)
+
+# create a new empty 'data' folder
 mkdir -p $BUILDTMP/data/
-cp $CURRENTDIR/data/www/ $BUILDTMP/data/ -r
+cp $CURRENTDIR/data/www/   $BUILDTMP/data/ -r # copy www
+cp $CURRENTDIR/data/iaqua/ $BUILDTMP/data/ -r # copy iaqua
+cp $CURRENTDIR/data/sett/  $BUILDTMP/data/ -r # copy sett
 
 cd $BUILDTMP/data/www/
 
-compressjs.sh jquery.min.js jquery.mobile.min.js reconnecting-websocket.js jtsage-datebox.jqm.min.js jquery.jqplot.min.js jqplot.cursor.js jqplot.dateAxisRenderer.js jqplot.dragable.js jqplot.highlighter.js jqplot.mobile.js opaqc1-all.js
+compressjs.sh \
+jquery.min.js \
+jquery.mobile.min.js \
+reconnecting-websocket.js \
+jtsage-datebox.jqm.min.js \
+jquery.jqplot.min.js \
+jqplot.cursor.js \
+jqplot.dateAxisRenderer.js \
+jqplot.dragable.js \
+jqplot.highlighter.js \
+jqplot.mobile.js \
+opaqc1-all.js
 
 gzip -9 -k -f "opaqc1-all.js"
 
 for i in `find | grep -E "\.css$|\.js.map$"`; do gzip -9 -k -f "$i" ; done
 
 cd $BUILDTMP/data/
-tar -cvf "$BUILDFW/opaqc1-www-$GITTAG-$GITID.tar" --exclude='*.js' --exclude='*.css' --exclude='*.js.map' "www/"
+
+# create www tar file
+tar -cvf "$BUILDFW/opaqc1-files-www-$GITTAG-$GITID.tar" --exclude='*.js' --exclude='*.css' --exclude='*.js.map' "www/"
+
+# create iaqua tar file
+tar -cvf "$BUILDFW/opaqc1-files-iaqua-$GITTAG-$GITID.tar" "iaqua/"
+
+# create sett tar file
+tar -cvf "$BUILDFW/opaqc1-files-sett-$GITTAG-$GITID.tar" "sett/"
+
 cd $CURRENTDIR
 }
 
