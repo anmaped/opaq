@@ -1078,8 +1078,8 @@
                 }
             }
             series = s = null;
-            delete series;
-            delete s;
+            //delete series;
+            //delete s;
         }
         
         function addrow(label, color, pad, idx) {

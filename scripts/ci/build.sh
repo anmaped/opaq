@@ -67,6 +67,25 @@ static char version[4] = { $tagstream '\0'};
 
 # add libraries and compile opaq c1 firmware
 ARDUINO_SKETCHBOOK_DIR=. arduino-cli compile -v --build-path "$BUILDTMP/opaqc1" --fqbn esp8266:esp8266:nodemcuv2:eesz=4M3M opaq.ino -o "$BUILDFW/opaqc1-$GITTAG-$GITID" ;
+
+# create tar archives
+export PATH=$PATH:$(pwd)/tools/
+
+CURRENTDIR=$(pwd)
+mkdir -p $BUILDTMP/data/
+cp $CURRENTDIR/data/www/ $BUILDTMP/data/ -r
+
+cd $BUILDTMP/data/www/
+
+compressjs.sh jquery.min.js jquery.mobile.min.js reconnecting-websocket.js jtsage-datebox.jqm.min.js jquery.jqplot.min.js jqplot.cursor.js jqplot.dateAxisRenderer.js jqplot.dragable.js jqplot.highlighter.js jqplot.mobile.js opaqc1-all.js
+
+gzip -9 -k -f "opaqc1-all.js"
+
+for i in `find | grep -E "\.css$|\.js.map$"`; do gzip -9 -k -f "$i" ; done
+
+cd $BUILDTMP/data/
+tar -cvf "$BUILDFW/opaqc1-www-$GITTAG-$GITID.tar" --exclude='*.js' --exclude='*.css' --exclude='*.js.map' "www/"
+cd $CURRENTDIR
 }
 
 arduino-cli core install arduino:avr
