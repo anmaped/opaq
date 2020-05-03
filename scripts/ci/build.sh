@@ -39,16 +39,18 @@ export PATH=$BUILDBIN:$PATH
 
 command -v arduino-cli >/dev/null 2>&1 || { echo >&2 "arduino-cli is not installed.  Installing..."; curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=$BUILDBIN sh; }
 
+VERSION=2.7.0
+#VERSION=2.6.3
 
 arduino-cli config init
 arduino-cli core update-index --additional-urls $ESP8266URL
 #arduino-cli core search esp8266 --additional-urls $ESP8266URL
-arduino-cli core install esp8266:esp8266 --additional-urls $ESP8266URL
+arduino-cli core install "esp8266:esp8266@$VERSION" --additional-urls $ESP8266URL
 
 # apply scheduler patch to esp8266 core
 CURRENT=$(pwd)
 cd ~/.arduino15/packages/esp8266/hardware/esp8266/
-( patch -s -p0 --forward < $CURRENT/libraries/scheduler/core_esp8266_2.6.3.patch || true )
+( patch -s -p0 --forward < $CURRENT/libraries/scheduler/core_esp8266_$VERSION.patch || true )
 cd $CURRENT
 
 
@@ -66,7 +68,9 @@ static char version[4] = { $tagstream '\0'};
 " > version.h
 
 # add libraries and compile opaq c1 firmware
-ARDUINO_SKETCHBOOK_DIR=. arduino-cli compile -v --build-path "$BUILDTMP/opaqc1" --fqbn esp8266:esp8266:nodemcuv2:eesz=4M3M opaq.ino -o "$BUILDFW/opaqc1-$GITTAG-$GITID" ;
+# esp8266:esp8266:nodemcuv2:eesz=4M3M
+ARDUINO_SKETCHBOOK_DIR=. arduino-cli compile -v --build-path "$BUILDTMP/opaqc1" --fqbn esp8266:esp8266:nodemcuv2:xtal=80,vt=flash,exception=legacy,ssl=all,eesz=4M2M,led=2,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200 opaq.ino -o "$BUILDFW/opaqc1-$GITTAG-$GITID" ;
+
 
 # put tools available to the shell environment
 export PATH=$PATH:$(pwd)/tools/
@@ -145,8 +149,9 @@ $AVRGCC/bin/avr-objcopy -I ihex "$BUILDFW/opaqc1-coproc-$GITTAG-$GITID.hex" -O b
 ARDUINO_SKETCHBOOK_DIR=./avr/n1 arduino-cli compile -v --build-path "$BUILDTMP/opaqc1-n1" --fqbn arduino:avr:nano:cpu=atmega328 ./avr/n1/n1.ino -o "$BUILDFW/opaqn1-$GITTAG-$GITID" ;
 }
 
-[ "$1" = "" ] && { echo "Use 'build.sh [c1/coproc/n1/all]' to build acordingly." ; }
+[ "$1" = "" ] && { echo "Use 'build.sh [c1/coproc/n1/all]' to build acordingly." ; exit 1; }
 
+echo "Build success."
 exit 0
 
 

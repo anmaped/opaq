@@ -8,6 +8,8 @@
 #include <ESPAsyncTCP.h>
 #include <FS.h>
 
+#include <ESP8266WiFi.h>
+
 #include "Opaq_c1.h"
 #include "Opaq_command.h"
 #include "Opaq_storage.h"
@@ -311,16 +313,61 @@ void Opaq_command::terminal() {
       // Serial.println(arg[1]);
 
       if (arg[1] == F("wifi")) {
+        if (arg[0] == F("scan")) {
+          WiFi.mode(WIFI_STA);
+          WiFi.disconnect();
+          delay(2000);
+
+          Serial.println("scan start");
+
+          // WiFi.scanNetworks will return the number of networks found
+          WiFi.scanNetworks();
+          while( WiFi.scanComplete() <= 0 ) { delay(100); }
+          int n = WiFi.scanComplete();
+          Serial.println("scan done");
+          if (n == 0) {
+            Serial.println("no networks found");
+          } else {
+            Serial.print(n);
+            Serial.println(" networks found");
+            for (int i = 0; i < n; ++i) {
+              // Print SSID and RSSI for each network found
+              Serial.print(i + 1);
+              Serial.print(": ");
+              Serial.print(WiFi.SSID(i));
+              Serial.print(" (");
+              Serial.print(WiFi.RSSI(i));
+              Serial.print(")");
+              Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " "
+                                                                       : "*");
+              delay(10);
+            }
+          }
+          Serial.println("");
+          break;
+        }
         if (arg[0] == F("get")) {
           WiFi.printDiag(Serial);
           break;
         }
         if (arg[0] == F("set")) {
           if (args.length() > 5) {
-            Serial.printf("mode:%s ssid:%s pwd:%s channel:%s \n",
-                          arg[2].c_str(), arg[3].c_str(), arg[4].c_str(),
-                          arg[5].c_str());
-            // [TODO]
+            Serial.printf("mode:%s ssid:%s pwd:%s \n", arg[2].c_str(),
+                          arg[3].c_str(), arg[4].c_str());
+            Serial.println(F(""));
+            if (arg[2] == F("AP")) {
+              storage.wifisett.enableSoftAP();
+              // [TODO]
+            } else if (arg[2] == F("STA")) {
+              storage.wifisett.setClientSSID(arg[3]);
+              storage.wifisett.setClientPwd(arg[4]);
+              storage.wifisett.enableClient();
+            } else {
+              ESP.eraseConfig();
+              Serial.println("Wifi Settings clear.");
+            }
+
+            Serial.println(F("Reboot to apply settings."));
             break;
           }
         }
@@ -502,6 +549,8 @@ void Opaq_command::terminal() {
       Serial.println(version);
       Serial.print(F("id: "));
       Serial.println(id);
+      Serial.print("ESP8266 Core: ");
+      Serial.println(ESP.getCoreVersion());
       break;
 
     case "coprocessor"_hash:

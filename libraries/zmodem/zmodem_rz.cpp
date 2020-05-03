@@ -770,7 +770,7 @@ DSERIAL.println(F("tryz got TIMEOUT"));
       tryzhdrtype = ZRINIT;
       c = zrdata(secbuf, SECBUF_LEN);
 
-      mode(3);
+      //mode(3);
 
       if (c == GOTCRCW)
         return ZFILE;

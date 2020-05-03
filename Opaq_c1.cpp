@@ -544,6 +544,11 @@ void OpenAq_Controller::setup_controller() {
 }
 
 void OpenAq_Controller::reconnect() {
+
+  /*WiFi.disconnect() ;
+  WiFi.persistent(false);
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);*/
+
   if (storage.wifisett.getModeOperation()) {
     Serial.println(F("softAP"));
 
@@ -584,8 +589,10 @@ void OpenAq_Controller::reconnect() {
     wscreen.setExecutionBar(20);
     wscreen.msg(String(F("Initializing WIFI station")).c_str());
 #endif
+    //WiFi.setPhyMode(WIFI_PHY_MODE_11G);
 
     WiFi.mode(WIFI_STA);
+    WiFi.setOutputPower(17);
     delay(500);
 
 #ifdef OPAQ_C1_SCREEN
@@ -599,13 +606,15 @@ void OpenAq_Controller::reconnect() {
     wscreen.msg((String(F("Connecting to ")) + ssid).c_str());
 #endif
 
+    WiFi.hostname("opaq");
     WiFi.begin(ssid.c_str(), pwd.c_str());
 
     int count_tries = 0;
 
-    while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print(".");
+    while (!WiFi.isConnected()) {
+      Serial.print(F("("));
+      Serial.print(WiFi.status());
+      Serial.print(F(")."));
       count_tries++;
 
       if (count_tries > 100) {
@@ -619,6 +628,8 @@ void OpenAq_Controller::reconnect() {
         storage.wifisett.enableSoftAP();
         ESP.reset();
       }
+
+      delay(500);
     }
 
 #ifdef OPAQ_C1_SCREEN

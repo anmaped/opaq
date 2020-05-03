@@ -183,12 +183,13 @@ _PROTOTYPE(void saybibi , (void));
 _PROTOTYPE(int zsendcmd , (char *buf , int blen ));
 
 
-#ifndef ARDUINO
-FILE *fout;
-#else
-#include <SdFat.h>
-extern sdfat::SdFile fout;
-#endif
+//#ifndef ARDUINO
+//#include <FS.h>
+extern File fout;
+//#else
+//#include <SdFat.h>
+//extern sdfat::SdFile fout;
+//#endif
 
 int wcs(const char *oname)
 {
@@ -207,7 +208,7 @@ int wcs(const char *oname)
   }
 
 //  ++Filcnt;
-  if(!Zmodem && wctx(fout.fileSize())==ERROR)
+  if(!Zmodem && wctx(fout.size())==ERROR)
     return ERROR;
   return 0;
 }
@@ -235,9 +236,9 @@ int wctxpn(const char *name)
 //  if (!Ascii && (in!=stdin) && *name && fstat(fileno(in), &f)!= -1)
   if (!Ascii)
     // I will have to figure out how to convert the uSD date/time format to a UNIX epoch
-//    sprintf(p, "%lu %lo %o 0 %d %ld", fout.fileSize(), 0L,0600, Filesleft, Totalleft);
+//    sprintf(p, "%lu %lo %o 0 %d %ld", fout.size(), 0L,0600, Filesleft, Totalleft);
 // Avoid sprintf to save memory for small boards.  This sketch doesn't know what time it is anyway
-    ultoa(fout.fileSize(), p, 10);
+    ultoa(fout.size(), p, 10);
     strcat_P(p, PSTR(" 0 0 0 "));
     q = p + strlen(p);
     ultoa(Filesleft, q, 10);
@@ -245,7 +246,7 @@ int wctxpn(const char *name)
     q = q + strlen(q);
     ultoa(Totalleft, q, 10);
 
-  Totalleft -= fout.fileSize();
+  Totalleft -= fout.size();
 //DSERIAL.print(F("wctxpn sf = "));
 //DSERIAL.print(sf);
 //DSERIAL.print(F("  length = "));
@@ -262,8 +263,8 @@ int wctxpn(const char *name)
     blklen = TXBSIZE;
   else {          /* A little goodie for IMP/KMD */
     blklen = 128;
-    txbuf[127] = (fout.fileSize() + 127) >>7;
-    txbuf[126] = (fout.fileSize() + 127) >>15;
+    txbuf[127] = (fout.size() + 127) >>7;
+    txbuf[126] = (fout.size() + 127) >>15;
   }
   return zsendfile(txbuf, 1+strlen(p)+(p-txbuf));
 }
@@ -415,7 +416,7 @@ int filbuf(char *buf,int count)
 
   if ( !Ascii) {
 //    m = read(fileno(in), buf, count);
-    m = fout.read(buf, count);
+    m = fout.read((uint8_t *)buf, count);
 //DSERIAL.println(F("filbuf: '"));
 //for(int i=0;i<m;i++) {
 //  DSERIAL.print(buf[i]);
@@ -463,7 +464,7 @@ int zfilbuf(void)
 
 // This code works:
 //  n = fread(txbuf, 1, blklen, in);
-  n = fout.read(txbuf,blklen);
+  n = fout.read((uint8_t *)txbuf,blklen);
   
   if (n < blklen)
     Eofseen = 1;
@@ -508,14 +509,14 @@ again:
     case ZCRC:
       crc = 0xFFFFFFFFL;
       if (Canseek >= 0) {
-        fout.seekSet(0);
+        fout.seek(0);
         while (((c = fout.read()) != -1)) // && --Rxpos)
           crc = UPDC32(c, crc);
         crc = ~crc;
 //        clearerr(in);   /* Clear EOF */
 //>>> Need to implement the seek
 //        fseek(in, 0L, 0);
-          fout.seekSet(0);
+          fout.seek(0);
       }
       stohdr(crc);
       zsbhdr(ZCRC, Txhdr);
@@ -532,7 +533,7 @@ again:
        */
 //>>> Need to implement the seek
 //      if (Rxpos && fseek(in, Rxpos, 0))
-      if(Rxpos && !fout.seekSet(Rxpos))
+      if(Rxpos && !fout.seek(Rxpos))
         return ERROR;
       Lastsync = (bytcnt = Txpos = Rxpos) -1;
       int ret = zsendfdata();
@@ -747,8 +748,8 @@ int getinsync(int flag)
       /*   dump the modem's buffer.            */
 //      clearerr(in);   /* In case file EOF seen */
 //      if (fseek(in, Rxpos, 0)) {
-      // seekSet returns true on success
-      if(!fout.seekSet(Rxpos)) {
+      // seek returns true on success
+      if(!fout.seek(Rxpos)) {
 //DSERIAL.println(F("getinsync - fseek"));
         return ERROR;
       }

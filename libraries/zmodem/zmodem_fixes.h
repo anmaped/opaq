@@ -67,7 +67,7 @@ extern int Filcnt;
 //#define fclose(c)
 
 // ignore calls to mode() function in rbsb.cpp
-#define mode(a)
+//#define mode(a)
 
 #define sendbrk()
 

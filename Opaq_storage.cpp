@@ -626,16 +626,14 @@ void Opaq_st_plugin_faqdim::run() {
 
     load(fl, tmp);
 
-    
-
     if (deserializeJson(doc, tmp) != DeserializationError::Ok)
       break;
 
     // convert code to integer
     unsigned long code = strtol((const char *)doc[F("adimid")], NULL, 16);
     String state = String((const char *)doc[F("state")]);
-    String type = String(
-        (const char *)doc[F("type")]); // [TODO] restrict that by type
+    String type =
+        String((const char *)doc[F("type")]); // [TODO] restrict that by type
 
     DEBUG_MSG_STORAGE(FF("ac:: adim %d %s %lu\r\n"), code, state.c_str(),
                       clock_value);
@@ -765,7 +763,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, nrf24state state) {
         a = true;
         Serial.println(x);
         //[TODO] put that to output ... webSocket.sendTXT(0, x.c_str(),
-        //x.length());
+        // x.length());
       }
     }
 
@@ -820,7 +818,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, LinkedList<byte> &state) {
                        //  SUNSET(0x2A); NIGHTIME(0x2A)
                        // Normal mode (N_MODE)
                        //<Mode1>     <value1>  <Mode2>    <value2>   <N_MODE> <
-                       //binding mode >  <groupId>    <LRC>
+                       // binding mode >  <groupId>    <LRC>
                        0x00, signal1, 0x00, signal2, 0x10, 0x0, 0x0, 0x0, 0x0,
                        0x0, 0x0, 0x00,
                        //<unknown> = 0xEC
@@ -835,7 +833,7 @@ void Opaq_st_plugin_faqdim::send(unsigned int code, LinkedList<byte> &state) {
                        0x68, 0x71,
                        //<2bytes group binding>
                        0x00, 0x0, // means nothing
-                       //<unknown values>
+                                  //<unknown values>
                        0x0, 0x0};
 
     buf[14] = calculate_lrc(buf);
@@ -1007,8 +1005,8 @@ void Opaq_st_plugin_pwdevice::run() {
     // convert code to integer
     long code = strtol((const char *)doc[F("pdevid")], NULL, 16);
     String state = String((const char *)doc[F("state")]);
-    String type = String(
-        (const char *)doc[F("type")]); // [TODO] restrict that by type
+    String type =
+        String((const char *)doc[F("type")]); // [TODO] restrict that by type
 
     DEBUG_MSG_STORAGE(FF("ac:: pdev %d %s %lu\r\n"), code, state.c_str(),
                       clock_value);
