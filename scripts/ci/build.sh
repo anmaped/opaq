@@ -7,7 +7,7 @@ command -v curl >/dev/null 2>&1 || { echo >&2 "Curl is not installed.  Aborting.
 
 GITTAG="$(git describe --tags | cut -c 1-5)"
 [ "$GITTAG" = "" ] && { GITTAG=dev; }
-GITID="$(git rev-parse --short HEAD)_$(date +"%Y%m%d_%H%M")"
+GITID="$(git rev-parse --short HEAD)-$(date +"%Y%m%d-%H%M")"
 echo "$GITTAG $GITID"
 
 charvectortag=($(echo "${GITTAG//./}" | grep -o . ))
@@ -69,8 +69,10 @@ static char version[4] = { $tagstream '\0'};
 
 # add libraries and compile opaq c1 firmware
 # esp8266:esp8266:nodemcuv2:eesz=4M3M
-ARDUINO_SKETCHBOOK_DIR=. arduino-cli compile -v --build-path "$BUILDTMP/opaqc1" --fqbn esp8266:esp8266:nodemcuv2:xtal=80,vt=flash,exception=legacy,ssl=all,eesz=4M2M,led=2,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200 opaq.ino -o "$BUILDFW/opaqc1-$GITTAG-$GITID" ;
+ARDUINO_SKETCHBOOK_DIR=. arduino-cli compile -v --build-path "$BUILDTMP/opaqc1" --fqbn esp8266:esp8266:nodemcuv2:xtal=80,vt=flash,exception=legacy,ssl=all,eesz=4M2M,led=2,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200 opaq.ino -o "$BUILDFW/opaqc1-${GITTAG//./}-$GITID" ;
 
+MD5=($(md5sum "$BUILDFW/opaqc1-${GITTAG//./}-$GITID.bin"))
+cp "$BUILDFW/opaqc1-${GITTAG//./}-$GITID.bin" "$BUILDFW/opaqc1-${GITTAG//./}-$GITID-md5-$MD5.bin" ;
 
 # put tools available to the shell environment
 export PATH=$PATH:$(pwd)/tools/
@@ -106,13 +108,13 @@ for i in `find | grep -E "\.css$|\.js.map$"`; do gzip -9 -k -f "$i" ; done
 cd $BUILDTMP/data/
 
 # create www tar file
-tar -cvf "$BUILDFW/opaqc1-files-www-$GITTAG-$GITID.tar" --exclude='*.js' --exclude='*.css' --exclude='*.js.map' "www/"
+tar -cvf "$BUILDFW/opaqc1-files-www-${GITTAG//./}-$GITID.tar" --exclude='*.js' --exclude='*.css' --exclude='*.js.map' "www/"
 
 # create iaqua tar file
-tar -cvf "$BUILDFW/opaqc1-files-iaqua-$GITTAG-$GITID.tar" "iaqua/"
+tar -cvf "$BUILDFW/opaqc1-files-iaqua-${GITTAG//./}-$GITID.tar" "iaqua/"
 
 # create sett tar file
-tar -cvf "$BUILDFW/opaqc1-files-sett-$GITTAG-$GITID.tar" "sett/"
+tar -cvf "$BUILDFW/opaqc1-files-sett-${GITTAG//./}-$GITID.tar" "sett/"
 
 cd $CURRENTDIR
 }

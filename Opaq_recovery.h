@@ -163,17 +163,18 @@ function validate(){
 <body id="main_body">
 <div id="form_container">
 <h1>Recovery Page</h1>
-<p style="padding:10px"><font color="#ff3333">WARNING!!</font> The opaq project is not responsible for any faulty update or damage of the device. DO THAT AT YOUR OWN RISK. Please be carefull. We recomend you to avoid using this recovery mode if you are not aware of the task you are performing.</p>
+<p style="padding:10px"><font color="#ff3333">WARNING! DO THAT AT YOUR OWN RISK.</font></p>
+<p style="padding:10px">The opaq project is not responsible for any incomplete update or damage to the device.</p>
 <form id="form1" class="appnitro" onsubmit="return validate() " enctype="multipart/form-data" method="POST" action="/upload">
 <div class="form_description">
-<h2>Updating Filesystem</h2>
-<p>This option allows us to update the filesystem with the lastest web interface. Older versions are not allowed.</p>
+<h2>Update Filesystem</h2>
+<p>Update the filesystem with the contents of the chosen .tar file.</p>
 </div>
 <ul>
 <li class="section_break">
 </li>
 <li id="li_1">
-<label class="description" for="element_1">Upload a File </label>
+<label class="description" for="element_1">Select .tar file</label>
 <div>
 <input id="element_1" name="upload" class="element file" type="file"/>
 </div>
@@ -186,20 +187,20 @@ function validate(){
 </span>
 </li>
 <li class="buttons">
-<input id="saveForm" class="button_text" type="submit" name="submitt" value="upload"/>
+<input id="saveForm" class="button_text" type="submit" name="submitt" value="Upload"/>
 </li>
 </ul>
 </form>
 <form id="form2" class="appnitro" enctype="multipart/form-data" method="POST" action="/upload">
 <div class="form_description">
-<h2>Flashing Firmware</h2>
-<p>OTA update is available with this option.</p>
+<h2>Update Firmware</h2>
+<p>Update via OTA is also available if the filesystem has no space available.</p>
 </div>
 <ul>
 <li class="section_break">
 </li>
 <li id="li_4">
-<label class="description" for="element_4">Upload a File </label>
+<label class="description" for="element_4">Select .bin file</label>
 <div>
 <input id="element_4" name="element_4" class="element file" type="file"/>
 </div>

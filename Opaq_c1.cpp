@@ -144,120 +144,161 @@ void OpenAq_Controller::setup_controller() {
   wscreen.msg(String(F("Filesystem check")).c_str());
 #endif
 
-  server.on(FF("/upload"), HTTP_POST,
-            [](AsyncWebServerRequest *request) { request->send(200); },
-            [](AsyncWebServerRequest *request, String filename, size_t index,
-               uint8_t *data, size_t len, bool final) {
-              static File f;
+  server.on(
+      FF("/upload"), HTTP_POST,
+      [](AsyncWebServerRequest *request) { request->send(200); },
+      [](AsyncWebServerRequest *request, String filename, size_t index,
+         uint8_t *data, size_t len, bool final) {
+        static File f;
+        MD5Builder filename_md5;
 
-              /*// filename and path to store
-              char * filename[64] = "foo";
+        filename_md5.begin();
+        filename_md5.add(filename.c_str());
+        filename_md5.calculate();
 
-              if(request->hasParam("filename", true))
-              {
-                AsyncWebParameter* p = request->getParam("filename", true);
-                p->name().c_str()
-                strcpy(filename, p->value().c_str());
-              }*/
+        /*// filename and path to store
+        char * filename[64] = "foo";
 
-              if (!index) {
+        if(request->hasParam("filename", true))
+        {
+          AsyncWebParameter* p = request->getParam("filename", true);
+          p->name().c_str()
+          strcpy(filename, p->value().c_str());
+        }*/
 
-                // test if we want to format
-                // SPIFFS.format();
+        if (!index) {
 
-                if (!f) {
-                  f = SPIFFS.open(String(String(F("/tmp/")) + filename).c_str(),
-                                  FF("w"));
+          // test if we want to format
+          // SPIFFS.format();
+
+          if (!f) {
+
+            f = SPIFFS.open(
+                String(String(F("/tmp/")) + filename_md5.toString()).c_str(),
+                FF("w"));
+          }
+
+          Serial.printf(FF("UploadStart: %s\n"), filename.c_str());
+        }
+
+        for (size_t i = 0; i < len; i++) {
+          f.write(data[i]);
+        }
+
+        if (final) {
+          f.close();
+
+          struct slre_cap caps[6];
+
+          // ex: "/opaqc1-files-XXX-XXX-.tar"
+          String lre_tar = String(F("^opaqc1-files-([a-z]+)-([0-9]+)-([a-z0-9]*"
+                                    ")-([0-9]+)-([0-9]+).tar$"));
+          // ex: "/opaqc1-v001-MD5.bin"
+          String lre_bin = String(F("^opaqc1-([0-9]+)-([a-z0-9]*)-([0-9]+)-([0-"
+                                    "9]+)-md5-([a-z0-9]+).bin$"));
+          // ex: "/opaqc1-avr-v001-MD5.bin"
+          String lre_avr_bin =
+              String(F("^opaqc1-avr-v([0-9]+)-([a-z0-9]+).bin$"));
+
+          // contain tar extension ? apply tar extractor.
+          if (slre_match(lre_tar.c_str(), filename.c_str(), filename.length(),
+                         caps, 5, 0) > 0)
+          // if(filename == "www.tar")
+          {
+            String target = F("");
+            // target += caps[0].ptr;
+            // target.setCharAt(caps[0].len + 1, '\0');
+            Serial.printf(FF("Path: %s\n"), target.c_str());
+
+            oq_cmd c;
+            c.exec = [](LinkedList<String> &args) {
+              storage.tarextract(args.pop().c_str(), args.pop().c_str());
+            };
+
+            String filepath = String(F("/tmp/")) + filename_md5.toString();
+
+            c.args.add(target);
+            c.args.add(filepath);
+
+            command.send(c);
+
+            request->redirect(FF("/recovery?success=true"));
+          } else if (slre_match(lre_bin.c_str(), filename.c_str(),
+                                filename.length(), caps, 5, 0) > 0)
+          // if(filename == "fw.bin")
+          {
+            String md5 = "";
+            md5 += caps[4].ptr;
+            md5.setCharAt(caps[4].len, '\0');
+            Serial.printf(FF("MD5: %s\n"), md5.c_str());
+
+            oq_cmd c;
+            c.exec = [](LinkedList<String> args) {
+              storage.fwupdate(args.pop().c_str(), args.pop().c_str());
+            };
+            c.args = LinkedList<String>();
+
+            String filepath = String(F("/tmp/")) + filename_md5.toString();
+
+            c.args.add(md5);
+            c.args.add(filepath);
+
+            command.send(c);
+
+            request->redirect(FF("/recovery?success=true&fw=true"));
+          } else if (slre_match(lre_avr_bin.c_str(), filename.c_str(),
+                                filename.length(), caps, 5, 0) > 0) {
+            storage.avrprog.program(filename.c_str());
+          } else {
+            // request->send(200, "text/html", "SUCCESS.");
+            // request->redirect(FF("/recovery?success=false"));
+
+            int params = request->params();
+            for (int i = 0; i < params; i++) {
+              AsyncWebParameter *p = request->getParam(i);
+              if (p->isFile()) {
+                Serial.printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(),
+                              p->value().c_str(), p->size());
+              } else if (p->isPost()) {
+                Serial.printf("_POST[%s]: %s\n", p->name().c_str(),
+                              p->value().c_str());
+              } else {
+                Serial.printf("_GET[%s]: %s\n", p->name().c_str(),
+                              p->value().c_str());
+
+                if (p->name() == FF("src")) {
+
+                  if (SPIFFS.exists(String(p->value() + filename).c_str()))
+                    SPIFFS.remove(String(p->value() + filename).c_str());
+
+                  SPIFFS.rename(
+                      String(String(F("/tmp/")) + filename_md5.toString())
+                          .c_str(),
+                      String(p->value() + filename).c_str());
                 }
-
-                Serial.printf(FF("UploadStart: %s\n"), filename.c_str());
               }
+            }
+          }
 
-              for (size_t i = 0; i < len; i++) {
-                f.write(data[i]);
-              }
+          Serial.printf(FF("UploadEnd: %s, %u B\n"), filename.c_str(),
+                        index + len);
+        }
+      });
 
-              if (final) {
-                f.close();
+  // recovery firmware page
+  server.on(FF("/recovery"), HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->authenticate("admin", "admin")) {
+      return request->requestAuthentication();
+    }
 
-                struct slre_cap caps[5];
-
-                // ex: "/opaqc1-www-v001.tar"
-                String lre_tar = String(F("^opaqc1-([a-z]+)-v([0-9]+).tar$"));
-                // ex: "/opaqc1-v001-MD5.bin"
-                String lre_bin =
-                    String(F("^opaqc1-v([0-9]+)-([a-z0-9]+).bin$"));
-                // ex: "/opaqc1-avr-v001-MD5.bin"
-                String lre_avr_bin =
-                    String(F("^opaqc1-avr-v([0-9]+)-([a-z0-9]+).bin$"));
-
-                // contain tar extension ? apply tar extractor.
-                if (slre_match(lre_tar.c_str(), filename.c_str(),
-                               filename.length(), caps, 5, 0) > 0)
-                // if(filename == "www.tar")
-                {
-                  String target = F("/");
-                  target += caps[0].ptr;
-                  target.setCharAt(caps[0].len + 1, '\0');
-                  Serial.printf(FF("Path: %s\n"), target.c_str());
-
-                  oq_cmd c;
-                  c.exec = [](LinkedList<String> &args) {
-                    storage.tarextract(args.pop().c_str(), args.pop().c_str());
-                  };
-
-                  String filepath = String(F("/tmp/")) + filename;
-
-                  c.args.add(target);
-                  c.args.add(filepath);
-
-                  command.send(c);
-
-                  request->redirect(FF("/rcv?success=true"));
-                } else if (slre_match(lre_bin.c_str(), filename.c_str(),
-                                      filename.length(), caps, 5, 0) > 0)
-                // if(filename == "fw.bin")
-                {
-                  String md5 = "";
-                  md5 += caps[1].ptr;
-                  md5.setCharAt(caps[1].len, '\0');
-                  Serial.printf(FF("MD5: %s\n"), md5.c_str());
-
-                  oq_cmd c;
-                  c.exec = [](LinkedList<String> args) {
-                    storage.fwupdate(args.pop().c_str(), args.pop().c_str());
-                  };
-                  c.args = LinkedList<String>();
-                  String filepath = String(F("/tmp/")) + filename;
-
-                  c.args.add(md5);
-                  c.args.add(filepath);
-
-                  command.send(c);
-
-                  request->redirect(FF("/rcv?success=true&fw=true"));
-                } else if (slre_match(lre_avr_bin.c_str(), filename.c_str(),
-                                      filename.length(), caps, 5, 0) > 0) {
-                  storage.avrprog.program(filename.c_str());
-                } else {
-                  // request->send(200, "text/html", "SUCCESS.");
-                  request->redirect(FF("/rcv?success=false"));
-                }
-
-                Serial.printf(FF("UploadEnd: %s, %u B\n"), filename.c_str(),
-                              index + len);
-              }
-            });
-
-  // Simple Firmware Update Form
-  server.on(FF("/rcv"), HTTP_GET, [](AsyncWebServerRequest *request) {
     opaq_recovery(request);
-    // request->send(200, "text/html","<form method='POST' action='/upload'
-    // enctype='multipart/form-data'><input type='file' name='upload'><input
-    // type='submit' value='upload'></form><a href='format'>Format</a>");
   });
 
   server.on(FF("/formatspiffs"), HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->authenticate("admin", "admin")) {
+      return request->requestAuthentication();
+    }
+
     oq_cmd c;
     c.exec = [](LinkedList<String> args) { SPIFFS.format(); };
     c.args = LinkedList<String>();
@@ -353,6 +394,11 @@ void OpenAq_Controller::setup_controller() {
 
         // start avrprog
         storage.avrprog.begin();
+
+#ifdef OPAQ_C1_SCREEN
+        delay(2000); // [TODO: check ready state instead of constant time]
+        opaq_controller.run_tft();
+#endif
       },
       []() {
         static uint32_t clock = get_clock();
@@ -410,11 +456,6 @@ void OpenAq_Controller::setup_controller() {
                     delay_until(clock);
                   },
                   1024 * 4);
-#endif
-
-#ifdef OPAQ_C1_SCREEN
-  delay(2000); // [TODO: check ready state instead of constant time]
-  run_tft();
 #endif
 
   const bool isReceiver = false;
@@ -589,7 +630,7 @@ void OpenAq_Controller::reconnect() {
     wscreen.setExecutionBar(20);
     wscreen.msg(String(F("Initializing WIFI station")).c_str());
 #endif
-    //WiFi.setPhyMode(WIFI_PHY_MODE_11G);
+    // WiFi.setPhyMode(WIFI_PHY_MODE_11G);
 
     WiFi.mode(WIFI_STA);
     WiFi.setOutputPower(17);
