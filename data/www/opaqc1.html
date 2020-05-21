@@ -92,9 +92,6 @@
 {
   if ("WebSocket" in window)
     {
-      // window.location.hostname [CHANGE]
-      //ws = new WebSocket("ws://" + window.location.hostname + "/ws");
-      //var ws = new ReconnectingWebSocket("ws://" + window.location.hostname + "/ws");
       window.ws = new ReconnectingWebSocket("ws://" + window.location.hostname + "/ws");
 
       ws.onopen = function()

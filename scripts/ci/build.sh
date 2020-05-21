@@ -88,8 +88,7 @@ cp $CURRENTDIR/data/sett/  $BUILDTMP/data/ -r # copy sett
 
 cd $BUILDTMP/data/www/
 
-compressjs.sh \
-jquery.min.js \
+npx google-closure-compiler --js=jquery.min.js \
 jquery.mobile.min.js \
 reconnecting-websocket.js \
 jtsage-datebox.jqm.min.js \
@@ -99,7 +98,7 @@ jqplot.dateAxisRenderer.js \
 jqplot.dragable.js \
 jqplot.highlighter.js \
 jqplot.mobile.js \
-opaqc1-all.js
+--js_output_file=opaqc1-all.js
 
 gzip -9 -k -f "opaqc1-all.js"
 
