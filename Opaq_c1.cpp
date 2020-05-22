@@ -49,16 +49,6 @@
 ArduinoOTA ota_server;
 #endif
 
-#ifdef OPAQ_C1_SCREEN
-// change this....
-#define TFT_CS 16
-#define TFT_DC 15
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
-
-LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
-// until here...
-#endif
-
 OpenAq_Controller opaq_controller;
 
 #define RECV 1
@@ -143,6 +133,12 @@ void OpenAq_Controller::setup_controller() {
 #ifdef OPAQ_C1_SCREEN
   wscreen.msg(String(F("Filesystem check")).c_str());
 #endif
+
+  String pwd = String();
+  getPWD(pwd);
+
+  String user = String();
+  getUser(user);
 
   server.on(
       FF("/upload"), HTTP_POST,
@@ -286,16 +282,16 @@ void OpenAq_Controller::setup_controller() {
       });
 
   // recovery firmware page
-  server.on(FF("/recovery"), HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!request->authenticate("admin", "admin")) {
+  server.on(FF("/recovery"), HTTP_GET, [user,pwd](AsyncWebServerRequest *request) {
+    if (!request->authenticate(user.c_str(), pwd.c_str())) {
       return request->requestAuthentication();
     }
 
     opaq_recovery(request);
   });
 
-  server.on(FF("/formatspiffs"), HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!request->authenticate("admin", "admin")) {
+  server.on(FF("/formatspiffs"), HTTP_GET, [user,pwd](AsyncWebServerRequest *request) {
+    if (!request->authenticate(user.c_str(), pwd.c_str())) {
       return request->requestAuthentication();
     }
 
@@ -312,48 +308,32 @@ void OpenAq_Controller::setup_controller() {
 
   // setup webserver
   server.serveStatic(FF("/"), SPIFFS, FF("/www/"))
-      .setDefaultFile(FF("opaqc1.html"));
+      .setDefaultFile(FF("opaqc1.html")).setAuthentication(user.c_str(), pwd.c_str());
 
   server.onNotFound([=](AsyncWebServerRequest *request) {
     request->send(404, FF("text/plain"), FF(" "));
   });
 
   // attach AsyncWebSocket
+  ws.setAuthentication(user.c_str(), pwd.c_str());
   ws.onEvent(onEvent);
   server.addHandler(&ws);
 
 #ifdef OPAQ_C1_SCREEN
   wscreen.msg(String(F("Setup touch sensor")).c_str());
 
-  //
-  // TOUCH CONTROLLER INITIALIZATION
-  //
   communicate.touch.begin();
 
-  if (!storage.touchsett.isTouchMatrixAvailable()) {
-    // do calibration
-    communicate.touch.doCalibration(tft_interface);
-    if (communicate.touch.getCalibrationMatrix(
-            storage.touchsett.getTouchMatrixRef())) {
-      storage.touchsett.commitTouchSettings();
-      Serial.println(F("Touch settings has been updated."));
-    } else {
-      Serial.println(
-          F("Touch settings generation has been failed. Reseting ..."));
-
-      ESP.reset();
-    }
-  } else {
+  if (storage.touchsett.isTouchMatrixAvailable()) {
     Serial.println(F("Touch settings has been read."));
     communicate.touch.setCalibration(storage.touchsett.getTouchMatrix());
   }
-  // END TOUCH CONTROLLER INITIALIZATION
 
-#endif
   wscreen.msg(String(F("nrf24 initializing...")).c_str());
+#endif
+
   communicate.nrf24.init();
 
-  // Serial.print(F("opaq>"));
 
   Scheduler.start(
       []() {
@@ -459,8 +439,6 @@ void OpenAq_Controller::setup_controller() {
 #endif
 
   const bool isReceiver = false;
-
-  return;
 
   Scheduler.start(
       []() {
@@ -581,7 +559,7 @@ void OpenAq_Controller::setup_controller() {
 
         delay(100);
       },
-      1024 + 512);
+      1024 * 2);
 }
 
 void OpenAq_Controller::reconnect() {

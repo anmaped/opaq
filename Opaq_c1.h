@@ -66,6 +66,9 @@ extern "C" {
 extern char *stack_start;
 extern char *stack_task[NUM_TASKS];
 
+static const char __user[] PROGMEM = "admin";
+static const char __pwd[] PROGMEM = "opaqopaq";
+
 #ifdef OPAQ_C1_SCREEN
 #include "Opaq_iaqua_pages.h"
 
@@ -100,6 +103,9 @@ private:
   void ota();
 
   void run_programmer();
+
+  void getPWD(String& str) { str = String(FPSTR(__pwd)); };
+  void getUser(String& str) { str = String(FPSTR(__user)); };
 
 public:
   OpenAq_Controller();

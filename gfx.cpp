@@ -2,6 +2,18 @@
 
 #include "gfx.h"
 
+
+#ifdef OPAQ_C1_SCREEN
+
+#define TFT_CS 16
+#define TFT_DC 15
+
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+LCD_HAL_Interface tft_interface = LCD_HAL_Interface(tft);
+
+#endif
+
+
 unsigned long testFillScreen() {
   unsigned long start = micros();
   tft.fillScreen(ILI9341_BLACK);

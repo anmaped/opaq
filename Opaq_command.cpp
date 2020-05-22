@@ -303,14 +303,28 @@ void Opaq_command::terminal() {
 
     case "setup"_hash:
       args = caps[1].ptr;
-      // Serial.println(caps[1].len);
       args = args.substring(1);
       args.setCharAt(caps[1].len, '\0');
-      // Serial.println(args.c_str());
       split(args, arg);
 
-      // Serial.println(arg[0]);
-      // Serial.println(arg[1]);
+#ifdef OPAQ_C1_SCREEN
+      if (arg[1] == F("touch")) {
+        if (arg[0] == F("set")) {
+          // do calibration
+          communicate.touch.doCalibration(tft_interface);
+          if (communicate.touch.getCalibrationMatrix(
+                  storage.touchsett.getTouchMatrixRef())) {
+            storage.touchsett.commitTouchSettings();
+            Serial.println(F("Touch settings has been updated."));
+          } else {
+            Serial.println(
+                F("Touch settings generation has been failed. Reseting ..."));
+          }
+        } else {
+          Serial.println(F("unknown touch command."));
+        }
+      }
+#endif
 
       if (arg[1] == F("wifi")) {
         if (arg[0] == F("scan")) {
@@ -322,7 +336,9 @@ void Opaq_command::terminal() {
 
           // WiFi.scanNetworks will return the number of networks found
           WiFi.scanNetworks();
-          while( WiFi.scanComplete() <= 0 ) { delay(100); }
+          while (WiFi.scanComplete() <= 0) {
+            delay(100);
+          }
           int n = WiFi.scanComplete();
           Serial.println("scan done");
           if (n == 0) {
@@ -379,7 +395,7 @@ void Opaq_command::terminal() {
         }
       }
 
-      Serial.println(F("Usage: setup [get/set] [wifi/nrf24]\r\n       "
+      Serial.println(F("Usage: setup [get/set] [wifi/nrf24/touch]\r\n       "
                        "setup get wifi [example]"));
 
       break;

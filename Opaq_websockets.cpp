@@ -363,8 +363,9 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
 
     client->text(tmp);
   } else if (strcmp((char *)data, FF("GET_OPAQ_SUMMARY")) == 0) {
-    String wssid;
+    String wssid, wclientssid;
     storage.wifisett.getSSID(wssid);
+    storage.wifisett.getClientSSID(wclientssid);
 
     doc[F("version")] = OPAQ_VERSION;
     doc[F("id")] = ESP.getFlashChipId();
@@ -372,7 +373,7 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
     doc[F("wstatus")] = "Radio is On";           // [TODO]
     doc[F("wmode")] =
         (storage.wifisett.getModeOperation()) ? "softAP" : "client";
-    doc[F("wssid")] = wssid.c_str();
+    doc[F("wssid")] = (storage.wifisett.getModeOperation()) ? wssid.c_str() : wclientssid.c_str();
     doc[F("wchan")] = WiFi.channel();
     doc[F("wdhcp")] = "Enabled"; // [TODO]
     doc[F("wmac")] = WiFi.softAPmacAddress();
