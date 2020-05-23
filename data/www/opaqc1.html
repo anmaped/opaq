@@ -102,7 +102,7 @@
       {
         var received_msg = evt.data;
 
-        console.log("Message is received... " + received_msg);
+        console.log("msg:" + received_msg);
 
         // verify if received_msg is as expecteds
         msg = JSON.parse(received_msg);
@@ -122,7 +122,8 @@
         }
         if ("version" in msg)
         {
-          $("#version").html(msg.version + " " + msg.id);
+          $("#version").html(msg.version);
+          $("#modelid").html(msg.id);
           $("#status").html(msg.status);
         }
         // let's search for available modules/plugins

@@ -91,8 +91,9 @@ void Opaq_command::handler() {
   for (unsigned short int i = 0; i < queue.size(); i++) {
     exec();
   }
-
-  terminal();
+  
+  if (!storage.getLoopbackState())
+    terminal();
 }
 
 void Opaq_command::terminal() {

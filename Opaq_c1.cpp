@@ -57,6 +57,21 @@ OpenAq_Controller opaq_controller;
 Opaq_iaqua_page_welcome wscreen = Opaq_iaqua_page_welcome();
 #endif
 
+String inputString = "";         // a string to hold incoming data
+boolean stringComplete = false;  // whether the string is complete
+
+void serialEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (inChar == '\n' || inChar == '\r') {
+      stringComplete = true;
+      return;
+    } else {
+      inputString += inChar;
+    }
+  }
+}
+
 /*=============================================================================
 =                              Opaq public methods                            =
 =============================================================================*/
@@ -560,6 +575,8 @@ void OpenAq_Controller::setup_controller() {
         delay(100);
       },
       1024 * 2);
+
+  inputString.reserve(256);
 }
 
 void OpenAq_Controller::reconnect() {
@@ -677,6 +694,20 @@ void OpenAq_Controller::run_controller() {
 
   move this to a triggered action   [TODO]
   */
+
+  if (storage.getLoopbackState()) {
+  serialEvent();
+  if (stringComplete) {
+    
+    String line = inputString;
+       // clear the string:
+    inputString = "";
+    stringComplete = false;
+
+    //line += '\n';
+    opaq_controller.getWs().textAll(String(F("{\"console\": \"")) + line.c_str() + String(F("\"}")));
+  }
+}
 
   delay(100);
 }

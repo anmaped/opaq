@@ -41,6 +41,18 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
 
     deserializeJson(doc, tmp);
 
+    // reboot
+    if (doc.containsKey(FF("reboot"))) {
+      ESP.restart();
+    }
+
+    // console pipe
+    if (doc.containsKey(FF("console"))) {
+      bool state = doc[F("console")] ;
+      storage.setWsConsole(state);
+      client->text(FF("{\"success\":\"console ") + String(state) + FF("\"}"));
+    }
+
     // ########################
     // Wifi configuration file
     // ########################
@@ -367,16 +379,20 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
     storage.wifisett.getSSID(wssid);
     storage.wifisett.getClientSSID(wclientssid);
 
-    doc[F("version")] = OPAQ_VERSION;
-    doc[F("id")] = ESP.getFlashChipId();
+    doc[F("version")] = version + String(F(" ")) + id + String(F(" SW espcore: ")) + ESP.getCoreVersion() + String(F(" espsdk: ")) + ESP.getSdkVersion();
+    doc[F("id")] = String(F("flashid")) + ESP.getFlashChipId() + String(F(" esp")) + ESP.getChipId();
     doc[F("status")] = "Running without errors"; // [TODO]
     doc[F("wstatus")] = "Radio is On";           // [TODO]
     doc[F("wmode")] =
         (storage.wifisett.getModeOperation()) ? "softAP" : "client";
-    doc[F("wssid")] = (storage.wifisett.getModeOperation()) ? wssid.c_str() : wclientssid.c_str();
+    doc[F("wssid")] = (storage.wifisett.getModeOperation())
+                          ? wssid.c_str()
+                          : wclientssid.c_str();
     doc[F("wchan")] = WiFi.channel();
     doc[F("wdhcp")] = "Enabled"; // [TODO]
-    doc[F("wmac")] = WiFi.softAPmacAddress();
+    doc[F("wmac")] = (storage.wifisett.getModeOperation())
+                         ? WiFi.softAPmacAddress()
+                         : WiFi.macAddress();
     doc[F("wip")] = (storage.wifisett.getModeOperation())
                         ? WiFi.softAPIP().toString()
                         : WiFi.localIP().toString();

@@ -35,6 +35,19 @@
 
     <div role="main" class="ui-content" id="maincontent" data-role="content">
 
+
+
+      <div data-role="popup" id="rebootpopup" data-overlay-theme="a" data-theme="a" data-dismissible="false" style="max-width:400px;">
+        <div data-role="header" data-theme="a">
+          <h1>Reboot the device ?</h1>
+        </div>
+        <div role="main" class="ui-content">
+          <h3 class="ui-title">Are you sure you want to reboot the device?</h3>
+          <a href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">Cancel</a>
+          <a id="reboot" href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back" data-transition="flow">Continue</a>
+        </div>
+      </div>
+
       <div class="ui-grid-a">
         <ul data-role="listview" data-inset="true">
           <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
@@ -121,8 +134,16 @@
           <li>
             <div class="ui-grid-a">
               <div class="ui-block-a">Model</div>
+              <div class="ui-block-b" id="modelid"></div>
+            </div>
+          </li>
+          <li>
+            <div class="ui-grid-a">
+              <div class="ui-block-a">SW Version</div>
               <div class="ui-block-b" id="version"></div>
             </div>
+          </li>
+          <li><a href="#rebootpopup" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-btn ui-corner-all ui-shadow ui-btn-inline">Reboot</a>
           </li>
         </ul>
       </div>
@@ -173,6 +194,13 @@ $(document).on("pageshow", "#pagesummary", function()
   });
 
 });
+
+        $('#reboot').on("click", function()
+        {
+          console.log("reboot.");
+          ws.send('{"reboot": 1}');
+
+        });
 
 </script>
 
