@@ -102,6 +102,12 @@ jqplot.mobile.js \
 
 gzip -9 -k -f "opaqc1-all.js"
 
+# compress some .html files
+gzip -9 -f "opaqc1.html"
+gzip -9 -f "opaqc1_index.html"
+gzip -9 -f "opaqc1_settings.html"
+
+
 for i in `find | grep -E "\.css$|\.js.map$"`; do gzip -9 -k -f "$i" ; done
 
 cd $BUILDTMP/data/

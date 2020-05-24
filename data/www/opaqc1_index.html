@@ -1,209 +1,337 @@
-
-
 <div data-role="page" id="pagesummary" data-dom-cache="true">
+  <div data-role="header">
+    <div align="center"><img src="images/opaq.png" width="108px" /></div>
 
-    <div data-role="header">
-      <div align="center"><img src="images/opaq.png" width="108px" />
-      </div>
+    <a
+      id="numbersourceevents"
+      href="#alerts"
+      data-rel="popup"
+      data-transition="none"
+      class="ui-btn-right ui-btn ui-btn-inline ui-mini ui-corner-all ui-btn-icon-right ui-icon-alert"
+      >1</a
+    >
 
-      <a href="#alerts" data-rel="popup" data-transition="none" class="ui-btn-right ui-btn ui-btn-inline ui-mini ui-corner-all ui-btn-icon-right ui-icon-alert">10</a>
-
-      <div data-role="popup" id="alerts" data-theme="a">
-        <ul data-role="listview" data-inset="true" style="min-width:210px;">
-          <li data-role="list-divider">Choose an action</li>
-          <li><a href="#">View details</a>
-          </li>
-          <li><a href="#">Delete all</a>
-          </li>
-        </ul>
-      </div>
-
-    </div>
-    <!-- /header -->
-
-    <div data-role="navbar">
-      <ul>
-        <li><a href="#" data-icon="cloud">Opaq Cloud</a>
+    <div data-role="popup" id="alerts" data-theme="a">
+      <ul data-role="listview" data-inset="true" style="min-width: 210px;">
+        <li data-role="list-divider">SourceEvents List</li>
+        <li>
+          <ul
+            id="sourceeventslist"
+            data-role="listview"
+            data-inset="true"
+            style="min-width: 210px;"
+          >
+            <li>Page loaded successfully!</li>
+          </ul>
         </li>
-        <li><a href="#pagesummary" data-icon="grid" class="ui-btn-active" id="summaryactive">Summary</a>
-        </li>
-        <li><a href="#pagesettings" data-transition="slidefade" data-icon="gear">Setup</a>
+        <li>
+          <a
+            id="deleteallsourceevents"
+            href="#"
+            class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-icon-left ui-icon-delete"
+            data-rel="back"
+            >Dismiss all</a
+          >
         </li>
       </ul>
     </div>
-    <!-- /navbar -->
-
-    <div role="main" class="ui-content" id="maincontent" data-role="content">
-
-
-
-      <div data-role="popup" id="rebootpopup" data-overlay-theme="a" data-theme="a" data-dismissible="false" style="max-width:400px;">
-        <div data-role="header" data-theme="a">
-          <h1>Reboot the device ?</h1>
-        </div>
-        <div role="main" class="ui-content">
-          <h3 class="ui-title">Are you sure you want to reboot the device?</h3>
-          <a href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">Cancel</a>
-          <a id="reboot" href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back" data-transition="flow">Continue</a>
-        </div>
-      </div>
-
-      <div class="ui-grid-a">
-        <ul data-role="listview" data-inset="true">
-          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
-            Opaq Cloud
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Status</div>
-              <div class="ui-block-b">Disconnected</div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Registered ID</div>
-              <div class="ui-block-b">Unregistered</div>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <div class="ui-grid-a">
-        <ul data-role="listview" data-inset="true">
-          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
-            WIFI
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Status</div>
-              <div class="ui-block-b" id="wstatus"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Mode</div>
-              <div class="ui-block-b" id="wmode"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">SSID</div>
-              <div class="ui-block-b" id="wssid"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Channel</div>
-              <div class="ui-block-b" id="wchan"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">DHCP Server</div>
-              <div class="ui-block-b" id="wdhcp"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Wireless MAC</div>
-              <div class="ui-block-b" id="wmac"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">IP Address</div>
-              <div class="ui-block-b" id="wip"></div>
-            </div>
-          </li>
-          <li><a href="#pagesettingswifi">Easy Setup</a>
-          </li>
-        </ul>
-      </div>
-
-      <div class="ui-grid-a">
-        <ul data-role="listview" data-inset="true">
-          <li class="ui-li-divider ui-bar-a ui-first-child" role="heading" data-role="list-divider" data-theme="a" data-swatch="a" data-form="ui-bar-a">
-            Opaq.c1
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Status</div>
-              <div class="ui-block-b" id="status"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">Model</div>
-              <div class="ui-block-b" id="modelid"></div>
-            </div>
-          </li>
-          <li>
-            <div class="ui-grid-a">
-              <div class="ui-block-a">SW Version</div>
-              <div class="ui-block-b" id="version"></div>
-            </div>
-          </li>
-          <li><a href="#rebootpopup" data-rel="popup" data-position-to="window" data-transition="pop" class="ui-btn ui-corner-all ui-shadow ui-btn-inline">Reboot</a>
-          </li>
-        </ul>
-      </div>
-
-    </div>
-    <!-- /content -->
-
-    <div data-role="footer">
-      <h4><div>
-                <span>&copy; The </span>
-                <img style="vertical-align:middle" src="images/opaq.png" width="60px">
-                <span style=""> Project</span>
-              </div>
-              </h4>
-    </div>
-    <!-- /footer -->
-
-
-<script type="text/javascript" defer>
-
-// Make the function wait until the connection is made...
-function waitForSocketConnection(socket, callback){
-    setTimeout(
-        function () {
-            if (socket.readyState === 1) {
-                console.log("Connection is made")
-                if(callback != null){
-                    callback();
-                }
-                return;
-
-            } else {
-                console.log("wait for connection...")
-                waitForSocketConnection(socket, callback);
-            }
-
-        }, 5); // wait 5 milisecond for the connection...
-}
-
-$(document).on("pageshow", "#pagesummary", function()
-{
-
-  $.mobile.loading().show();
-
-  // Wait until the state of the socket is not ready and send the message when it is...
-  waitForSocketConnection(ws, function(){
-    ws.send("GET_OPAQ_SUMMARY");
-  });
-
-});
-
-        $('#reboot').on("click", function()
-        {
-          console.log("reboot.");
-          ws.send('{"reboot": 1}');
-
-        });
-
-</script>
-
   </div>
+  <!-- /header -->
 
+  <div data-role="navbar">
+    <ul>
+      <li><a href="#" data-icon="cloud">Opaq Cloud</a></li>
+      <li>
+        <a
+          href="#pagesummary"
+          data-icon="grid"
+          class="ui-btn-active"
+          id="summaryactive"
+          >Summary</a
+        >
+      </li>
+      <li>
+        <a href="#pagesettings" data-transition="slidefade" data-icon="gear"
+          >Setup</a
+        >
+      </li>
+    </ul>
+  </div>
+  <!-- /navbar -->
 
+  <div role="main" class="ui-content" id="maincontent" data-role="content">
+    <div
+      data-role="popup"
+      id="rebootpopup"
+      data-overlay-theme="a"
+      data-theme="a"
+      data-dismissible="false"
+      style="max-width: 400px;"
+    >
+      <div data-role="header" data-theme="a">
+        <h1>Reboot the device ?</h1>
+      </div>
+      <div role="main" class="ui-content">
+        <h3 class="ui-title">Are you sure you want to reboot the device?</h3>
+        <a
+          href="#"
+          class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b"
+          data-rel="back"
+          >Cancel</a
+        >
+        <a
+          id="reboot"
+          href="#"
+          class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b"
+          data-rel="back"
+          data-transition="flow"
+          >Continue</a
+        >
+      </div>
+    </div>
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li
+          class="ui-li-divider ui-bar-a ui-first-child"
+          role="heading"
+          data-role="list-divider"
+          data-theme="a"
+          data-swatch="a"
+          data-form="ui-bar-a"
+        >
+          Opaq Cloud
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Status</div>
+            <div class="ui-block-b">Disconnected</div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Registered ID</div>
+            <div class="ui-block-b">Unregistered</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li
+          class="ui-li-divider ui-bar-a ui-first-child"
+          role="heading"
+          data-role="list-divider"
+          data-theme="a"
+          data-swatch="a"
+          data-form="ui-bar-a"
+        >
+          WIFI
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Status</div>
+            <div class="ui-block-b" id="wstatus"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Mode</div>
+            <div class="ui-block-b" id="wmode"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">SSID</div>
+            <div class="ui-block-b" id="wssid"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Channel</div>
+            <div class="ui-block-b" id="wchan"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">DHCP Server</div>
+            <div class="ui-block-b" id="wdhcp"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Wireless MAC</div>
+            <div class="ui-block-b" id="wmac"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">IP Address</div>
+            <div class="ui-block-b" id="wip"></div>
+          </div>
+        </li>
+        <li><a href="#pagesettingswifi">Easy Setup</a></li>
+      </ul>
+    </div>
+
+    <div class="ui-grid-a">
+      <ul data-role="listview" data-inset="true">
+        <li
+          class="ui-li-divider ui-bar-a ui-first-child"
+          role="heading"
+          data-role="list-divider"
+          data-theme="a"
+          data-swatch="a"
+          data-form="ui-bar-a"
+        >
+          Opaq.c1
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Status</div>
+            <div class="ui-block-b" id="status"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">Model</div>
+            <div class="ui-block-b" id="modelid"></div>
+          </div>
+        </li>
+        <li>
+          <div class="ui-grid-a">
+            <div class="ui-block-a">SW Version</div>
+            <div class="ui-block-b" id="version"></div>
+          </div>
+        </li>
+        <li>
+          <a
+            href="#rebootpopup"
+            data-rel="popup"
+            data-position-to="window"
+            data-transition="pop"
+            class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-icon-left ui-icon-power"
+            >Reboot</a
+          >
+        </li>
+      </ul>
+    </div>
+
+    <!-- content for the available and connected nodes -->
+    <div id="nodescontent">
+      <div style="display: none;">
+        <div id="nodelayout" class="ui-grid-a">
+          <ul data-role="listview" data-inset="true">
+            <li
+              class="ui-li-divider ui-bar-a ui-first-child"
+              role="heading"
+              data-role="list-divider"
+              data-theme="a"
+              data-swatch="a"
+              data-form="ui-bar-a"
+            >
+              Opaq.nX
+            </li>
+            <li>
+              <div class="ui-grid-a">
+                <div class="ui-block-a">Status</div>
+                <div class="ui-block-b" id="status"></div>
+              </div>
+            </li>
+            <li>
+              <div class="ui-grid-a">
+                <div class="ui-block-a">Model</div>
+                <div class="ui-block-b" id="model"></div>
+              </div>
+            </li>
+            <li>
+              <div class="ui-grid-a">
+                <div class="ui-block-a">SW Version</div>
+                <div class="ui-block-b" id="version"></div>
+              </div>
+            </li>
+            <li>
+              <a
+                href="#"
+                data-rel="popup"
+                data-position-to="window"
+                data-transition="pop"
+                class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-icon-left ui-icon-power"
+                >Reboot</a
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- /content -->
+
+  <div data-role="footer">
+    <h4>
+      <div>
+        <span>&copy; The </span>
+        <img
+          style="vertical-align: middle;"
+          src="images/opaq.png"
+          width="60px"
+        />
+        <span style=""> Project</span>
+      </div>
+    </h4>
+  </div>
+  <!-- /footer -->
+
+  <script type="text/javascript" defer>
+    // Make the function wait until the connection is made...
+    function waitForSocketConnection(socket, callback) {
+      setTimeout(function () {
+        if (socket.readyState === 1) {
+          console.log("Connection is made");
+          if (callback != null) {
+            callback();
+          }
+          return;
+        } else {
+          console.log("wait for connection...");
+          waitForSocketConnection(socket, callback);
+        }
+      }, 5); // wait 5 milisecond for the connection...
+    }
+
+    $(document).on("pageshow", "#pagesummary", function () {
+      $.mobile.loading().show();
+
+      waitFor("global", "opaqnodes", function () {
+        $.each(global.opaqnodes.list, function (index, element) {
+          $("#nodescontent").append($("#nodelayout").clone());
+          $("#nodescontent #status").html(element.status);
+          $("#nodescontent #model").html(element.model);
+          $("#nodescontent #version").html(element.version);
+        });
+      });
+
+      // Wait until the state of the socket is not ready and send the message when it is...
+      waitForSocketConnection(ws, function () {
+        ws.send("GET_OPAQ_SUMMARY");
+
+        // ask opaq nodes discovery
+        var msg = {};
+        msg.nodesscan = true;
+        ws.send(JSON.stringify(msg));
+      });
+    });
+
+    $("#reboot").on("click", function () {
+      console.log("reboot.");
+      ws.send('{"reboot": 1}');
+    });
+
+    $("#deleteallsourceevents").on("click", function () {
+      console.log("delete all source events.");
+      $("#numbersourceevents").html("0");
+      $("#sourceeventslist").html("No source events.");
+    });
+  </script>
+</div>

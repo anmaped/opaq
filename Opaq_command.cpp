@@ -96,7 +96,7 @@ void Opaq_command::handler() {
     terminal();
 }
 
-void Opaq_command::terminal() {
+void Opaq_command::terminal(const char *input) {
   struct slre_cap caps[5];
   memset(caps, 0, 5);
 
@@ -183,8 +183,14 @@ void Opaq_command::terminal() {
   };
 
   // get line otherwise exit
+  if (input==NULL) {
   if (!read_line(line))
     return;
+}
+else
+{
+line=input;
+}
 
   // lets parse the line
   if (slre_match(lre.c_str(), line.c_str(), line.length(), caps, 5, 0) > 0) {

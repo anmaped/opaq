@@ -47,7 +47,7 @@ public:
   void send(oq_cmd &cmd);
   void exec();
   void handler();
-  void terminal();
+  void terminal(const char* input = NULL);
 
   void lock() { cmd_lock.wait(); }
   void unlock() { cmd_lock.signal(); }

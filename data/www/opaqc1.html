@@ -1,421 +1,328 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Opaq c1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
 
-<head>
-  <meta charset="utf-8" />
-  <title>Opaq c1</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
+  <body>
+    <div class="m-app-loading" id="loaderref">
+      <style type="text/css">
+        div.m-app-loading {
+          position: fixed;
+        }
+        div.m-app-loading div.animated-container {
+          background-color: #333333;
+          bottom: 0px;
+          left: 0px;
+          opacity: 1;
+          position: fixed;
+          right: 0px;
+          top: 0px;
+          z-index: 999999;
+        }
+        /* Used to initialize the ng-leave animation state. */
 
-<body>
-  <div class="m-app-loading" id="loaderref">
+        div.m-app-loading div.animated-container.ng-leave {
+          opacity: 1;
+          transition: all linear 200ms;
+          -webkit-transition: all linear 200ms;
+        }
+        /* Used to set the end properties of the ng-leave animation state. */
 
-    <style type="text/css">
-      div.m-app-loading {
-        position: fixed;
-      }
-      div.m-app-loading div.animated-container {
-        background-color: #333333;
-        bottom: 0px;
-        left: 0px;
-        opacity: 1.0;
-        position: fixed;
-        right: 0px;
-        top: 0px;
-        z-index: 999999;
-      }
-      /* Used to initialize the ng-leave animation state. */
+        div.m-app-loading div.animated-container.ng-leave-active {
+          opacity: 0;
+        }
+        div.m-app-loading div.messaging {
+          color: #ffffff;
+          font-family: monospace;
+          left: 0px;
+          margin-top: -37px;
+          position: absolute;
+          right: 0px;
+          text-align: center;
+          top: 50%;
+        }
+        div.m-app-loading h1 {
+          font-size: 26px;
+          line-height: 35px;
+          margin: 0px 0px 20px 0px;
+        }
+        div.m-app-loading p {
+          font-size: 18px;
+          line-height: 14px;
+          margin: 0px 0px 0px 0px;
+        }
+      </style>
 
-      div.m-app-loading div.animated-container.ng-leave {
-        opacity: 1.0;
-        transition: all linear 200ms;
-        -webkit-transition: all linear 200ms;
-      }
-      /* Used to set the end properties of the ng-leave animation state. */
+      <!-- BEGIN: Actual animated container. -->
+      <div class="animated-container">
+        <div class="messaging">
+          <h1>
+            Opaq c1 is Loading
+          </h1>
 
-      div.m-app-loading div.animated-container.ng-leave-active {
-        opacity: 0;
-      }
-      div.m-app-loading div.messaging {
-        color: #FFFFFF;
-        font-family: monospace;
-        left: 0px;
-        margin-top: -37px;
-        position: absolute;
-        right: 0px;
-        text-align: center;
-        top: 50%;
-      }
-      div.m-app-loading h1 {
-        font-size: 26px;
-        line-height: 35px;
-        margin: 0px 0px 20px 0px;
-      }
-      div.m-app-loading p {
-        font-size: 18px;
-        line-height: 14px;
-        margin: 0px 0px 0px 0px;
-      }
-
-    </style>
-
-    <!-- BEGIN: Actual animated container. -->
-    <div class="animated-container">
-
-      <div class="messaging">
-
-        <h1>
-          Opaq c1 is Loading
-        </h1>
-
-        <p>
-          Wait a moment please!
-        </p>
-
+          <p>
+            Wait a moment please!
+          </p>
+        </div>
       </div>
-
+      <!-- END: Actual animated container. -->
     </div>
-    <!-- END: Actual animated container. -->
+    <!-- END: App-Loading Screen. -->
 
-  </div>
-  <!-- END: App-Loading Screen. -->
+    <link rel="stylesheet" type="text/css" href="jquery.mobile.min.css" />
 
-  <link rel="stylesheet" type="text/css" href="jquery.mobile.min.css">
+    <script type="text/javascript">
+      global = {};
+      var ws;
 
+      function start() {
+        if ("WebSocket" in window) {
+          window.ws = new ReconnectingWebSocket(
+            "ws://" + window.location.hostname + "/ws"
+          );
 
-  <script type="text/javascript">
-    global = {};
-    var ws;
+          ws.onopen = function () {
+            console.log("Connection is open.");
+          };
+          ws.onmessage = function (evt) {
+            var received_msg = evt.data;
 
+            console.log("msg:" + received_msg);
 
-    function start()
-{
-  if ("WebSocket" in window)
-    {
-      window.ws = new ReconnectingWebSocket("ws://" + window.location.hostname + "/ws");
+            // verify if received_msg is as expecteds
+            msg = JSON.parse(received_msg);
 
-      ws.onopen = function()
-      {
-        console.log("Connection is open.");
-      };
-      ws.onmessage = function(evt)
-      {
-        var received_msg = evt.data;
+            if ("wssid" in msg) {
+              $.mobile.loading().hide();
 
-        console.log("msg:" + received_msg);
-
-        // verify if received_msg is as expecteds
-        msg = JSON.parse(received_msg);
-
-        if ("wssid" in msg)
-        {
-          $.mobile.loading().hide();
-
-
-          $("#wstatus").html(msg.wstatus);
-          $("#wmode").html(msg.wmode);
-          $("#wssid").html(msg.wssid);
-          $("#wchan").html(msg.wchan);
-          $("#wdhcp").html(msg.wdhcp);
-          $("#wmac").html(msg.wmac);
-          $("#wip").html(msg.wip);
-        }
-        if ("version" in msg)
-        {
-          $("#version").html(msg.version);
-          $("#modelid").html(msg.id);
-          $("#status").html(msg.status);
-        }
-        // let's search for available modules/plugins
-        if ("adim" in msg)
-        {
-          global.fullaquariumdimmer = msg;
-          global.fullaquariumdimmer.data = [];
-          global.fullaquariumdimmer.toreceive = msg.adim.length-1;
-
-          $.each(msg.adim, function(index, value){
-            if ( value != "" )
-            {
-              setTimeout( function() {
-                ws.send('{"filename": "' + value + '"}');
-              }, 50*index);
+              $("#wstatus").html(msg.wstatus);
+              $("#wmode").html(msg.wmode);
+              $("#wssid").html(msg.wssid);
+              $("#wchan").html(msg.wchan);
+              $("#wdhcp").html(msg.wdhcp);
+              $("#wmac").html(msg.wmac);
+              $("#wip").html(msg.wip);
             }
-          });
-
-          if (global.fullaquariumdimmer.toreceive == 0)
-          {
-            global.fullaquariumdimmerready = {};
-
-          }
-          
-        }
-        if ("adimid" in msg)
-        {
-          var exists = false;
-
-          // search for id
-          $.each(global.fullaquariumdimmer, function(index, value) {
-            if(value.adimid == msg.adimid)
-            {
-              global.fullaquariumdimmer.data[index] = msg;
-              exists = true;
+            if ("version" in msg) {
+              $("#version").html(msg.version);
+              $("#modelid").html(msg.id);
+              $("#status").html(msg.status);
             }
-            
-          });
+            // let's search for available modules/plugins
+            if ("adim" in msg) {
+              global.fullaquariumdimmer = msg;
+              global.fullaquariumdimmer.data = [];
+              global.fullaquariumdimmer.toreceive = msg.adim.length - 1;
 
-          if ( !exists )
-          {
-            global.fullaquariumdimmer.data.push(msg);
-          }
-
-          if (global.fullaquariumdimmer.toreceive == global.fullaquariumdimmer.data.length)
-          {
-            //alert(JSON.stringify(global.fullaquariumdimmer))
-
-            
-            global.fullaquariumdimmerready = {};
-            
-            global.fullaquariumdimmer.toreceive = 1;
-          }
-
-        }
-        if ("wifisettings" in msg)
-        {
-          // store wifisettings in the global structure
-          global.wifisettings = msg.wifisettings;
-        }
-        if ("realtimeclock" in msg)
-        {
-          global.realtimeclock = msg.realtimeclock;
-        }
-        if ("pdev" in msg)
-        {
-          global.poweroutletcontroller = msg;
-          global.poweroutletcontroller.data = [];
-          global.poweroutletcontroller.toreceive = msg.pdev.length-1;
-
-          $.each(msg.pdev, function(index, value){
-            if ( value != "" )
-            {
-              setTimeout( function() {
-                ws.send('{"filename": "' + value + '"}');
-              }, 50*index);
-            }
-          });
-
-          if (global.poweroutletcontroller.toreceive == 0)
-          {
-            global.poweroutletcontrollerready = {};
-
-          }
-        }
-        if ("pdevid" in msg)
-        {
-          var exists = false;
-
-          // search for id
-          $.each(global.poweroutletcontroller, function(index, value) {
-            if(value.pdevid == msg.pdevid)
-            {
-              global.poweroutletcontroller.data[index] = msg;
-              exists = true;
-            }
-            
-          });
-
-          if ( !exists )
-          {
-            global.poweroutletcontroller.data.push(msg);
-          }
-
-          if (global.poweroutletcontroller.toreceive == global.poweroutletcontroller.data.length)
-          {
-            //alert(JSON.stringify(global.fullaquariumdimmer))
-
-            global.poweroutletcontrollerready = {};
-            
-            global.poweroutletcontroller.toreceive = 1;
-          }
-        }
-        if("wifiscan" in msg)
-        {
-          global.wifinetworkscan = msg;
-        }
-      };
-      ws.onclose = function()
-      {
-        // websocket is closed.
-        console.log("Connection is closed.");
-        //try to reconnect in 5 seconds
-        //setTimeout(function(){ start(); }, 500);
-      };
-    }
-    else
-    {
-      // The browser doesn't support WebSocket
-      alert("WebSocket NOT supported by your Browser!");
-    }
-}
-
-  //start();
-
-
-    function loadScript(url, callback){
-
-    var script = document.createElement("script")
-    script.type = "text/javascript";
-
-    if (script.readyState){  //IE
-        script.onreadystatechange = function(){
-            if (script.readyState == "loaded" ||
-                    script.readyState == "complete"){
-                script.onreadystatechange = null;
-                callback();
-            }
-        };
-    } else {  //Others
-        script.onload = function(){
-            callback();
-        };
-    }
-
-    script.src = url;
-    document.head.appendChild(script);
-    }
-
-    //loadScript("jquery.min.js",
-    //function(){
-
-
-    /*$('<link>')
-    .appendTo('head')
-    .attr({
-        type: 'text/css', 
-        rel: 'stylesheet',
-        href: 'jquery.mobile.min.css'
-    });*/
-
-    /*if ($("link[href='jquery.mobile.min.css']").length == 0)
-        $("<link href='jquery.mobile.min.css' rel='stylesheet'/>").appendTo("head");*/
-    
-      loadScript("opaqc1-all.js",
-          function(){
-
-            start();
-
-    $(document).bind("pagebeforechange", function(e, data)
-    {
-      // We only want to handle changePage() calls where the caller is
-      // asking us to load a page by URL.
-      if (typeof data.toPage === "string")
-      {
-        // We are being asked to load a page by URL, but we only
-        // want to handle URLs that request the data for a specific
-        // category.
-        var u = $.mobile.path.parseUrl(data.toPage);
-
-        var re = /^#pagesettings/;
-
-        if (u.hash.search(re) !== -1)
-        {
-        }
-
-        re = /^#pagesummary/;
-        if (u.hash.search(re) !== -1)
-        {
-          $('#summaryactive').addClass('ui-btn-active');
-
-        }
-
-        re = /^#pagesettingswifi/;
-        if (u.hash.search(re) !== -1)
-        {
-          $('#wifisettings').collapsible( "option", "collapsed", false );
-          $('#fullaquariumdimmer').collapsible( "option", "collapsed", true );
-          $('#poweroutletcontroller').collapsible( "option", "collapsed", true );
-
-          $.mobile.pageContainer.pagecontainer("change", "#pagesettings");
-        }
-      }
-    });
-
-    /*$(document).on("pagecontainerload", function(event, ui)
-    {
-      console.log(ui.url+" loaded.");
-      
-
-      if(ui.url == "opaqc1_index.html")
-      {
-        console.log("add.");
-        setTimeout(
-            function () {
-$.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
-$.mobile.pageContainer.pagecontainer("change", "#pagesummary");
-             }, 500);
-
-      }
-
-      if (ui.url == "opaqc1_settings.html")
-      {
-        //$.mobile.loading().hide();
-
-    //$("#loaderref").remove();
-
-      }
-
-    });*/
-
-    $(document).on('pagecreate', "#pagesummary", function ()
-    {
-      console.log("added #pagesummary.");
-      //$.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
-      $.mobile.loadPage( "opaqc1_settings.html", { showLoadMsg: true } );
-      $.mobile.pageContainer.pagecontainer("change", "#pagesummary");
-      $.mobile.loading().show();
-
-    });
-
-    $(document).on('pagecreate', "#pagesettings", function ()
-    {
-        //start();
-    });
-
-
-
-    $(document).ready(function()
-    {
-      $("#loaderref").remove();
-      $.mobile.loadPage( "opaqc1_index.html", { showLoadMsg: false } );
-      //$.mobile.pageContainer.pagecontainer("load", "opaqc1_index.html");
-
-    });
-
-
-
-});
-//});
-
-
-function waitFor(variable, name, callback){
-    setTimeout(
-        function () {
-            if ( name in window[variable] ) {
-                console.log("Connection is made")
-                if(callback != null){
-                    callback();
+              $.each(msg.adim, function (index, value) {
+                if (value != "") {
+                  setTimeout(function () {
+                    ws.send('{"filename": "' + value + '"}');
+                  }, 50 * index);
                 }
-                return;
+              });
 
-            } else {
-                console.log("wait for connection...")
-                waitFor(variable, name, callback);
+              if (global.fullaquariumdimmer.toreceive == 0) {
+                global.fullaquariumdimmerready = {};
+              }
+            }
+            if ("adimid" in msg) {
+              var exists = false;
+
+              // search for id
+              $.each(global.fullaquariumdimmer, function (index, value) {
+                if (value.adimid == msg.adimid) {
+                  global.fullaquariumdimmer.data[index] = msg;
+                  exists = true;
+                }
+              });
+
+              if (!exists) {
+                global.fullaquariumdimmer.data.push(msg);
+              }
+
+              if (
+                global.fullaquariumdimmer.toreceive ==
+                global.fullaquariumdimmer.data.length
+              ) {
+                //alert(JSON.stringify(global.fullaquariumdimmer))
+
+                global.fullaquariumdimmerready = {};
+
+                global.fullaquariumdimmer.toreceive = 1;
+              }
+            }
+            if ("wifisettings" in msg) {
+              // store wifisettings in the global structure
+              global.wifisettings = msg.wifisettings;
+            }
+            if ("realtimeclock" in msg) {
+              global.realtimeclock = msg.realtimeclock;
+            }
+            if ("pdev" in msg) {
+              global.poweroutletcontroller = msg;
+              global.poweroutletcontroller.data = [];
+              global.poweroutletcontroller.toreceive = msg.pdev.length - 1;
+
+              $.each(msg.pdev, function (index, value) {
+                if (value != "") {
+                  setTimeout(function () {
+                    ws.send('{"filename": "' + value + '"}');
+                  }, 50 * index);
+                }
+              });
+
+              if (global.poweroutletcontroller.toreceive == 0) {
+                global.poweroutletcontrollerready = {};
+              }
+            }
+            if ("pdevid" in msg) {
+              var exists = false;
+
+              // search for id
+              $.each(global.poweroutletcontroller, function (index, value) {
+                if (value.pdevid == msg.pdevid) {
+                  global.poweroutletcontroller.data[index] = msg;
+                  exists = true;
+                }
+              });
+
+              if (!exists) {
+                global.poweroutletcontroller.data.push(msg);
+              }
+
+              if (
+                global.poweroutletcontroller.toreceive ==
+                global.poweroutletcontroller.data.length
+              ) {
+                //alert(JSON.stringify(global.fullaquariumdimmer))
+
+                global.poweroutletcontrollerready = {};
+
+                global.poweroutletcontroller.toreceive = 1;
+              }
+            }
+            if ("wifiscan" in msg) {
+              global.wifinetworkscan = msg;
             }
 
+            if ("opaqnodediscovery" in msg) {
+              global.opaqnodes = msg;
+            }
+          };
+          ws.onclose = function () {
+            // websocket is closed.
+            console.log("Connection is closed.");
+            //try to reconnect in 5 seconds
+            //setTimeout(function(){ start(); }, 500);
+          };
+        } else {
+          // The browser doesn't support WebSocket
+          alert("WebSocket NOT supported by your Browser!");
+        }
+      }
+
+      //start();
+
+      function loadScript(url, callback) {
+        var script = document.createElement("script");
+        script.type = "text/javascript";
+
+        if (script.readyState) {
+          //IE
+          script.onreadystatechange = function () {
+            if (
+              script.readyState == "loaded" ||
+              script.readyState == "complete"
+            ) {
+              script.onreadystatechange = null;
+              callback();
+            }
+          };
+        } else {
+          //Others
+          script.onload = function () {
+            callback();
+          };
+        }
+
+        script.src = url;
+        document.head.appendChild(script);
+      }
+
+      loadScript("opaqc1-all.js", function () {
+        start();
+
+        $(document).bind("pagebeforechange", function (e, data) {
+          // We only want to handle changePage() calls where the caller is
+          // asking us to load a page by URL.
+          if (typeof data.toPage === "string") {
+            // We are being asked to load a page by URL, but we only
+            // want to handle URLs that request the data for a specific
+            // category.
+            var u = $.mobile.path.parseUrl(data.toPage);
+
+            var re = /^#pagesettings/;
+
+            if (u.hash.search(re) !== -1) {
+            }
+
+            re = /^#pagesummary/;
+            if (u.hash.search(re) !== -1) {
+              $("#summaryactive").addClass("ui-btn-active");
+            }
+
+            re = /^#pagesettingswifi/;
+            if (u.hash.search(re) !== -1) {
+              $("#wifisettings").collapsible("option", "collapsed", false);
+              $("#fullaquariumdimmer").collapsible("option", "collapsed", true);
+              $("#poweroutletcontroller").collapsible(
+                "option",
+                "collapsed",
+                true
+              );
+
+              $.mobile.pageContainer.pagecontainer("change", "#pagesettings");
+            }
+          }
+        });
+
+        $(document).on("pagecreate", "#pagesummary", function () {
+          console.log("added #pagesummary.");
+          //$.mobile.pageContainer.pagecontainer("load", "opaqc1_settings.html");
+          $.mobile.loadPage("opaqc1_settings.html", { showLoadMsg: true });
+          $.mobile.pageContainer.pagecontainer("change", "#pagesummary");
+          $.mobile.loading().show();
+        });
+
+        $(document).on("pagecreate", "#pagesettings", function () {
+          //start();
+        });
+
+        $(document).ready(function () {
+          $("#loaderref").remove();
+          $.mobile.loadPage("opaqc1_index.html", { showLoadMsg: false });
+          //$.mobile.pageContainer.pagecontainer("load", "opaqc1_index.html");
+        });
+      });
+      //});
+
+      function waitFor(variable, name, callback) {
+        setTimeout(function () {
+          if (name in window[variable]) {
+            console.log("data '" + name + "' is received!");
+            if (callback != null) {
+              callback();
+            }
+          } else {
+            console.log("awaiting data '" + name + "' ...");
+            waitFor(variable, name, callback);
+          }
         }, 500); // wait 5 milisecond for the connection...
-};
-
-  </script>
-
-</body>
-
+      }
+    </script>
+  </body>
 </html>

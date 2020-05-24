@@ -413,6 +413,8 @@ void OpenAq_Controller::setup_controller() {
         communicate.unlock();
 #endif
 
+        opaq_controller.ws.cleanupClients();
+
         // run that task at 1hz
         clock += 1000 * 1000;
         delay_until(clock);

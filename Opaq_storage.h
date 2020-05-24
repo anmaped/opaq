@@ -209,8 +209,14 @@ public:
   void setUpdate(bool state) { update = state; };
 
   // enable serial loopback
-  void setWsConsole(bool state) { if (state) USC0(0) |= (1 << UCLBE); else USC0(0) &= ~ (1 << UCLBE); loopback = state; } ;
-  bool getLoopbackState() { return loopback; } ;
+  void setWsConsole(bool state) {
+    if (state)
+      USC0(0) |= (1 << UCLBE);
+    else
+      USC0(0) &= ~(1 << UCLBE);
+    loopback = state;
+  };
+  bool getLoopbackState() { return loopback; };
 
   /* sig symbol for eeprom verification */
   const uint8_t getSignature();

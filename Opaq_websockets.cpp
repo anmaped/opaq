@@ -6,6 +6,7 @@
 
 #include "ArduinoJson.h"
 #include "AsyncJson.h"
+#include "AsyncPrinter.h"
 
 void sendFile(fs::FS fs, const char *name, String &content) {
   uint8_t stmp[32 + 1];
@@ -48,9 +49,44 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
 
     // console pipe
     if (doc.containsKey(FF("console"))) {
-      bool state = doc[F("console")] ;
+      bool state = doc[F("console")];
       storage.setWsConsole(state);
       client->text(FF("{\"success\":\"console ") + String(state) + FF("\"}"));
+    }
+
+    // console input
+    if (doc.containsKey(FF("consoleinput"))) {
+      String msg = doc[F("consoleinput")];
+
+      // send the command
+      oq_cmd c;
+      c.exec = [msg](LinkedList<String> args) {
+        command.terminal(msg.c_str());
+      };
+
+      c.args = LinkedList<String>();
+      command.send(c);
+    }
+
+    // opaq nodes discovery
+    if (doc.containsKey(FF("nodesscan"))) {
+
+      doc[F("opaqnodediscovery")] = 1;
+
+      JsonArray list = doc.createNestedArray(F("list"));
+      JsonObject list_0 = list.createNestedObject();
+      list_0[F("status")] = "s";
+      list_0[F("model")] = "m";
+      list_0[F("version")] = "v";
+
+      //AsyncPrinter p = AsyncPrinter(client->client()) ;
+      //serializeJson(doc, &p);
+
+      String tmp = F("");
+      serializeJson(doc, tmp);
+
+      client->text(tmp);
+
     }
 
     // ########################
@@ -379,15 +415,30 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
     storage.wifisett.getSSID(wssid);
     storage.wifisett.getClientSSID(wclientssid);
 
-    doc[F("version")] = version + String(F(" ")) + id + String(F(" SW espcore: ")) + ESP.getCoreVersion() + String(F(" espsdk: ")) + ESP.getSdkVersion();
-    doc[F("id")] = String(F("flashid")) + ESP.getFlashChipId() + String(F(" esp")) + ESP.getChipId();
+    const char *const modes[] = {"NULL", "STA", "AP", "STA+AP"};
+    const char *const phymodes[] = {"", "B", "G", "N"};
+
+    struct station_config conf;
+    wifi_station_get_config(&conf);
+
+    char ssid[33]; // ssid can be up to 32chars, => plus null term
+    memcpy(ssid, conf.ssid, sizeof(conf.ssid));
+    ssid[32] = 0; // nullterm in case of 32 char ssid
+
+    doc[F("version")] = version + String(F(" ")) + id +
+                        String(F(" SW espcore: ")) + ESP.getCoreVersion() +
+                        String(F(" espsdk: ")) + ESP.getSdkVersion();
+    doc[F("id")] = String(F("flashid")) + ESP.getFlashChipId() +
+                   String(F(" esp")) + ESP.getChipId();
     doc[F("status")] = "Running without errors"; // [TODO]
-    doc[F("wstatus")] = "Radio is On";           // [TODO]
-    doc[F("wmode")] =
-        (storage.wifisett.getModeOperation()) ? "softAP" : "client";
-    doc[F("wssid")] = (storage.wifisett.getModeOperation())
-                          ? wssid.c_str()
-                          : wclientssid.c_str();
+    doc[F("wstatus")] = wifi_station_get_connect_status();
+    doc[F("wmode")] = modes[wifi_get_opmode()] + String(F(" phy:")) +
+                      phymodes[(int)wifi_get_phy_mode()];
+    doc[F("wssid")] =
+        ssid + String(F("(")) + String(strlen(ssid)) +
+        String(F(") setto:")) +
+        ((storage.wifisett.getModeOperation()) ? wssid.c_str()
+                                               : wclientssid.c_str());
     doc[F("wchan")] = WiFi.channel();
     doc[F("wdhcp")] = "Enabled"; // [TODO]
     doc[F("wmac")] = (storage.wifisett.getModeOperation())
