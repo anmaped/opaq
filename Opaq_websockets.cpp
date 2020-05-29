@@ -78,6 +78,14 @@ void parseTextMessage(AsyncWebSocketClient *client, uint8_t *data, size_t len) {
       list_0[F("status")] = "s";
       list_0[F("model")] = "m";
       list_0[F("version")] = "v";
+      JsonObject list_1 = list.createNestedObject();
+      list_1[F("status")] = "s";
+      list_1[F("model")] = "n1";
+      list_1[F("version")] = "v";
+      JsonObject list_2 = list.createNestedObject();
+      list_2[F("status")] = "trying to work...";
+      list_2[F("model")] = "n3";
+      list_2[F("version")] = "dummy";
 
       //AsyncPrinter p = AsyncPrinter(client->client()) ;
       //serializeJson(doc, &p);

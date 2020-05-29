@@ -29,6 +29,7 @@
 #include <Arduino.h>
 #include <FS.h>
 #include <LinkedList.h>
+#include <microsmooth.h>
 
 #include "Opaq_coprogrammer.h"
 #include "opaq.h"
@@ -217,6 +218,11 @@ public:
     loopback = state;
   };
   bool getLoopbackState() { return loopback; };
+
+  void rdpload(File &f);
+
+  // bool rdpLineSimplificationInit() { ptr = ms_init(RDP); if(ptr == NULL)
+  // return false; return true; } ;
 
   /* sig symbol for eeprom verification */
   const uint8_t getSignature();

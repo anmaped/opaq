@@ -190,19 +190,25 @@
         <li>
           <div class="ui-grid-a">
             <div class="ui-block-a">Status</div>
-            <div class="ui-block-b" id="status"></div>
+            <div class="ui-block-b">
+              <p id="status" style="white-space: normal;" />
+            </div>
           </div>
         </li>
         <li>
           <div class="ui-grid-a">
             <div class="ui-block-a">Model</div>
-            <div class="ui-block-b" id="modelid"></div>
+            <div class="ui-block-b">
+              <p id="modelid" style="white-space: normal;" />
+            </div>
           </div>
         </li>
         <li>
           <div class="ui-grid-a">
             <div class="ui-block-a">SW Version</div>
-            <div class="ui-block-b" id="version"></div>
+            <div class="ui-block-b">
+              <p id="version" style="white-space: normal;" />
+            </div>
           </div>
         </li>
         <li>
@@ -219,8 +225,63 @@
     </div>
 
     <!-- content for the available and connected nodes -->
-    <div id="nodescontent">
+    <div id="opaqnodes">
+      <div id="container"></div>
       <div style="display: none;">
+        <!-- Chart layout -->
+        <div id="chartlayout">
+          <canvas id="canvas"></canvas>
+        </div>
+        <!-- Dimmer status layout -->
+        <div id="dimmerstatuslayout">
+          <ul data-role="listview" data-inset="true">
+            <li
+              class="ui-li-divider ui-bar-a ui-first-child"
+              role="heading"
+              data-role="list-divider"
+              data-theme="a"
+              data-swatch="a"
+              data-form="ui-bar-a"
+            >
+              Dimmer State
+            </li>
+            <li>
+              <div class="ui-grid-a">
+                <div class="ui-block-a">Channel 1</div>
+                <div class="ui-block-b" id="channel1">
+                  <input data-role="none" type="checkbox" id="flipswitch1" />
+
+                  <input
+                    data-role="none"
+                    type="range"
+                    id="slider-channel1"
+                    data-highlight="true"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+            </li>
+            <li>
+              <div class="ui-grid-a">
+                <div class="ui-block-a">Channel 2</div>
+                <div class="ui-block-b" id="channel2">
+                  <input data-role="none" type="checkbox" id="flipswitch2" />
+
+                  <input
+                    data-role="none"
+                    type="range"
+                    id="slider-channel2"
+                    data-highlight="true"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <!-- Generic node layout -->
         <div id="nodelayout" class="ui-grid-a">
           <ul data-role="listview" data-inset="true">
             <li
@@ -251,6 +312,7 @@
                 <div class="ui-block-b" id="version"></div>
               </div>
             </li>
+            <li id="content"></li>
             <li>
               <a
                 href="#"
@@ -258,7 +320,7 @@
                 data-position-to="window"
                 data-transition="pop"
                 class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-icon-left ui-icon-power"
-                >Reboot</a
+                >OTA Reboot</a
               >
             </li>
           </ul>
@@ -304,11 +366,127 @@
       $.mobile.loading().show();
 
       waitFor("global", "opaqnodes", function () {
+        $("#opaqnodes #container").empty();
         $.each(global.opaqnodes.list, function (index, element) {
-          $("#nodescontent").append($("#nodelayout").clone());
-          $("#nodescontent #status").html(element.status);
-          $("#nodescontent #model").html(element.model);
-          $("#nodescontent #version").html(element.version);
+          $("#opaqnodes #container").append(
+            $("#opaqnodes #nodelayout")
+              .clone()
+              .prop("id", "node_" + index)
+          );
+          $("#node_" + index + " #status").html(element.status);
+          $("#node_" + index + " #model").html(element.model);
+          $("#node_" + index + " #version").html(element.version);
+
+          // case opaq node is of kind n1
+          if (element.model == "n1") {
+            console.log("opaq node n1 found!");
+            // append dimmer status
+            $("#node_" + index + " #content").append(
+              $("#opaqnodes #dimmerstatuslayout")
+                .clone()
+                .prop("id", "node_" + index + "_dimmerstatus")
+            );
+
+            a = "true";
+            b = "true";
+
+            $("#node_" + index + " #content #flipswitch1").attr(
+              "data-role",
+              "flipswitch"
+            );
+            $("#node_" + index + " #content #flipswitch2").attr(
+              "data-role",
+              "flipswitch"
+            );
+
+            $("#node_" + index + " #content #flipswitch1").attr("checked", b);
+            $("#node_" + index + " #content #flipswitch2").attr("checked", b);
+
+            $("#slider-channel1").attr("enabled", a);
+            $("#slider-channel1").attr("value", 30);
+            $("#slider-channel1").attr("data-role", "slider");
+
+            $("#slider-channel2").attr("enabled", b);
+            $("#slider-channel2").attr("value", 30);
+            $("#slider-channel2").attr("data-role", "slider");
+
+            $("#node_" + index + " #content").trigger("create");
+
+            $("#slider-channel1").on("slidestop", function (event) {
+              console.log(event.type + " - " + $(this).val());
+            });
+
+            $("#slider-channel2").on("slidestop", function (event) {
+              console.log(event.type + " - " + $(this).val());
+            });
+
+            $("#node_" + index + " #content #flipswitch1").on(
+              "change",
+              function (event) {
+                console.log(event.type + " - " + $(this).prop("checked"));
+                if ($(this).prop("checked"))
+                  $("#slider-channel1").slider("enable");
+                else $("#slider-channel1").slider("disable");
+              }
+            );
+
+            $("#node_" + index + " #content #flipswitch2").on(
+              "change",
+              function (event) {
+                console.log(event.type + " - " + $(this).prop("checked"));
+                if ($(this).prop("checked"))
+                  $("#slider-channel2").slider("enable");
+                else $("#slider-channel2").slider("disable");
+              }
+            );
+          } // case opaq node is of kind n2
+          else if (element.model == "n2") {
+            console.log("opaq node n2 found!");
+          } // case opaq node is of kind n3
+          else if (element.model == "n3") {
+            console.log("opaq node n3 found!");
+
+            // append chart
+            $("#node_" + index + " #content").append(
+              $("#opaqnodes #chartlayout")
+                .clone()
+                .prop("id", "node_" + index + "_chart")
+            );
+
+            var ctx = $("#canvas")[0].getContext("2d");
+            window.myLine = new Chart(ctx, global.config);
+
+/*window.myLine.data.labels[0] = "";
+window.myLine.data.datasets[0].data[0] = 10;
+window.myLine.data.labels[1] = "";
+window.myLine.data.datasets[0].data[1] = 20;
+window.myLine.data.labels[2] = "";
+window.myLine.data.datasets[0].data[2] = 40;
+window.myLine.data.labels[3] = "";
+window.myLine.data.datasets[0].data[3] = 70;
+*/
+
+
+$.getJSON('sample.json', function (data) {
+      //console.log(data);
+
+i=0;
+for(index=0; index < data.length; index+=15) {
+
+
+window.myLine.data.labels[i] = "";
+window.myLine.data.datasets[0].data[i++] = data[index].field1;
+
+}
+
+window.myLine.update();
+
+});
+
+
+          } else {
+            console.log("unkown opaq node '" + element.model + "'.");
+          }
         });
       });
 
@@ -332,6 +510,76 @@
       console.log("delete all source events.");
       $("#numbersourceevents").html("0");
       $("#sourceeventslist").html("No source events.");
+    });
+  </script>
+
+  <script type="text/javascript" defer>
+    loadScript("https://www.chartjs.org/dist/2.9.3/Chart.min.js", function () {
+
+      loadScript(
+        "https://www.chartjs.org/samples/latest/utils.js",
+        function () {
+
+          global.config = {
+            type: "line",
+            data: {
+              labels: [
+              ],
+              datasets: [
+                {
+                  label: "Tmp0",
+                  fill: false,
+                  backgroundColor: window.chartColors.blue,
+                  borderColor: window.chartColors.blue,
+                  data: [
+                  ],
+                },
+                
+             
+              ],
+            },
+            options: {
+              responsive: true,
+              title: {
+                display: false,
+                text: "",
+              },
+              tooltips: {
+                mode: "index",
+                intersect: false,
+              },
+              hover: {
+                mode: "nearest",
+                intersect: true,
+              },
+              scales: {
+                xAxes: [
+                  {
+                    display: true,
+                    scaleLabel: {
+                      display: true,
+                      labelString: "Time",
+                    },
+                  },
+                ],
+                yAxes: [
+                  {
+                    display: true,
+                    scaleLabel: {
+                      display: true,
+                      labelString: "Value",
+                    },
+                  },
+                ],
+              },
+            },
+          };
+
+          
+            
+        
+        }
+      );
     });
   </script>
 </div>

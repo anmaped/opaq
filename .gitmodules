@@ -34,3 +34,6 @@
 [submodule "avr/n1/libs/RF24Network"]
 	path = avr/n1/libraries/RF24Network
 	url = https://github.com/nRF24/RF24Network.git
+[submodule "libraries/microsmooth"]
+	path = libraries/microsmooth
+	url = https://github.com/asheeshr/Microsmooth.git

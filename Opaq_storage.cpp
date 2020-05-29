@@ -333,6 +333,49 @@ void Opaq_storage::writeSignature(byte sig) {
   }
 }
 
+void Opaq_storage::rdpload(File &f) {
+
+  char s[256];
+  size_t initial_position, current_position;
+
+  Serial.println("RDP...");
+  Serial.println(f.available());
+
+  // check if rdp settings is available for f.filename()
+  // [TODO]
+  uint16_t *ptr;
+  ptr = ms_init(RDP);
+
+initial_position = f.position() + 1;
+
+  while (f.available()) {
+
+    Serial.println(initial_position);
+
+    // get it until the next element
+    f.find('\n');
+
+    // get current position
+    current_position = f.position();
+
+    Serial.println(current_position);
+
+    // get back and read the block
+    f.seek(initial_position, SeekSet);
+
+    f.readBytes(s, current_position - initial_position);
+    Serial.println(s);
+
+    // read json object from buffer
+    // [TODO]
+
+    //new_value = rdp_filter(i, ptr);
+
+    // get new position
+    initial_position = f.position();
+  }
+}
+
 File &FileIterator::operator*() {
   last_file = _p_vec->dirlist().openFile("r");
   return last_file;

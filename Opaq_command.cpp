@@ -435,7 +435,7 @@ line=input;
 
     case "defrag"_hash:
       for (int i = 0; i < 100; i++)
-        // SPIFFS.garbage();
+        SPIFFS.gc();
         Serial.println(F("Filesystem cleanup."));
       break;
 
@@ -503,6 +503,18 @@ line=input;
         break;
       }
 
+      if (arg[0] == F("rdp"))
+      {
+        File f = SPIFFS.open("/tmp/sample.json", "r+");
+
+        if (!f)
+          Serial.println(F("unable to open."));
+        else
+          storage.rdpload(f);
+
+        break;
+      }
+
       Serial.println("Usage: test [screen]");
       break;
 #endif
@@ -510,7 +522,7 @@ line=input;
     case "help"_hash:
       // show available commands
       Serial.println(F("Available commands: \r\n \
-            update [avr/esp]- Update internal firmwares \r\n \
+            update [avr/esp] - Update internal firmwares \r\n \
             format - Erase everything from SPIFFS filesystem \r\n \
             mount - mount SPIFFS filesystem \r\n \
             defrag - Restore delected and fragmented sectors \r\n \
@@ -526,6 +538,10 @@ line=input;
             free - Show free memory \r\n \
             reboot - Soft reboot opaq \r\n \
             uname - Get version \r\n \
+            ui [pop / push <json-string>] - Pop/Push UI events\r\n \
+            test [screen/rdp] - Test opaq functionalities \r\n \
+            df - Disk free \r\n \
+            stack - Stack Allocation \r\n \
             help"));
       break;
 
