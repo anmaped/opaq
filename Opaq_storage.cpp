@@ -27,6 +27,7 @@
 #include "Opaq_com.h"
 #include "Opaq_command.h"
 #include "interpolate.h"
+#include "rdp.h"
 
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
@@ -335,45 +336,90 @@ void Opaq_storage::writeSignature(byte sig) {
 
 void Opaq_storage::rdpload(File &f) {
 
-  char s[256];
+  int i;
   size_t initial_position, current_position;
+  const int _buffer_size = 1000;
 
-  Serial.println("RDP...");
-  Serial.println(f.available());
+  DynamicJsonDocument doc(2048);
 
-  // check if rdp settings is available for f.filename()
+  char *s = new char[_buffer_size];
+  if (!s) {
+    Serial.println(F("allocation of buffer failed"));
+  }
+
+  point_t *points = new point_t[1100];
+  if (!points) {
+    Serial.println(F("allocation of memory failed"));
+    delete s;
+    return;
+  }
+
+  Serial.println(String(F("RDP load ")) + f.name() + String(F(" ... size:")) +
+                 f.available());
+
+  // check if rdp settings is available for f.name()
   // [TODO]
-  uint16_t *ptr;
-  ptr = ms_init(RDP);
 
-initial_position = f.position() + 1;
-
+  initial_position = f.position() + 1;
+  i=0;
   while (f.available()) {
 
-    Serial.println(initial_position);
+    // Serial.println(initial_position);
 
     // get it until the next element
     f.find('\n');
 
     // get current position
     current_position = f.position();
-
-    Serial.println(current_position);
+    // Serial.println(current_position);
 
     // get back and read the block
     f.seek(initial_position, SeekSet);
 
+    if (current_position - initial_position > _buffer_size - 1) {
+      Serial.println(F("buffer overflow"));
+      delete s, points;
+      return;
+    }
+
     f.readBytes(s, current_position - initial_position);
-    Serial.println(s);
+    // Serial.println(s);
 
     // read json object from buffer
-    // [TODO]
+    if (deserializeJson(doc, s) == DeserializationError::Ok) {
 
-    //new_value = rdp_filter(i, ptr);
+      points[i] = {i, doc[F("field1")].as<float>()};
+      i++;
+      // Serial.println(String(F("temp1 ")) + doc[F("temp1")].as<float>());
+    }
 
     // get new position
     initial_position = f.position();
   }
+
+  delete s;
+
+  const size_t len = (sizeof(points[0]) * (i-1)) / sizeof(points[0]);
+  const size_t size = 10;
+
+  point_t *out = new point_t[size];
+  if (!out) {
+    Serial.println(F("allocation of out buffer failed"));
+    delete points;
+    return;
+  }
+
+  // let us divide points into chunks
+  int p_chunk = 0;
+  for (int p_chunk = 0; p_chunk < len; p_chunk += size) {
+    size_t n = douglas_puecker(&points[p_chunk],
+                               (len - p_chunk < size) ? len - p_chunk : size,
+                               1.0, out, size);
+    print_points(out, n);
+  }
+
+  delete points;
+  delete out;
 }
 
 File &FileIterator::operator*() {

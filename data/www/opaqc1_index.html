@@ -456,7 +456,7 @@
             var ctx = $("#canvas")[0].getContext("2d");
             window.myLine = new Chart(ctx, global.config);
 
-/*window.myLine.data.labels[0] = "";
+            /*window.myLine.data.labels[0] = "";
 window.myLine.data.datasets[0].data[0] = 10;
 window.myLine.data.labels[1] = "";
 window.myLine.data.datasets[0].data[1] = 20;
@@ -466,24 +466,17 @@ window.myLine.data.labels[3] = "";
 window.myLine.data.datasets[0].data[3] = 70;
 */
 
+            $.getJSON("sample.json", function (data) {
+              //console.log(data);
 
-$.getJSON('sample.json', function (data) {
-      //console.log(data);
+              i = 0;
+              for (index = 0; index < data.length; index += 15) {
+                window.myLine.data.labels[i] = "";
+                window.myLine.data.datasets[0].data[i++] = data[index].field1;
+              }
 
-i=0;
-for(index=0; index < data.length; index+=15) {
-
-
-window.myLine.data.labels[i] = "";
-window.myLine.data.datasets[0].data[i++] = data[index].field1;
-
-}
-
-window.myLine.update();
-
-});
-
-
+              window.myLine.update();
+            });
           } else {
             console.log("unkown opaq node '" + element.model + "'.");
           }
@@ -515,27 +508,21 @@ window.myLine.update();
 
   <script type="text/javascript" defer>
     loadScript("https://www.chartjs.org/dist/2.9.3/Chart.min.js", function () {
-
       loadScript(
         "https://www.chartjs.org/samples/latest/utils.js",
         function () {
-
           global.config = {
             type: "line",
             data: {
-              labels: [
-              ],
+              labels: [],
               datasets: [
                 {
                   label: "Tmp0",
                   fill: false,
                   backgroundColor: window.chartColors.blue,
                   borderColor: window.chartColors.blue,
-                  data: [
-                  ],
+                  data: [],
                 },
-                
-             
               ],
             },
             options: {
@@ -574,10 +561,6 @@ window.myLine.update();
               },
             },
           };
-
-          
-            
-        
         }
       );
     });

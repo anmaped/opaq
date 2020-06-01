@@ -29,7 +29,6 @@
 #include <Arduino.h>
 #include <FS.h>
 #include <LinkedList.h>
-#include <microsmooth.h>
 
 #include "Opaq_coprogrammer.h"
 #include "opaq.h"
