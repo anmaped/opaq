@@ -410,7 +410,7 @@ void Opaq_storage::rdpload(File &f) {
   }
 
   // let us divide points into chunks
-  int p_chunk = 0;
+  //int p_chunk = 0;
   for (int p_chunk = 0; p_chunk < len; p_chunk += size) {
     size_t n = douglas_puecker(&points[p_chunk],
                                (len - p_chunk < size) ? len - p_chunk : size,

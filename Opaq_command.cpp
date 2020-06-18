@@ -91,7 +91,7 @@ void Opaq_command::handler() {
   for (unsigned short int i = 0; i < queue.size(); i++) {
     exec();
   }
-  
+
   if (!storage.getLoopbackState())
     terminal();
 }
@@ -183,14 +183,12 @@ void Opaq_command::terminal(const char *input) {
   };
 
   // get line otherwise exit
-  if (input==NULL) {
-  if (!read_line(line))
-    return;
-}
-else
-{
-line=input;
-}
+  if (input == NULL) {
+    if (!read_line(line))
+      return;
+  } else {
+    line = input;
+  }
 
   // lets parse the line
   if (slre_match(lre.c_str(), line.c_str(), line.length(), caps, 5, 0) > 0) {
@@ -436,7 +434,7 @@ line=input;
     case "defrag"_hash:
       for (int i = 0; i < 100; i++)
         SPIFFS.gc();
-        Serial.println(F("Filesystem cleanup."));
+      Serial.println(F("Filesystem cleanup."));
       break;
 
     case "dim"_hash:
@@ -461,18 +459,29 @@ line=input;
       Serial.print(F("Heap: "));
       Serial.println(ESP.getFreeHeap());
       break;
-    case "stack"_hash:
-      for (uint8_t i = 0; i < NUM_TASKS - 1; i++) {
+    case "stack"_hash: {
+      uint32_t sum = 0;
+      for (uint8_t i = 0; i < Scheduler.numberOfTasks(); i++) {
         Serial.print(F("Task "));
         Serial.print(i);
         Serial.print(F(": "));
         Serial.print((uint32_t)stack_task[i]);
         Serial.print(F(" size: "));
-        Serial.println(((uint32_t)stack_task[i]) -
-                       ((uint32_t)stack_task[i + 1]));
+        if (i == Scheduler.numberOfTasks() - 1) {
+          Serial.println(((uint32_t)Scheduler.stackSize()) - sum);
+        } else {
+          uint32_t v =
+              ((uint32_t)stack_task[i]) - ((uint32_t)stack_task[i + 1]);
+          sum += v;
+          Serial.println(v);
+        }
       }
 
+      Serial.print("Full stack size: ");
+      Serial.println((uint32_t)Scheduler.stackSize());
+
       break;
+    }
 
 #ifdef OPAQ_C1_SCREEN
     case "test"_hash:
@@ -503,8 +512,7 @@ line=input;
         break;
       }
 
-      if (arg[0] == F("rdp"))
-      {
+      if (arg[0] == F("rdp")) {
         File f = SPIFFS.open("/tmp/sample.json", "r+");
 
         if (!f)

@@ -73,7 +73,7 @@ void setup() {
 
 void loop() {
   char stack;
-  stack_task[3] = &stack;
+  stack_task[4] = &stack;
   
   opaq_controller.run_controller();
 }

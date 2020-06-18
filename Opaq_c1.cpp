@@ -476,6 +476,9 @@ void OpenAq_Controller::setup_controller() {
         communicate.unlock();
       },
       []() {
+        char stack;
+        stack_task[3] = &stack;
+
         RF24Mesh &mesh = communicate.nrf24.getRF24Mesh();
         RF24Network &network = communicate.nrf24.getRF24Network();
 
