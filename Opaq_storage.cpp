@@ -341,17 +341,11 @@ void Opaq_storage::rdpload(File &f) {
   const int _buffer_size = 1000;
 
   DynamicJsonDocument doc(2048);
+  std::vector<point_t> points;
 
   char *s = new char[_buffer_size];
   if (!s) {
     Serial.println(F("allocation of buffer failed"));
-  }
-
-  point_t *points = new point_t[1100];
-  if (!points) {
-    Serial.println(F("allocation of memory failed"));
-    delete s;
-    return;
   }
 
   Serial.println(String(F("RDP load ")) + f.name() + String(F(" ... size:")) +
@@ -361,7 +355,7 @@ void Opaq_storage::rdpload(File &f) {
   // [TODO]
 
   initial_position = f.position() + 1;
-  i=0;
+  i = 0;
   while (f.available()) {
 
     // Serial.println(initial_position);
@@ -376,20 +370,16 @@ void Opaq_storage::rdpload(File &f) {
     // get back and read the block
     f.seek(initial_position, SeekSet);
 
-    if (current_position - initial_position > _buffer_size - 1) {
-      Serial.println(F("buffer overflow"));
-      delete s, points;
-      return;
-    }
-
     f.readBytes(s, current_position - initial_position);
     // Serial.println(s);
 
     // read json object from buffer
     if (deserializeJson(doc, s) == DeserializationError::Ok) {
 
-      points[i] = {i, doc[F("field1")].as<float>()};
+      points.push_back({i, doc[F("field1")].as<float>()});
+
       i++;
+
       // Serial.println(String(F("temp1 ")) + doc[F("temp1")].as<float>());
     }
 
@@ -399,27 +389,9 @@ void Opaq_storage::rdpload(File &f) {
 
   delete s;
 
-  const size_t len = (sizeof(points[0]) * (i-1)) / sizeof(points[0]);
-  const size_t size = 10;
-
-  point_t *out = new point_t[size];
-  if (!out) {
-    Serial.println(F("allocation of out buffer failed"));
-    delete points;
-    return;
-  }
-
-  // let us divide points into chunks
-  //int p_chunk = 0;
-  for (int p_chunk = 0; p_chunk < len; p_chunk += size) {
-    size_t n = douglas_puecker(&points[p_chunk],
-                               (len - p_chunk < size) ? len - p_chunk : size,
-                               1.0, out, size);
-    print_points(out, n);
-  }
-
-  delete points;
-  delete out;
+  std::vector<point_t> out;
+  out = DouglasPeucker(points, 1.0);
+  print_points(out);
 }
 
 File &FileIterator::operator*() {
